@@ -10,6 +10,7 @@
 - [功能拆解](./docs/features.md)
 - [题目系统](./docs/question-system.md)
 - [复习系统](./docs/review-system.md)
+- [模拟考试](./docs/mock-exam.md)
 
 ## 当前决策原则
 
