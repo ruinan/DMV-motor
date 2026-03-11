@@ -11,6 +11,7 @@
 - [题目系统](./docs/question-system.md)
 - [复习系统](./docs/review-system.md)
 - [模拟考试](./docs/mock-exam.md)
+- [提醒与 Readiness](./docs/reminder-and-readiness.md)
 
 ## 当前决策原则
 
