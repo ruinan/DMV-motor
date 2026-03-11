@@ -1,0 +1,30 @@
+v=1
+proj=DMV Motor
+goal=pass California motorcycle written test / M1 permit written test
+phase=product-docs-only
+status=continue-product-rules-not-implementation
+
+done.docs=README.md|docs/mvp.md|docs/features.md|docs/question-system.md|docs/review-system.md|docs/mock-exam.md|docs/reminder-and-readiness.md|docs/account-and-access.md
+todo.docs=docs/question-topics.md
+
+scope.core=practice|mistakes|review|mock_exam
+scope.support=login|summary|reminder|ai_explain|ai_recommend|memory_export
+scope.not=community|leaderboard|video|multi_state|complex_agent|voice_coach|behavior_analysis|content_platform|full_safety_education
+
+rules.users=all_CA_M1_candidates_no_prior-learning-assumption
+rules.learning=coarse_to_fine;base_concepts>rule_details>similar_rule_disambiguation>scenario_judgment
+rules.interrupt=practice_resume|review_resume|mock_exit_warn_then_end_no_resume
+rules.progress=reset_learning_progress_yes|clear_history_no
+rules.access=30d_pass|practice_unlimited|review_unlimited|mock_limited_count_tbd
+rules.reminder=backend_generates_tasks|channel_depends_on_client|state_based
+rules.scoring=real_score_not_faked|high_score!=ready
+rules.readiness=depends_on_score+topic_coverage+hard_topics+review_completion
+rules.speed=recommended_pace_levels=slow|ok|fast
+rules.export=memory_progress_export_yes|encrypted|current_device_read_only_default
+
+undef=mastery_threshold|ready_threshold|daily_review_size|ai_weight|pace_formula|readiness_formula|completion_formula|mock_count|reminder_frequency|reminder_channel_priority|device_binding_migration_details
+
+next=write docs/question-topics.md
+later=after_topics_then_param_docs_then_data_model_api_ai_architecture
+
+read_order=.pmem>README.md>relevant docs/*.md
