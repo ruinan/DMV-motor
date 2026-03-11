@@ -16,6 +16,7 @@
 - [账户与访问](./docs/account-and-access.md)
 - [商业模式](./docs/business-model.md)
 - [语言支持](./docs/language-support.md)
+- [产品参数](./docs/parameters.md)
 
 ## 当前决策原则
 
