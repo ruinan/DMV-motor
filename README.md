@@ -19,6 +19,7 @@
 - [产品参数](./docs/parameters.md)
 - [数据模型](./docs/data-model.md)
 - [API 设计](./docs/api.md)
+- [AI 架构](./docs/ai-architecture.md)
 
 ## 当前决策原则
 
