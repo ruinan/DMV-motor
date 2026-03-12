@@ -78,7 +78,8 @@
 - 决策：前后端分离
 - 原因：后端 API 需要同时服务 Web 和 App，统一承载账号、练习、复习、mock、readiness、reminder、AI 等业务能力
 - 约束：客户端只负责展示和交互，不应各自实现一套核心业务规则
-- 决策：后端按业务能力切分为 `auth-access`、`content`、`practice`、`mistake-review`、`mock-exam`、`progress-readiness`、`reminder`、`ai-support`、`memory-export`
+- 决策：后端按业务能力切分为 `auth-access`、`content`、`practice`、`mistake-review`、`mock-exam`、`progress-readiness`、
+  `reminder`、`ai-support`、`memory-export`
 - 原因：这些模块基本对应已确认的产品状态边界，后续如果拆服务，也有自然切分点
 - 决策：把必须立刻影响当前用户交互结果的链路做成同步流程
 - 决策：把可延迟收敛的任务、快照、提醒、AI、导出做成异步流程
@@ -97,5 +98,6 @@
 ## 客户端职责边界
 
 - Web 与 App 负责登录态持有、页面展示、交互流程、本地轻量缓存、失败提示和重试
-- 后端统一负责判题、分数计算、review task / review pack 生成、readiness / completion 判断、mock 配额校验、reminder task 生成、AI 调用与导出约束
+- 后端统一负责判题、分数计算、review task / review pack 生成、readiness / completion 判断、mock 配额校验、reminder task 生成、AI
+  调用与导出约束
 - 客户端不维护独立 readiness 规则，不自行决定 review pack，不自行扣减 mock 配额，不把 AI 作为主流程判定器
