@@ -20,6 +20,7 @@
 - [数据模型](./docs/data-model.md)
 - [API 设计](./docs/api.md)
 - [AI 架构](./docs/ai-architecture.md)
+- [数据库 Schema](./docs/db-schema.md)
 
 ## 当前决策原则
 
