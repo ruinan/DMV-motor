@@ -4,7 +4,7 @@ goal=pass California motorcycle written test / M1 permit written test
 phase=product-docs-only
 status=continue-product-rules-not-implementation
 
-done.docs=README.md|docs/mvp.md|docs/features.md|docs/question-system.md|docs/question-topics.md|docs/review-system.md|docs/mock-exam.md|docs/reminder-and-readiness.md|docs/account-and-access.md|docs/business-model.md|docs/language-support.md|docs/parameters.md|docs/data-model.md
+done.docs=README.md|docs/mvp.md|docs/features.md|docs/question-system.md|docs/question-topics.md|docs/review-system.md|docs/mock-exam.md|docs/reminder-and-readiness.md|docs/account-and-access.md|docs/business-model.md|docs/language-support.md|docs/parameters.md|docs/data-model.md|docs/api.md
 todo.docs=
 
 scope.core=practice|mistakes|review|mock_exam
@@ -26,7 +26,7 @@ rules.export=memory_progress_export_yes|encrypted|current_device_read_only_defau
 
 undef=device_binding_migration_details|price_amount|refund_policy|extra_mock_purchase_rule|exact_reminder_times|question_level_mastery_model
 
-next=api_docs
-later=after_api_then_ai_architecture_and_db_schema
+next=ai_architecture_docs
+later=after_ai_architecture_then_db_schema
 
 read_order=.pmem>README.md>relevant docs/*.md

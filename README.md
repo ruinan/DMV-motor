@@ -18,6 +18,7 @@
 - [语言支持](./docs/language-support.md)
 - [产品参数](./docs/parameters.md)
 - [数据模型](./docs/data-model.md)
+- [API 设计](./docs/api.md)
 
 ## 当前决策原则
 
