@@ -1,5 +1,11 @@
 # API 合同
 
+> **文档分层说明**
+>
+> 这份文档（`docs/development/api-contract.md`）是**开发级 API 合同**，定义具体 HTTP 路径、字段、错误码和格式约定，是 controller 实现和前端联调的直接依据。
+>
+> 产品层 API 边界定义见 [`docs/api.md`](../api.md)。如果两者有出入，以本文档为准并反馈修正 `api.md`。
+
 ## 1. 目标
 
 这份文档定义 Spring Boot 后端对 Web 的 API 合同，  
@@ -291,12 +297,16 @@ MVP 阶段如果列表很短，也允许某些接口先不分页，
 {
   "state": "free_trial",
   "has_active_pass": false,
-  "free_practice_remaining": 12,
   "mock_remaining": 0,
   "can_use_review": false,
   "can_use_mock_exam": false
 }
 ```
+
+说明：
+
+- 免费体验集可反复访问，无消耗计数，因此不返回 `free_practice_remaining` 字段
+- `state` 可选值：`free_trial`（无付费 pass）、`active`（pass 有效）、`expired`（pass 已过期）
 
 ## 13. Practice 接口
 
@@ -350,6 +360,29 @@ MVP 阶段如果列表很短，也允许某些接口先不分页，
 认证：
 
 - 与 session 对应身份一致
+
+响应 `data`：
+
+```json
+{
+  "question_id": "q_xxx",
+  "variant_id": "qv_xxx",
+  "stem": "Question stem",
+  "choices": [
+    { "key": "A", "text": "Choice A" },
+    { "key": "B", "text": "Choice B" },
+    { "key": "C", "text": "Choice C" }
+  ],
+  "progress": {
+    "answered_count": 8
+  }
+}
+```
+
+说明：
+
+- 结构与创建 session 时返回的 `next_question` 一致，额外带 `progress` 字段
+- 若当前 session 已无更多题，返回 `404` 并附 `error.code: SESSION_COMPLETED`
 
 ### `POST /api/v1/practice/sessions/{session_id}/answers`
 
@@ -417,16 +450,28 @@ MVP 阶段如果列表很短，也允许某些接口先不分页，
 响应 `data`：
 
 ```json
-[
-  {
-    "mistake_id": "mr_xxx",
-    "question_id": "q_xxx",
-    "topic_id": "topic_xxx",
-    "wrong_count": 3,
-    "last_wrong_at": "2026-03-12T10:00:00Z",
-    "source": "practice"
-  }
-]
+{
+  "items": [
+    {
+      "mistake_id": "mr_xxx",
+      "question_id": "q_xxx",
+      "topic_id": "topic_xxx",
+      "wrong_count": 3,
+      "last_wrong_at": "2026-03-12T10:00:00Z",
+      "source": "practice"
+    }
+  ]
+}
+```
+
+响应 `meta`：
+
+```json
+{
+  "page": 1,
+  "page_size": 20,
+  "total": 42
+}
 ```
 
 ## 15. Review 接口
@@ -466,7 +511,45 @@ MVP 阶段如果列表很短，也允许某些接口先不分页，
 
 作用：
 
-- 提交 review 题目答案
+- 提交 review 任务中单题答案并立即返回结果
+
+认证：
+
+- 需要登录
+- 需要允许使用 review
+
+请求 `body`：
+
+```json
+{
+  "question_id": "q_xxx",
+  "variant_id": "qv_xxx",
+  "selected_choice_key": "B"
+}
+```
+
+响应 `data`：
+
+```json
+{
+  "question_id": "q_xxx",
+  "is_correct": false,
+  "correct_choice_key": "C",
+  "explanation": {
+    "type": "short",
+    "text": "You should yield in this situation."
+  },
+  "task_progress": {
+    "answered_count": 2,
+    "target_count": 3
+  }
+}
+```
+
+说明：
+
+- 格式与 practice answer 基本一致，额外返回当前 task 内的作答进度
+- review 答案同样写入 `practice_attempts`，`entry_source` 标记为 `review`
 
 ### `POST /api/v1/review/tasks/{task_id}/complete`
 
@@ -597,10 +680,31 @@ MVP 阶段如果列表很短，也允许某些接口先不分页，
 作用：
 
 - 用户确认退出并结束本次 mock
+- 客户端需将截至退出时已作答的题目答案一并上传，backend 写入 `mock_attempt_results`
+- 未作答的题目不写入结果，不影响后续 review 回流逻辑
 
 认证：
 
 - 需要登录
+
+请求 `body`：
+
+```json
+{
+  "answers": [
+    {
+      "question_id": "q_xxx",
+      "variant_id": "qv_xxx",
+      "selected_choice_key": "A"
+    }
+  ]
+}
+```
+
+说明：
+
+- `answers` 为已作答部分，可以为空数组（用户一题未答直接退出）
+- 格式与 `/submit` 的 `answers` 字段完全一致，便于客户端复用同一逻辑
 
 响应 `data`：
 
@@ -608,7 +712,8 @@ MVP 阶段如果列表很短，也允许某些接口先不分页，
 {
   "mock_attempt_id": "ma_xxx",
   "status": "ended_by_exit",
-  "quota_consumed": true
+  "quota_consumed": true,
+  "answered_count": 3
 }
 ```
 

@@ -362,6 +362,7 @@ mock exam 不和普通练习共用同一条会话主表。
 - `id`
 - `user_id`
 - `pack_date`
+- `language_code`
 - `target_question_count`
 - `completed_question_count`
 - `status`
@@ -370,6 +371,11 @@ mock exam 不和普通练习共用同一条会话主表。
 - `completed_at`
 - `created_at`
 - `updated_at`
+
+说明：
+
+- `language_code` 在 pack 生成时继承用户当前语言偏好，后续投放题目的语言版本（`question_variants`）以此为准
+- 用户中途切换语言偏好不影响已生成 pack 的语言，下一轮生成时才会使用新偏好
 
 ### `review_pack_tasks`
 

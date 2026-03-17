@@ -58,6 +58,16 @@ apps/api/
       java/
 ```
 
+**当前仓库现状：**
+
+仓库根目录目前是一个 Maven archetype 骨架，`pom.xml` 的 `groupId` 为 `org.example`，代码位于根目录的 `src/` 下，尚未按上述结构整理。
+
+进入代码实现前需要：
+
+1. 按 `tech-stack-decision.md` 第 8 节整理目录结构，将代码移入 `apps/api/`
+2. 将 `pom.xml` 的 `groupId` 改为 `com.dmvmotor`，`artifactId` 改为 `api`
+3. 包根路径统一使用 `com.dmvmotor.api`
+
 ## 4. 顶层包职责
 
 ### `common`

@@ -1,5 +1,13 @@
 # API 设计
 
+> **文档分层说明**
+>
+> 这份文档（`docs/api.md`）是**产品层 API 边界定义**，描述系统需要暴露哪些能力、服务什么产品动作、有哪些状态校验约束。
+>
+> 开发实现时请以 [`docs/development/api-contract.md`](development/api-contract.md) 为准，那份文档定义了具体的 HTTP 路径、请求响应字段、错误码、鉴权头和分页格式。
+>
+> 两份文档的关系：`api.md` 是上游产品规则，`api-contract.md` 是下游开发合同。如果两者有出入，以 `api-contract.md` 为准并反馈修正 `api.md`。
+
 ## 1. 目标
 
 这份文档定义产品层 API 边界，回答这些问题：

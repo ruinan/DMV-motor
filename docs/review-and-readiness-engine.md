@@ -19,8 +19,8 @@
 - topic 层薄弱点判断属于 review/readiness 引擎的派生逻辑，不作为第二套主记录维护
 - `MistakeRecord` 不因答对一次就立刻失活
 - 只有当用户完成相关复习，并在后续相关题目中表现出稳定正确后，`MistakeRecord` 才失活
+- 失活的量化判断口径采用 `parameters.md` 中定义的 mastery 参数：该题所属 topic 达到 `80%` 正确率，且最近 `8` 道相关题中至少 `6` 道答对，且不再连续错在同一高混淆点上
 - 如果之后再次答错，则重新激活或继续更新该 `MistakeRecord`
-- 当前阶段先定义规则层原则，不先定量化算法
 - `ReviewTask` 的生成触发条件包括：
 - 普通练习答错
 - mock exam 答错

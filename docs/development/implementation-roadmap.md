@@ -43,27 +43,37 @@
 
 至少包括：
 
-- `users`
+- `users`（结构建好，阶段 2 再接入鉴权写入逻辑）
 - `access_passes`
 - `topics`
 - `questions`
 - `question_variants`
 - `question_related_topics`
+- `mock_exams`（mock 模板表，阶段 5 依赖此表有数据）
+- `mock_exam_questions`（模板与题目关联表，同上）
+
+内容导入：
+
+- 本阶段需要提供一个最小可用的内容 seed 机制（SQL 脚本或管理员接口）
+- 至少导入足够覆盖 practice、review、mock 三种场景的题目和 topic 数据
+- mock_exams 需要至少 1 套可投放的试卷模板，否则阶段 5 无法运行
 
 这一阶段完成后，系统至少应该具备：
 
 - 能管理双语题目
 - 能区分主 topic 和相关 topic
 - 能表达免费与付费访问状态
+- 至少有 1 套 mock exam 模板可查询
 
 ## 5. 阶段 2：账户与访问控制
 
-这一阶段目标是先把“谁能进来、能用什么”做稳定。
+这一阶段目标是先把”谁能进来、能用什么”做稳定。
 
 至少包括：
 
+- `user_auth_identities`（第三方身份映射表）
 - 登录态接入
-- 内部 `user_id` 建立
+- 内部 `user_id` 建立（首次登录时创建 `users` + `user_auth_identities` 记录）
 - access pass 生效 / 到期判断
 - 免费体验边界判断
 - mock 配额查询能力

@@ -133,7 +133,7 @@ PostgreSQL 适合当前阶段，因为：
 
 ## 8. 当前建议的仓库结构
 
-当前推荐把仓库逐步整理成：
+目标结构如下：
 
 ```text
 DMV-Motor/
@@ -154,6 +154,16 @@ DMV-Motor/
 - `apps/web` 放 Next.js
 - `docs` 保持当前产品与技术文档
 - `infra` 放部署配置、Dockerfile、GCP 相关脚本
+
+**当前仓库现状：**
+
+仓库根目录目前有一个 Maven archetype 骨架（`pom.xml` + `src/`），这是项目初始化时生成的占位结构，尚未按上述目标结构整理。
+
+进入代码实现阶段前需要先完成以下整理：
+
+1. 在根目录创建 `apps/api/` 和 `apps/web/` 目录
+2. 将根目录的 `pom.xml` 和 `src/` 移入 `apps/api/`，并按 `backend-structure.md` 的包结构重新组织
+3. 创建 `infra/` 目录，后续放 Dockerfile 和 GCP 配置
 
 ## 9. 面向 Spring Boot 开发还缺哪些文档
 
