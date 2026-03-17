@@ -20,14 +20,14 @@
 | [账户与访问](./docs/account-and-access.md) | 账户状态与访问边界 |
 | [商业模式](./docs/business-model.md) | 付费模式与访问期设计 |
 | [语言支持](./docs/language-support.md) | 双语支持规则 |
-| [产品参数](./docs/parameters.md) | 所有可配置产品参数的**唯一定义**（免费体验、review、mastery、readiness、提醒等） |
+| [产品参数](./docs/parameters.md) | 免费体验、review 包大小、mastery、readiness 参数的权威定义 |
+| [运行时参数](./docs/runtime-parameters.md) | 提醒频率、review pack 任务数、AI 成本控制等运行时参数的权威定义 |
 | [数据模型](./docs/data-model.md) | 核心实体与关系 |
 | [API 设计](./docs/api.md) | 产品层 API 边界（上游）|
 | [AI 架构](./docs/ai-architecture.md) | AI 接入策略 |
 | [数据库 Schema](./docs/db-schema.md) | 逻辑 Schema 与字段方向 |
 | [Access Pass 生命周期](./docs/access-pass-and-quota-lifecycle.md) | 付费访问期与配额规则 |
 | [复习与 Readiness 引擎](./docs/review-and-readiness-engine.md) | 引擎设计决策 |
-| [运行时参数](./docs/runtime-parameters.md) | 运行时参数与成本控制策略 |
 | [技术架构](./docs/technical-architecture.md) | 模块划分与同步/异步边界 |
 
 ### 开发实现文档（`docs/development/`）
