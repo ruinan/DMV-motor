@@ -507,6 +507,44 @@ MVP 阶段如果列表很短，也允许某些接口先不分页，
 }
 ```
 
+### `GET /api/v1/review/tasks/{task_id}/questions`
+
+作用：
+
+- 获取某个 review task 下的题目列表，供前端渲染
+
+认证：
+
+- 需要登录
+- 需要允许使用 review
+
+响应 `data`：
+
+```json
+{
+  "review_task_id": "rt_xxx",
+  "task_type": "same_topic_retry",
+  "topic_id": "topic_xxx",
+  "questions": [
+    {
+      "question_id": "q_xxx",
+      "variant_id": "qv_xxx",
+      "stem": "Question stem",
+      "choices": [
+        { "key": "A", "text": "Choice A" },
+        { "key": "B", "text": "Choice B" },
+        { "key": "C", "text": "Choice C" }
+      ]
+    }
+  ]
+}
+```
+
+说明：
+
+- 一次性返回该 task 的所有题目（review task 题量少，不需要 next-question 模式）
+- 前端拿到题目后逐题作答，通过下方的 answers 接口逐题上报
+
 ### `POST /api/v1/review/tasks/{task_id}/answers`
 
 作用：
@@ -633,25 +671,54 @@ MVP 阶段如果列表很短，也允许某些接口先不分页，
 }
 ```
 
-### `POST /api/v1/mock-exams/attempts/{attempt_id}/submit`
+### `POST /api/v1/mock-exams/attempts/{attempt_id}/answers`
 
 作用：
 
-- 交卷
+- 逐题上报答案（不返回判分结果）
+- 每答完一题立即调用，后端持久化到 `mock_attempt_results`
+- 此设计确保崩溃/断网时已答数据不丢失
+
+认证：
+
+- 需要登录
 
 请求 `body`：
 
 ```json
 {
-  "answers": [
-    {
-      "question_id": "q_xxx",
-      "variant_id": "qv_xxx",
-      "selected_choice_key": "A"
-    }
-  ]
+  "question_id": "q_xxx",
+  "variant_id": "qv_xxx",
+  "selected_choice_key": "A"
 }
 ```
+
+响应 `data`：
+
+```json
+{
+  "saved": true,
+  "answered_count": 12
+}
+```
+
+说明：
+
+- 后端只存储答案，不返回对错，保留考试压力感
+- 允许同一题重复提交（用最后一次为准），应对前端重试场景
+
+### `POST /api/v1/mock-exams/attempts/{attempt_id}/submit`
+
+作用：
+
+- 交卷：锁定本次 attempt，触发后端计分
+- 无需携带答案，答案已通过逐题接口持久化
+
+认证：
+
+- 需要登录
+
+请求 `body`：无
 
 响应 `data`：
 
@@ -680,31 +747,13 @@ MVP 阶段如果列表很短，也允许某些接口先不分页，
 作用：
 
 - 用户确认退出并结束本次 mock
-- 客户端需将截至退出时已作答的题目答案一并上传，backend 写入 `mock_attempt_results`
-- 未作答的题目不写入结果，不影响后续 review 回流逻辑
+- 答案已通过逐题接口持久化，此接口只做状态锁定
 
 认证：
 
 - 需要登录
 
-请求 `body`：
-
-```json
-{
-  "answers": [
-    {
-      "question_id": "q_xxx",
-      "variant_id": "qv_xxx",
-      "selected_choice_key": "A"
-    }
-  ]
-}
-```
-
-说明：
-
-- `answers` 为已作答部分，可以为空数组（用户一题未答直接退出）
-- 格式与 `/submit` 的 `answers` 字段完全一致，便于客户端复用同一逻辑
+请求 `body`：无
 
 响应 `data`：
 
@@ -716,6 +765,10 @@ MVP 阶段如果列表很短，也允许某些接口先不分页，
   "answered_count": 3
 }
 ```
+
+说明：
+
+- 崩溃/断网场景：后端 attempt 保持 `in_progress`，已上报的逐题答案完整保留；超时后系统将 attempt 标记为 `expired`，已有答案仍可回流到 review 系统
 
 ## 17. Summary / Progress / Readiness 接口
 

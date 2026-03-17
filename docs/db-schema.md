@@ -90,7 +90,6 @@ mock exam 不和普通练习共用同一条会话主表。
 - `id`
 - `email` 或可选联系字段
 - `language_preference`
-- `current_access_state`
 - `created_at`
 - `updated_at`
 
@@ -98,7 +97,7 @@ mock exam 不和普通练习共用同一条会话主表。
 
 - `language_preference` 可以先放在 `users`
 - 更复杂的偏好设置后续再拆独立表
-- `current_access_state` 是 `access_passes` 的冗余快照，用于快速鉴权；实现时必须在 access pass 激活、到期、续费时同步更新此字段，否则会产生鉴权漏洞
+- 不保留 `current_access_state` 冗余字段：访问状态通过关联查询 `access_passes`（或缓存层）实时判断，避免因 pass 自然过期而产生的状态不一致和鉴权漏洞
 
 ### `user_auth_identities`
 
@@ -213,14 +212,26 @@ mock exam 不和普通练习共用同一条会话主表。
 - `question_id`
 - `language_code`
 - `stem_text`
-- `choice_a_text`
-- `choice_b_text`
-- `choice_c_text`
-- `choice_d_text`
+- `choices_payload`（JSONB，格式见下）
 - `explanation_text`
 - `status`
 - `created_at`
 - `updated_at`
+
+`choices_payload` 格式：
+
+```json
+[
+  { "key": "A", "text": "Choice A" },
+  { "key": "B", "text": "Choice B" },
+  { "key": "C", "text": "Choice C" }
+]
+```
+
+说明：
+
+- 使用 JSONB 而非 `choice_a_text … choice_d_text` 平铺列，原因：部分题目只有 3 个选项，平铺列处理空值麻烦；JSONB 结构与 API 契约的 `choices` 数组直接对应，减少转换摩擦
+- `key` 值由内容管理层维护，与 `questions.correct_choice_key` 保持一致
 
 约束建议：
 
