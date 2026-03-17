@@ -98,6 +98,7 @@ mock exam 不和普通练习共用同一条会话主表。
 
 - `language_preference` 可以先放在 `users`
 - 更复杂的偏好设置后续再拆独立表
+- `current_access_state` 是 `access_passes` 的冗余快照，用于快速鉴权；实现时必须在 access pass 激活、到期、续费时同步更新此字段，否则会产生鉴权漏洞
 
 ### `user_auth_identities`
 
