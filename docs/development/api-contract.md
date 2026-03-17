@@ -1,0 +1,718 @@
+# API 合同
+
+## 1. 目标
+
+这份文档定义 Spring Boot 后端对 Web 的 API 合同，  
+用于指导 controller、request DTO、response DTO 和前端联调。
+
+它回答这些问题：
+
+- API 采用什么风格
+- 哪些接口需要登录
+- 未登录用户可以访问哪些接口
+- 请求和响应的统一格式是什么
+- 错误码和分页怎么约定
+- MVP 阶段核心接口的 request / response 结构是什么
+
+这份文档不定义：
+
+- 具体数据库表结构
+- controller 类名
+- 内部 service 调用关系
+- OpenAPI 工具生成细节
+
+## 2. 总体约定
+
+### API 风格
+
+当前采用：
+
+- REST 风格
+- JSON 请求 / 响应
+- `/api/v1` 作为统一前缀
+
+### 时间格式
+
+统一使用：
+
+- ISO-8601 UTC 时间字符串
+
+例如：
+
+- `2026-03-12T16:30:00Z`
+
+### ID 格式
+
+MVP 阶段对外只要求：
+
+- 字符串 ID
+
+不在 API 层暴露数据库自增细节。
+
+## 3. 认证与访问级别
+
+当前接口分成三类：
+
+### 公开接口
+
+不需要登录即可访问。
+
+适用于：
+
+- 产品落地页内容
+- 固定免费体验题集
+- 支持前端首屏启动所需的基础配置
+
+### 登录接口
+
+必须登录后才能访问。
+
+适用于：
+
+- 保存学习状态
+- 错题记录
+- review
+- mock exam
+- readiness / summary
+- memory export
+
+### 已登录但按访问权限受限接口
+
+需要登录，但仍要额外校验 access pass 或 quota。
+
+适用于：
+
+- 完整 review
+- mock exam
+- 完整 readiness
+- 完整 summary
+
+## 4. 未登录用户规则
+
+当前明确约定：
+
+- 未登录用户可以进入固定免费体验集
+- 未登录用户不进入完整学习闭环
+- 未登录用户不创建长期学习账户状态
+- 一旦需要保存学习记录，必须先登录
+
+这意味着：
+
+- 匿名体验只服务“先感知产品价值”
+- 长期学习状态只属于登录用户
+
+## 5. 认证头约定
+
+当前建议：
+
+- `Authorization: Bearer <token>`
+
+后端统一从认证中间层解析出：
+
+- 外部身份
+- 内部 `user_id`
+
+业务 controller 不直接处理第三方 token 细节。
+
+## 6. 统一响应格式
+
+成功响应统一为：
+
+```json
+{
+  "success": true,
+  "data": {},
+  "meta": {}
+}
+```
+
+失败响应统一为：
+
+```json
+{
+  "success": false,
+  "error": {
+    "code": "ACCESS_DENIED",
+    "message": "Access pass is required.",
+    "details": {}
+  }
+}
+```
+
+说明：
+
+- `data` 只放当前接口主结果
+- `meta` 放分页、语言、调试辅助信息
+- `error.code` 给前后端做稳定判断
+- `error.message` 给日志和基础展示用
+
+## 7. 统一错误码
+
+当前建议至少保留这些错误码：
+
+- `UNAUTHORIZED`
+- `FORBIDDEN`
+- `ACCESS_DENIED`
+- `FREE_LIMIT_REACHED`
+- `MOCK_QUOTA_EXHAUSTED`
+- `MOCK_ALREADY_ENDED`
+- `SESSION_NOT_FOUND`
+- `SESSION_NOT_RESUMABLE`
+- `QUESTION_ALREADY_SUBMITTED`
+- `VALIDATION_ERROR`
+- `RESOURCE_NOT_FOUND`
+- `CONFLICT_STATE`
+- `INTERNAL_ERROR`
+
+## 8. 分页格式
+
+列表接口统一采用：
+
+- `page`
+- `page_size`
+
+响应 `meta` 统一返回：
+
+```json
+{
+  "page": 1,
+  "page_size": 20,
+  "total": 120
+}
+```
+
+MVP 阶段如果列表很短，也允许某些接口先不分页，  
+但 Mistakes、History 这类列表建议直接按统一格式做。
+
+## 9. 语言参数约定
+
+当前统一使用：
+
+- `language`
+
+可选值：
+
+- `en`
+- `zh`
+
+规则：
+
+- 若请求显式传 `language`，优先使用请求值
+- 若未传，使用用户偏好
+- 匿名态若也没有显式值，则使用系统默认语言规则
+
+## 10. 核心接口分组
+
+当前接口按这些分组组织：
+
+- Auth / Account
+- Access
+- Practice
+- Mistakes
+- Review
+- Mock Exam
+- Summary / Progress / Readiness
+- Language
+
+## 11. Auth / Account 接口
+
+### `GET /api/v1/me`
+
+作用：
+
+- 获取当前登录用户账户状态
+
+认证：
+
+- 需要登录
+
+响应 `data`：
+
+```json
+{
+  "user_id": "usr_xxx",
+  "email": "user@example.com",
+  "language": "en",
+  "access": {
+    "state": "free_trial",
+    "has_active_pass": false,
+    "expires_at": null,
+    "mock_remaining": 0
+  },
+  "learning": {
+    "has_in_progress_practice": true,
+    "has_in_progress_review": false
+  }
+}
+```
+
+### `POST /api/v1/me/reset-learning`
+
+作用：
+
+- 重置学习主状态
+
+认证：
+
+- 需要登录
+
+请求 `body`：
+
+```json
+{
+  "confirm": true
+}
+```
+
+响应 `data`：
+
+```json
+{
+  "reset": true
+}
+```
+
+## 12. Access 接口
+
+### `GET /api/v1/access`
+
+作用：
+
+- 返回当前访问状态
+
+认证：
+
+- 登录用户可调用
+- 匿名用户可返回匿名体验状态
+
+响应 `data`：
+
+```json
+{
+  "state": "free_trial",
+  "has_active_pass": false,
+  "free_practice_remaining": 12,
+  "mock_remaining": 0,
+  "can_use_review": false,
+  "can_use_mock_exam": false
+}
+```
+
+## 13. Practice 接口
+
+### `POST /api/v1/practice/sessions`
+
+作用：
+
+- 开始一次练习
+
+认证：
+
+- 匿名用户可调用固定免费体验
+- 登录用户可调用完整练习
+
+请求 `body`：
+
+```json
+{
+  "entry_type": "free_trial",
+  "language": "en"
+}
+```
+
+响应 `data`：
+
+```json
+{
+  "session_id": "ps_xxx",
+  "entry_type": "free_trial",
+  "status": "in_progress",
+  "language": "en",
+  "next_question": {
+    "question_id": "q_xxx",
+    "variant_id": "qv_xxx",
+    "stem": "Question stem",
+    "choices": [
+      { "key": "A", "text": "Choice A" },
+      { "key": "B", "text": "Choice B" },
+      { "key": "C", "text": "Choice C" }
+    ]
+  }
+}
+```
+
+### `GET /api/v1/practice/sessions/{session_id}/next-question`
+
+作用：
+
+- 拉取当前 session 下一题
+
+认证：
+
+- 与 session 对应身份一致
+
+### `POST /api/v1/practice/sessions/{session_id}/answers`
+
+作用：
+
+- 提交单题答案并立即返回结果
+
+请求 `body`：
+
+```json
+{
+  "question_id": "q_xxx",
+  "variant_id": "qv_xxx",
+  "selected_choice_key": "B"
+}
+```
+
+响应 `data`：
+
+```json
+{
+  "question_id": "q_xxx",
+  "is_correct": false,
+  "correct_choice_key": "C",
+  "explanation": {
+    "type": "short",
+    "text": "You should yield in this situation."
+  },
+  "progress": {
+    "answered_count": 8
+  }
+}
+```
+
+### `GET /api/v1/practice/sessions/{session_id}`
+
+作用：
+
+- 获取当前 session 状态
+
+### `POST /api/v1/practice/sessions/{session_id}/complete`
+
+作用：
+
+- 完成当前练习 session
+
+## 14. Mistakes 接口
+
+### `GET /api/v1/mistakes`
+
+作用：
+
+- 获取活跃错题列表
+
+认证：
+
+- 需要登录
+
+请求参数：
+
+- `page`
+- `page_size`
+- `topic_id` 可选
+
+响应 `data`：
+
+```json
+[
+  {
+    "mistake_id": "mr_xxx",
+    "question_id": "q_xxx",
+    "topic_id": "topic_xxx",
+    "wrong_count": 3,
+    "last_wrong_at": "2026-03-12T10:00:00Z",
+    "source": "practice"
+  }
+]
+```
+
+## 15. Review 接口
+
+### `GET /api/v1/review/pack`
+
+作用：
+
+- 获取当前 review pack
+
+认证：
+
+- 需要登录
+- 需要允许使用 review
+
+响应 `data`：
+
+```json
+{
+  "review_pack_id": "rp_xxx",
+  "status": "ready",
+  "target_question_count": 20,
+  "completed_question_count": 4,
+  "tasks": [
+    {
+      "review_task_id": "rt_xxx",
+      "type": "same_topic_retry",
+      "topic_id": "topic_xxx",
+      "priority": 90,
+      "status": "in_progress"
+    }
+  ]
+}
+```
+
+### `POST /api/v1/review/tasks/{task_id}/answers`
+
+作用：
+
+- 提交 review 题目答案
+
+### `POST /api/v1/review/tasks/{task_id}/complete`
+
+作用：
+
+- 完成一个 review task
+
+响应 `data`：
+
+```json
+{
+  "review_task_id": "rt_xxx",
+  "completed": true,
+  "next_action": {
+    "type": "continue_review",
+    "label": "Continue review"
+  }
+}
+```
+
+## 16. Mock Exam 接口
+
+### `GET /api/v1/mock-exams/access`
+
+作用：
+
+- 查询当前是否允许开始 mock
+
+认证：
+
+- 需要登录
+
+响应 `data`：
+
+```json
+{
+  "allowed": true,
+  "mock_remaining": 3,
+  "reason": null
+}
+```
+
+### `POST /api/v1/mock-exams/attempts`
+
+作用：
+
+- 开始一次 mock exam
+
+认证：
+
+- 需要登录
+- 需要有效 access pass
+- 需要剩余 quota
+
+请求 `body`：
+
+```json
+{
+  "language": "en"
+}
+```
+
+响应 `data`：
+
+```json
+{
+  "mock_attempt_id": "ma_xxx",
+  "status": "in_progress",
+  "mock_remaining_after_start": 2,
+  "questions": [
+    {
+      "question_id": "q_xxx",
+      "variant_id": "qv_xxx",
+      "stem": "Question stem",
+      "choices": [
+        { "key": "A", "text": "Choice A" },
+        { "key": "B", "text": "Choice B" }
+      ]
+    }
+  ]
+}
+```
+
+### `POST /api/v1/mock-exams/attempts/{attempt_id}/submit`
+
+作用：
+
+- 交卷
+
+请求 `body`：
+
+```json
+{
+  "answers": [
+    {
+      "question_id": "q_xxx",
+      "variant_id": "qv_xxx",
+      "selected_choice_key": "A"
+    }
+  ]
+}
+```
+
+响应 `data`：
+
+```json
+{
+  "mock_attempt_id": "ma_xxx",
+  "status": "submitted",
+  "score_percent": 86,
+  "correct_count": 43,
+  "wrong_count": 7,
+  "weak_topics": [
+    {
+      "topic_id": "topic_xxx",
+      "label": "Road positioning"
+    }
+  ],
+  "next_action": {
+    "type": "review",
+    "label": "Review weak topics first"
+  }
+}
+```
+
+### `POST /api/v1/mock-exams/attempts/{attempt_id}/exit`
+
+作用：
+
+- 用户确认退出并结束本次 mock
+
+认证：
+
+- 需要登录
+
+响应 `data`：
+
+```json
+{
+  "mock_attempt_id": "ma_xxx",
+  "status": "ended_by_exit",
+  "quota_consumed": true
+}
+```
+
+## 17. Summary / Progress / Readiness 接口
+
+### `GET /api/v1/summary`
+
+作用：
+
+- 获取 summary 页面主数据
+
+认证：
+
+- 登录用户可获取基础 summary
+- 完整 summary 受访问权限控制
+
+响应 `data`：
+
+```json
+{
+  "completion_score": 72,
+  "readiness_score": 64,
+  "is_ready_candidate": false,
+  "weak_topics": [
+    {
+      "topic_id": "topic_xxx",
+      "label": "Intersections"
+    }
+  ],
+  "next_action": {
+    "type": "review",
+    "label": "Finish review pack"
+  }
+}
+```
+
+### `GET /api/v1/readiness`
+
+作用：
+
+- 获取 readiness 状态
+
+响应 `data`：
+
+```json
+{
+  "readiness_score": 64,
+  "is_ready_candidate": false,
+  "missing_gates": [
+    "MOCK_SCORE_NOT_STABLE",
+    "KEY_TOPIC_COVERAGE_LOW"
+  ]
+}
+```
+
+## 18. Language 接口
+
+### `PUT /api/v1/me/language`
+
+作用：
+
+- 修改当前用户语言偏好
+
+认证：
+
+- 需要登录
+
+请求 `body`：
+
+```json
+{
+  "language": "zh"
+}
+```
+
+响应 `data`：
+
+```json
+{
+  "language": "zh"
+}
+```
+
+## 19. HTTP 状态码建议
+
+当前建议：
+
+- `200` 成功查询或提交
+- `201` 成功创建新 session / attempt
+- `400` 参数错误
+- `401` 未登录
+- `403` 已登录但无权限
+- `404` 资源不存在
+- `409` 状态冲突
+- `429` 配额或频率限制
+- `500` 服务器错误
+
+## 20. 当前结论
+
+MVP API 合同当前应采用：
+
+- REST + JSON
+- `/api/v1` 前缀
+- `Bearer Token` 认证
+- 统一成功 / 失败响应结构
+- 匿名体验与登录闭环明确分开
+- 先把 Practice、Review、Mock、Summary 这些主链路接口定稳

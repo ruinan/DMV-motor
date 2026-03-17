@@ -21,6 +21,8 @@
 - [API 设计](./docs/api.md)
 - [AI 架构](./docs/ai-architecture.md)
 - [数据库 Schema](./docs/db-schema.md)
+- [实现推进顺序](./docs/development/implementation-roadmap.md)
+- [技术选型决策](./docs/development/tech-stack-decision.md)
 
 ## 当前决策原则
 
