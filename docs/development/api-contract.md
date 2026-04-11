@@ -23,15 +23,15 @@
 
 | 接口 | 测试类 | 状态 |
 |------|--------|------|
-| `GET /api/v1/me` | — | ⬜ |
-| `POST /api/v1/me/reset-learning` | — | ⬜ |
-| `PUT /api/v1/me/language` | — | ⬜ |
+| `GET /api/v1/me` | `AccountControllerTest` | ✅ |
+| `POST /api/v1/me/reset-learning` | `AccountControllerTest` | ✅ |
+| `PUT /api/v1/me/language` | `AccountControllerTest` | ✅ |
 
 ### Access
 
 | 接口 | 测试类 | 状态 |
 |------|--------|------|
-| `GET /api/v1/access` | — | ⬜ |
+| `GET /api/v1/access` | `AccessControllerTest` | ✅ |
 
 ### Practice
 
