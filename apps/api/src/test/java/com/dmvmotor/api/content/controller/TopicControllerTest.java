@@ -47,6 +47,17 @@ class TopicControllerTest extends IntegrationTestBase {
     }
 
     @Test
+    void listTopics_withChildTopic_returnsParentTopicId() throws Exception {
+        Long parentId = fixtures.insertTopic("PARENT", "Parent", "父", false, 1);
+        fixtures.insertChildTopic("CHILD", parentId);
+
+        mockMvc.perform(get("/api/v1/topics"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.items[?(@.code=='CHILD')].parentTopicId")
+                        .value(parentId.toString()));
+    }
+
+    @Test
     void listTopics_sortedBySortOrder() throws Exception {
         fixtures.insertTopic("B_TOPIC", "B Topic", "B", false, 20);
         fixtures.insertTopic("A_TOPIC", "A Topic", "A", false, 10);

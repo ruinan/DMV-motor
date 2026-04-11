@@ -48,11 +48,15 @@ public class QuestionRepository {
         ));
     }
 
-    private List<Choice> parseChoices(String json) {
+    static List<Choice> parseChoices(ObjectMapper mapper, String json) {
         try {
-            return objectMapper.readValue(json, new TypeReference<>() {});
+            return mapper.readValue(json, new TypeReference<>() {});
         } catch (Exception e) {
             throw new IllegalStateException("Failed to parse choices_payload: " + json, e);
         }
+    }
+
+    private List<Choice> parseChoices(String json) {
+        return parseChoices(objectMapper, json);
     }
 }

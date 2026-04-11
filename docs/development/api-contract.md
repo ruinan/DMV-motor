@@ -6,6 +6,77 @@
 >
 > 产品层 API 边界定义见 [`docs/api.md`](../api.md)。如果两者有出入，以本文档为准并反馈修正 `api.md`。
 
+## 0. 测试覆盖 Checklist
+
+> 每个接口实现后，在对应行填入测试类名并标 ✅。
+> 未实现标 ⬜，进行中标 🔄。
+> 覆盖率要求：指令 ≥ 90%，分支 ≥ 90%（JaCoCo 强制，`mvn test` 不达标则 BUILD FAILURE）。
+
+### Content（内容基础层）
+
+| 接口 | 测试类 | 状态 |
+|------|--------|------|
+| `GET /api/v1/topics` | `TopicControllerTest` | ✅ |
+| `GET /api/v1/questions/{id}` | `QuestionControllerTest` | ✅ |
+
+### Auth / Account
+
+| 接口 | 测试类 | 状态 |
+|------|--------|------|
+| `GET /api/v1/me` | — | ⬜ |
+| `POST /api/v1/me/reset-learning` | — | ⬜ |
+| `PUT /api/v1/me/language` | — | ⬜ |
+
+### Access
+
+| 接口 | 测试类 | 状态 |
+|------|--------|------|
+| `GET /api/v1/access` | — | ⬜ |
+
+### Practice
+
+| 接口 | 测试类 | 状态 |
+|------|--------|------|
+| `POST /api/v1/practice/sessions` | — | ⬜ |
+| `GET /api/v1/practice/sessions/{id}/next-question` | — | ⬜ |
+| `POST /api/v1/practice/sessions/{id}/answers` | — | ⬜ |
+| `GET /api/v1/practice/sessions/{id}` | — | ⬜ |
+| `POST /api/v1/practice/sessions/{id}/complete` | — | ⬜ |
+
+### Mistakes
+
+| 接口 | 测试类 | 状态 |
+|------|--------|------|
+| `GET /api/v1/mistakes` | — | ⬜ |
+
+### Review
+
+| 接口 | 测试类 | 状态 |
+|------|--------|------|
+| `GET /api/v1/review/pack` | — | ⬜ |
+| `GET /api/v1/review/tasks/{id}/questions` | — | ⬜ |
+| `POST /api/v1/review/tasks/{id}/answers` | — | ⬜ |
+| `POST /api/v1/review/tasks/{id}/complete` | — | ⬜ |
+
+### Mock Exam
+
+| 接口 | 测试类 | 状态 |
+|------|--------|------|
+| `GET /api/v1/mock-exams/access` | — | ⬜ |
+| `POST /api/v1/mock-exams/attempts` | — | ⬜ |
+| `POST /api/v1/mock-exams/attempts/{id}/answers` | — | ⬜ |
+| `POST /api/v1/mock-exams/attempts/{id}/submit` | — | ⬜ |
+| `POST /api/v1/mock-exams/attempts/{id}/exit` | — | ⬜ |
+
+### Summary / Progress / Readiness
+
+| 接口 | 测试类 | 状态 |
+|------|--------|------|
+| `GET /api/v1/summary` | — | ⬜ |
+| `GET /api/v1/readiness` | — | ⬜ |
+
+---
+
 ## 1. 目标
 
 这份文档定义 Spring Boot 后端对 Web 的 API 合同，  
