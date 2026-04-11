@@ -45,3 +45,7 @@ build/
 ### Project ###
 .claude/
 .progress
+.env
+*.secret
+application-local.yml
+application-local.yaml
