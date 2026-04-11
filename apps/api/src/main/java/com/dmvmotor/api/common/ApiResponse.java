@@ -13,6 +13,10 @@ public record ApiResponse<T>(
         return new ApiResponse<>(true, data, null, null);
     }
 
+    public static <T> ApiResponse<T> okWithMeta(T data, Object meta) {
+        return new ApiResponse<>(true, data, meta, null);
+    }
+
     public static ApiResponse<?> error(String code, String message) {
         return new ApiResponse<>(false, null, null, new ErrorBody(code, message));
     }

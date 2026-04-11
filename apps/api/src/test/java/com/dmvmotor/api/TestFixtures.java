@@ -133,6 +133,20 @@ public class TestFixtures {
     }
 
     // ---------------------------------------------------------------
+    // Mistake Records
+    // ---------------------------------------------------------------
+
+    public Long insertMistakeRecord(Long userId, Long questionId, Long topicId,
+                                     int wrongCount, String source) {
+        return jdbc.queryForObject("""
+                INSERT INTO mistake_records
+                    (user_id, question_id, primary_topic_id, wrong_count, last_entry_source)
+                VALUES (?, ?, ?, ?, ?)
+                RETURNING id
+                """, Long.class, userId, questionId, topicId, wrongCount, source);
+    }
+
+    // ---------------------------------------------------------------
     // Access Passes
     // ---------------------------------------------------------------
 
