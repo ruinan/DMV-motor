@@ -37,11 +37,11 @@
 
 | 接口 | 测试类 | 状态 |
 |------|--------|------|
-| `POST /api/v1/practice/sessions` | — | ⬜ |
-| `GET /api/v1/practice/sessions/{id}/next-question` | — | ⬜ |
-| `POST /api/v1/practice/sessions/{id}/answers` | — | ⬜ |
-| `GET /api/v1/practice/sessions/{id}` | — | ⬜ |
-| `POST /api/v1/practice/sessions/{id}/complete` | — | ⬜ |
+| `POST /api/v1/practice/sessions` | `PracticeSessionControllerTest` | ✅ |
+| `GET /api/v1/practice/sessions/{id}/next-question` | `PracticeSessionControllerTest` | ✅ |
+| `POST /api/v1/practice/sessions/{id}/answers` | `PracticeSessionControllerTest` | ✅ |
+| `GET /api/v1/practice/sessions/{id}` | `PracticeSessionControllerTest` | ✅ |
+| `POST /api/v1/practice/sessions/{id}/complete` | `PracticeSessionControllerTest` | ✅ |
 
 ### Mistakes
 
