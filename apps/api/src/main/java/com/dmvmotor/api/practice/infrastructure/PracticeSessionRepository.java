@@ -113,6 +113,18 @@ public class PracticeSessionRepository {
                 .execute();
     }
 
+    public void deleteAllByUserId(Long userId) {
+        var ps = Tables.PRACTICE_SESSIONS;
+        // CASCADE in DB deletes practice_attempts for these sessions automatically
+        dsl.deleteFrom(ps).where(ps.USER_ID.eq(userId)).execute();
+    }
+
+    public boolean existsInProgressByUserId(Long userId) {
+        var ps = Tables.PRACTICE_SESSIONS;
+        return dsl.fetchExists(ps,
+                ps.USER_ID.eq(userId).and(ps.STATUS.eq("in_progress")));
+    }
+
     public void updateStatus(Long sessionId, String status) {
         var ps = Tables.PRACTICE_SESSIONS;
         dsl.update(ps)

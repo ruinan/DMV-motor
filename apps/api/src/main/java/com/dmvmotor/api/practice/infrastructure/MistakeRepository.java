@@ -15,6 +15,11 @@ public class MistakeRepository {
         this.dsl = dsl;
     }
 
+    public void deleteAllByUserId(Long userId) {
+        var mr = Tables.MISTAKE_RECORDS;
+        dsl.deleteFrom(mr).where(mr.USER_ID.eq(userId)).execute();
+    }
+
     /** Upsert: increment wrong_count if record exists, create if not. */
     public void upsertMistake(Long userId, Long questionId, Long topicId, String entrySource) {
         var mr = Tables.MISTAKE_RECORDS;

@@ -3,6 +3,8 @@ package com.dmvmotor.api;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
 
+import java.time.OffsetDateTime;
+
 /**
  * Shared test data builder for integration tests.
  *
@@ -120,5 +122,29 @@ public class TestFixtures {
                 VALUES (?, 'en')
                 RETURNING id
                 """, Long.class, email);
+    }
+
+    public Long insertUserWithoutEmail() {
+        return jdbc.queryForObject("""
+                INSERT INTO users (language_preference)
+                VALUES ('en')
+                RETURNING id
+                """, Long.class);
+    }
+
+    // ---------------------------------------------------------------
+    // Access Passes
+    // ---------------------------------------------------------------
+
+    public Long insertAccessPass(Long userId, String status,
+                                  OffsetDateTime startsAt, OffsetDateTime expiresAt,
+                                  int mockTotal, int mockUsed) {
+        return jdbc.queryForObject("""
+                INSERT INTO access_passes
+                    (user_id, status, starts_at, expires_at,
+                     mock_exam_total_count, mock_exam_used_count)
+                VALUES (?, ?, ?, ?, ?, ?)
+                RETURNING id
+                """, Long.class, userId, status, startsAt, expiresAt, mockTotal, mockUsed);
     }
 }
