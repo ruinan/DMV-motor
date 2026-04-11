@@ -4,6 +4,7 @@ import java.util.List;
 
 public record QuestionDetail(
         Long questionId,
+        Long variantId,
         Long topicId,
         String correctChoiceKey,
         String language,

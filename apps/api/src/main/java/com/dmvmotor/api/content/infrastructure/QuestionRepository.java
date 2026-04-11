@@ -39,6 +39,7 @@ public class QuestionRepository {
 
         return Optional.of(new QuestionDetail(
                 record.get(q.ID),
+                record.get(qv.ID),
                 record.get(q.PRIMARY_TOPIC_ID),
                 record.get(q.CORRECT_CHOICE_KEY),
                 language,
@@ -48,7 +49,7 @@ public class QuestionRepository {
         ));
     }
 
-    static List<Choice> parseChoices(ObjectMapper mapper, String json) {
+    public static List<Choice> parseChoices(ObjectMapper mapper, String json) {
         try {
             return mapper.readValue(json, new TypeReference<>() {});
         } catch (Exception e) {

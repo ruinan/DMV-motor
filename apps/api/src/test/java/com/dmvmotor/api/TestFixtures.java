@@ -27,6 +27,9 @@ public class TestFixtures {
     public void truncateAll() {
         jdbc.execute("""
                 TRUNCATE
+                    mistake_records,
+                    practice_attempts,
+                    practice_sessions,
                     mock_exam_questions,
                     mock_exams,
                     question_related_topics,
@@ -95,6 +98,16 @@ public class TestFixtures {
                     (question_id, language_code, stem_text, choices_payload, explanation_text)
                 VALUES (?, ?, ?, ?::jsonb, ?)
                 """, questionId, languageCode, stem, choicesJson, explanation);
+    }
+
+    public Long insertVariantReturningId(Long questionId, String languageCode,
+                                          String stem, String choicesJson, String explanation) {
+        return jdbc.queryForObject("""
+                INSERT INTO question_variants
+                    (question_id, language_code, stem_text, choices_payload, explanation_text)
+                VALUES (?, ?, ?, ?::jsonb, ?)
+                RETURNING id
+                """, Long.class, questionId, languageCode, stem, choicesJson, explanation);
     }
 
     // ---------------------------------------------------------------
