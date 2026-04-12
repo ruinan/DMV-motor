@@ -62,18 +62,18 @@
 
 | 接口 | 测试类 | 状态 |
 |------|--------|------|
-| `GET /api/v1/mock-exams/access` | — | ⬜ |
-| `POST /api/v1/mock-exams/attempts` | — | ⬜ |
-| `POST /api/v1/mock-exams/attempts/{id}/answers` | — | ⬜ |
-| `POST /api/v1/mock-exams/attempts/{id}/submit` | — | ⬜ |
-| `POST /api/v1/mock-exams/attempts/{id}/exit` | — | ⬜ |
+| `GET /api/v1/mock-exams/access` | `MockExamControllerTest` | ✅ |
+| `POST /api/v1/mock-exams/attempts` | `MockExamControllerTest` | ✅ |
+| `POST /api/v1/mock-exams/attempts/{id}/answers` | `MockExamControllerTest` | ✅ |
+| `POST /api/v1/mock-exams/attempts/{id}/submit` | `MockExamControllerTest` | ✅ |
+| `POST /api/v1/mock-exams/attempts/{id}/exit` | `MockExamControllerTest` | ✅ |
 
 ### Summary / Progress / Readiness
 
 | 接口 | 测试类 | 状态 |
 |------|--------|------|
-| `GET /api/v1/summary` | — | ⬜ |
-| `GET /api/v1/readiness` | — | ⬜ |
+| `GET /api/v1/summary` | `SummaryControllerTest` | ✅ |
+| `GET /api/v1/readiness` | `SummaryControllerTest` | ✅ |
 
 ---
 
