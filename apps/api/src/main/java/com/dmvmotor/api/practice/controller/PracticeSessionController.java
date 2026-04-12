@@ -1,6 +1,7 @@
 package com.dmvmotor.api.practice.controller;
 
 import com.dmvmotor.api.common.ApiResponse;
+import com.dmvmotor.api.common.CurrentUser;
 import com.dmvmotor.api.content.domain.Choice;
 import com.dmvmotor.api.content.domain.QuestionDetail;
 import com.dmvmotor.api.practice.application.PracticeService;
@@ -24,8 +25,9 @@ public class PracticeSessionController {
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    public ApiResponse<?> startSession(@Valid @RequestBody StartRequest req) {
-        var result = practiceService.startSession(null, req.entryType(),
+    public ApiResponse<?> startSession(@CurrentUser Long userId,
+                                        @Valid @RequestBody StartRequest req) {
+        var result = practiceService.startSession(userId, req.entryType(),
                 req.language() != null ? req.language() : "en");
         return ApiResponse.ok(Map.of(
                 "sessionId",    String.valueOf(result.sessionId()),

@@ -1,0 +1,15 @@
+# IT profile: runs against local Docker PostgreSQL (dmv_motor_it database)
+# Prerequisites:
+#   docker exec dmv-motor-postgres psql -U dmv_motor -c "CREATE DATABASE dmv_motor_it;"
+# Flyway auto-applies all migrations (V1-V5) including V2 seed data on first run.
+# Run IT tests: mvn verify  (or mvn failsafe:integration-test)
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5432/dmv_motor_it
+    username: dmv_motor
+    password: dmv_motor
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+  jooq:
+    sql-dialect: POSTGRES
