@@ -133,6 +133,21 @@ public class TestFixtures {
     }
 
     // ---------------------------------------------------------------
+    // Mock Attempts
+    // ---------------------------------------------------------------
+
+    public Long insertMockAttemptWithScore(Long userId, Long mockExamId, int scorePercent) {
+        return jdbc.queryForObject("""
+                INSERT INTO mock_attempts
+                    (user_id, mock_exam_id, status, score_percent, correct_count,
+                     wrong_count, answered_count, quota_consumed)
+                VALUES (?, ?, 'submitted', ?, ?, 0, ?, true)
+                RETURNING id
+                """, Long.class, userId, mockExamId, scorePercent,
+                scorePercent / 10, scorePercent / 10); // rough counts
+    }
+
+    // ---------------------------------------------------------------
     // Mistake Records
     // ---------------------------------------------------------------
 
