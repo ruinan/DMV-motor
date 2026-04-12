@@ -56,8 +56,8 @@ public class MistakeController {
                 "questionId",  String.valueOf(r.questionId()),
                 "topicId",     String.valueOf(r.topicId()),
                 "wrongCount",  r.wrongCount(),
-                "lastWrongAt", r.lastWrongAt() != null ? r.lastWrongAt().toString() : "",
-                "source",      r.lastEntrySource() != null ? r.lastEntrySource() : ""
+                "lastWrongAt", r.lastWrongAt().toString(),
+                "source",      r.lastEntrySource()
         );
     }
 }

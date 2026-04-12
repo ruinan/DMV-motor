@@ -44,6 +44,14 @@ public class MistakeListRepository {
                 ));
     }
 
+    public void setActive(Long userId, Long questionId, boolean isActive) {
+        var mr = Tables.MISTAKE_RECORDS;
+        dsl.update(mr)
+                .set(mr.IS_ACTIVE, isActive)
+                .where(mr.USER_ID.eq(userId).and(mr.QUESTION_ID.eq(questionId)))
+                .execute();
+    }
+
     public int countActiveMistakes(Long userId, Long topicId) {
         var mr = Tables.MISTAKE_RECORDS;
         Condition condition = mr.USER_ID.eq(userId).and(mr.IS_ACTIVE.isTrue());
