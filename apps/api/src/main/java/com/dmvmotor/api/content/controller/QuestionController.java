@@ -29,6 +29,7 @@ public class QuestionController {
 
     record QuestionDto(
             String questionId,
+            String variantId,
             String topicId,
             String correctChoiceKey,
             String language,
@@ -39,6 +40,7 @@ public class QuestionController {
         static QuestionDto from(QuestionDetail d) {
             return new QuestionDto(
                     String.valueOf(d.questionId()),
+                    String.valueOf(d.variantId()),
                     String.valueOf(d.topicId()),
                     d.correctChoiceKey(),
                     d.language(),
