@@ -32,10 +32,6 @@ class MistakeControllerTest extends IntegrationTestBase {
         questionId2 = fixtures.insertQuestion(topicId2, "B");
     }
 
-    // ---------------------------------------------------------------
-    // GET /api/v1/mistakes
-    // ---------------------------------------------------------------
-
     @Test
     void listMistakes_anonymous_returns401() throws Exception {
         mockMvc.perform(get("/api/v1/mistakes"))
@@ -50,7 +46,7 @@ class MistakeControllerTest extends IntegrationTestBase {
                 .andExpect(jsonPath("$.data.items", hasSize(0)))
                 .andExpect(jsonPath("$.meta.total").value(0))
                 .andExpect(jsonPath("$.meta.page").value(1))
-                .andExpect(jsonPath("$.meta.pageSize").value(20));
+                .andExpect(jsonPath("$.meta.page_size").value(20));
     }
 
     @Test
@@ -63,11 +59,11 @@ class MistakeControllerTest extends IntegrationTestBase {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.items", hasSize(2)))
                 .andExpect(jsonPath("$.meta.total").value(2))
-                .andExpect(jsonPath("$.data.items[0].mistakeId").isString())
-                .andExpect(jsonPath("$.data.items[0].questionId").isString())
-                .andExpect(jsonPath("$.data.items[0].topicId").isString())
-                .andExpect(jsonPath("$.data.items[0].wrongCount").isNumber())
-                .andExpect(jsonPath("$.data.items[0].lastWrongAt").isString())
+                .andExpect(jsonPath("$.data.items[0].mistake_id").isString())
+                .andExpect(jsonPath("$.data.items[0].question_id").isString())
+                .andExpect(jsonPath("$.data.items[0].topic_id").isString())
+                .andExpect(jsonPath("$.data.items[0].wrong_count").isNumber())
+                .andExpect(jsonPath("$.data.items[0].last_wrong_at").isString())
                 .andExpect(jsonPath("$.data.items[0].source").isString());
     }
 
@@ -82,12 +78,11 @@ class MistakeControllerTest extends IntegrationTestBase {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.items", hasSize(1)))
                 .andExpect(jsonPath("$.meta.total").value(1))
-                .andExpect(jsonPath("$.data.items[0].topicId").value(String.valueOf(topicId)));
+                .andExpect(jsonPath("$.data.items[0].topic_id").value(String.valueOf(topicId)));
     }
 
     @Test
     void listMistakes_pagination_respectsPageAndPageSize() throws Exception {
-        // Insert 3 mistakes
         Long q3 = fixtures.insertQuestion(topicId, "C");
         fixtures.insertMistakeRecord(userId, questionId1, topicId, 1, "practice");
         fixtures.insertMistakeRecord(userId, questionId2, topicId2, 1, "practice");
@@ -101,7 +96,7 @@ class MistakeControllerTest extends IntegrationTestBase {
                 .andExpect(jsonPath("$.data.items", hasSize(2)))
                 .andExpect(jsonPath("$.meta.total").value(3))
                 .andExpect(jsonPath("$.meta.page").value(1))
-                .andExpect(jsonPath("$.meta.pageSize").value(2));
+                .andExpect(jsonPath("$.meta.page_size").value(2));
     }
 
     @Test

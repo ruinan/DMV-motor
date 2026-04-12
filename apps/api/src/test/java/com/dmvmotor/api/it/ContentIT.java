@@ -23,14 +23,12 @@ class ContentIT extends E2ETestBase {
 
     @Test
     void getQuestion_seedDataQuestion1_returnsDetails() {
-        // First fetch topics to get a valid topic, then a question
-        // Use question id=1 which exists after V2 seed
         given().accept("application/json")
                 .queryParam("language", "en")
                 .get("/api/v1/questions/1")
                 .then()
                 .statusCode(200)
-                .body("data.questionId", equalTo("1"))
+                .body("data.question_id", equalTo("1"))
                 .body("data.stem", notNullValue())
                 .body("data.choices", hasSize(greaterThan(0)))
                 .body("data.language", equalTo("en"));

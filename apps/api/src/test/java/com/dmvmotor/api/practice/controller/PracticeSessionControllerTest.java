@@ -61,13 +61,13 @@ class PracticeSessionControllerTest extends IntegrationTestBase {
                                 """))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.success").value(true))
-                .andExpect(jsonPath("$.data.sessionId").isString())
-                .andExpect(jsonPath("$.data.entryType").value("free_trial"))
+                .andExpect(jsonPath("$.data.session_id").isString())
+                .andExpect(jsonPath("$.data.entry_type").value("free_trial"))
                 .andExpect(jsonPath("$.data.status").value("in_progress"))
                 .andExpect(jsonPath("$.data.language").value("en"))
-                .andExpect(jsonPath("$.data.nextQuestion.questionId").isString())
-                .andExpect(jsonPath("$.data.nextQuestion.stem").isString())
-                .andExpect(jsonPath("$.data.nextQuestion.choices", hasSize(3)));
+                .andExpect(jsonPath("$.data.next_question.question_id").isString())
+                .andExpect(jsonPath("$.data.next_question.stem").isString())
+                .andExpect(jsonPath("$.data.next_question.choices", hasSize(3)));
     }
 
     @Test
@@ -82,7 +82,7 @@ class PracticeSessionControllerTest extends IntegrationTestBase {
 
     @Test
     void startSession_noQuestionsAvailable_returns422() throws Exception {
-        fixtures.truncateAll(); // remove all questions
+        fixtures.truncateAll();
 
         mockMvc.perform(post("/api/v1/practice/sessions")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -103,10 +103,10 @@ class PracticeSessionControllerTest extends IntegrationTestBase {
 
         mockMvc.perform(get("/api/v1/practice/sessions/{id}/next-question", sessionId))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.questionId").isString())
+                .andExpect(jsonPath("$.data.question_id").isString())
                 .andExpect(jsonPath("$.data.stem").isString())
                 .andExpect(jsonPath("$.data.choices", hasSize(3)))
-                .andExpect(jsonPath("$.data.progress.answeredCount").value(0));
+                .andExpect(jsonPath("$.data.progress.answered_count").value(0));
     }
 
     @Test
@@ -119,7 +119,7 @@ class PracticeSessionControllerTest extends IntegrationTestBase {
     @Test
     void nextQuestion_allQuestionsAnswered_returns404WithSessionCompleted() throws Exception {
         String sessionId = startSessionAndGetId("en");
-        submitAnswer(sessionId, questionId, variantEnId, "B"); // answer the only question
+        submitAnswer(sessionId, questionId, variantEnId, "B");
 
         mockMvc.perform(get("/api/v1/practice/sessions/{id}/next-question", sessionId))
                 .andExpect(status().isNotFound())
@@ -140,10 +140,10 @@ class PracticeSessionControllerTest extends IntegrationTestBase {
                                 {"question_id":"%s","variant_id":"%s","selected_choice_key":"B"}
                                 """.formatted(questionId, variantEnId)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.isCorrect").value(true))
-                .andExpect(jsonPath("$.data.correctChoiceKey").value("B"))
+                .andExpect(jsonPath("$.data.is_correct").value(true))
+                .andExpect(jsonPath("$.data.correct_choice_key").value("B"))
                 .andExpect(jsonPath("$.data.explanation").isString())
-                .andExpect(jsonPath("$.data.progress.answeredCount").value(1));
+                .andExpect(jsonPath("$.data.progress.answered_count").value(1));
     }
 
     @Test
@@ -156,8 +156,8 @@ class PracticeSessionControllerTest extends IntegrationTestBase {
                                 {"question_id":"%s","variant_id":"%s","selected_choice_key":"A"}
                                 """.formatted(questionId, variantEnId)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.isCorrect").value(false))
-                .andExpect(jsonPath("$.data.correctChoiceKey").value("B"));
+                .andExpect(jsonPath("$.data.is_correct").value(false))
+                .andExpect(jsonPath("$.data.correct_choice_key").value("B"));
     }
 
     @Test
@@ -167,7 +167,7 @@ class PracticeSessionControllerTest extends IntegrationTestBase {
         Long q2 = fixtures.insertQuestion(t2, "A");
         Long v2 = fixtures.insertVariantReturningId(q2, "en", "Which option?",
                 "[{\"key\":\"A\",\"text\":\"Opt A\"},{\"key\":\"B\",\"text\":\"Opt B\"}]",
-                null); // null explanation
+                null);
 
         String sessionId = startSessionAndGetId("en");
 
@@ -204,10 +204,10 @@ class PracticeSessionControllerTest extends IntegrationTestBase {
 
         mockMvc.perform(get("/api/v1/practice/sessions/{id}", sessionId))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.sessionId").value(sessionId))
+                .andExpect(jsonPath("$.data.session_id").value(sessionId))
                 .andExpect(jsonPath("$.data.status").value("in_progress"))
-                .andExpect(jsonPath("$.data.answeredCount").value(0))
-                .andExpect(jsonPath("$.data.totalCount").isNumber());
+                .andExpect(jsonPath("$.data.answered_count").value(0))
+                .andExpect(jsonPath("$.data.total_count").isNumber());
     }
 
     // ---------------------------------------------------------------
@@ -220,7 +220,7 @@ class PracticeSessionControllerTest extends IntegrationTestBase {
 
         mockMvc.perform(post("/api/v1/practice/sessions/{id}/complete", sessionId))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.sessionId").value(sessionId))
+                .andExpect(jsonPath("$.data.session_id").value(sessionId))
                 .andExpect(jsonPath("$.data.status").value("completed"));
     }
 
@@ -235,6 +235,33 @@ class PracticeSessionControllerTest extends IntegrationTestBase {
     }
 
     // ---------------------------------------------------------------
+    // Ownership / FORBIDDEN tests
+    // ---------------------------------------------------------------
+
+    @Test
+    void nextQuestion_sameAuthenticatedUser_returns200() throws Exception {
+        Long uid = fixtures.insertUser("puser@example.com");
+        String sessionId = startSessionAsUser(uid, "en");
+
+        mockMvc.perform(get("/api/v1/practice/sessions/{id}/next-question", sessionId)
+                        .header("Authorization", "Bearer " + uid))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.question_id").isString());
+    }
+
+    @Test
+    void nextQuestion_differentUser_returns403() throws Exception {
+        Long userA = fixtures.insertUser("pa@example.com");
+        Long userB = fixtures.insertUser("pb@example.com");
+        String sessionId = startSessionAsUser(userA, "en");
+
+        mockMvc.perform(get("/api/v1/practice/sessions/{id}/next-question", sessionId)
+                        .header("Authorization", "Bearer " + userB))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.error.code").value("FORBIDDEN"));
+    }
+
+    // ---------------------------------------------------------------
     // Helpers
     // ---------------------------------------------------------------
 
@@ -246,13 +273,29 @@ class PracticeSessionControllerTest extends IntegrationTestBase {
                                 """.formatted(language)))
                 .andReturn();
         String body = result.getResponse().getContentAsString();
-        // extract sessionId from JSON response
-        int start = body.indexOf("\"sessionId\":\"") + 13;
+        String key = "\"session_id\":\"";
+        int start = body.indexOf(key) + key.length();
         int end   = body.indexOf("\"", start);
         return body.substring(start, end);
     }
 
-    private void submitAnswer(String sessionId, Long qId, Long vId, String choice) throws Exception {
+    private String startSessionAsUser(Long userId, String language) throws Exception {
+        var result = mockMvc.perform(post("/api/v1/practice/sessions")
+                        .header("Authorization", "Bearer " + userId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"entry_type":"free_trial","language":"%s"}
+                                """.formatted(language)))
+                .andReturn();
+        String body = result.getResponse().getContentAsString();
+        String key = "\"session_id\":\"";
+        int start = body.indexOf(key) + key.length();
+        int end   = body.indexOf("\"", start);
+        return body.substring(start, end);
+    }
+
+    private void submitAnswer(String sessionId, Long qId, Long vId, String choice)
+            throws Exception {
         mockMvc.perform(post("/api/v1/practice/sessions/{id}/answers", sessionId)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("""

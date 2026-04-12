@@ -54,7 +54,23 @@ class MockExamControllerTest extends IntegrationTestBase {
         mockMvc.perform(get("/api/v1/mock-exams/access"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.allowed").value(false))
-                .andExpect(jsonPath("$.data.mockRemaining").value(0));
+                .andExpect(jsonPath("$.data.mock_remaining").value(0));
+    }
+
+    @Test
+    void getMockAccess_nonBearerAuth_treatedAsAnonymous() throws Exception {
+        mockMvc.perform(get("/api/v1/mock-exams/access")
+                        .header("Authorization", "Basic dXNlcjpwYXNz"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.allowed").value(false));
+    }
+
+    @Test
+    void getMockAccess_nonNumericBearerToken_treatedAsAnonymous() throws Exception {
+        mockMvc.perform(get("/api/v1/mock-exams/access")
+                        .header("Authorization", "Bearer notanumber"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.allowed").value(false));
     }
 
     @Test
@@ -74,7 +90,7 @@ class MockExamControllerTest extends IntegrationTestBase {
                         .header("Authorization", "Bearer " + userId))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.allowed").value(true))
-                .andExpect(jsonPath("$.data.mockRemaining").value(3));
+                .andExpect(jsonPath("$.data.mock_remaining").value(3));
     }
 
     @Test
@@ -126,11 +142,11 @@ class MockExamControllerTest extends IntegrationTestBase {
                                 {"language":"en"}
                                 """))
                 .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.data.mockAttemptId").isString())
+                .andExpect(jsonPath("$.data.mock_attempt_id").isString())
                 .andExpect(jsonPath("$.data.status").value("in_progress"))
-                .andExpect(jsonPath("$.data.mockRemainingAfterStart").value(2))
+                .andExpect(jsonPath("$.data.mock_remaining_after_start").value(2))
                 .andExpect(jsonPath("$.data.questions", hasSize(2)))
-                .andExpect(jsonPath("$.data.questions[0].questionId").isString())
+                .andExpect(jsonPath("$.data.questions[0].question_id").isString())
                 .andExpect(jsonPath("$.data.questions[0].stem").isString());
     }
 
@@ -150,14 +166,13 @@ class MockExamControllerTest extends IntegrationTestBase {
                                 """.formatted(q1, v1)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.saved").value(true))
-                .andExpect(jsonPath("$.data.answeredCount").value(1));
+                .andExpect(jsonPath("$.data.answered_count").value(1));
     }
 
     @Test
     void saveAnswer_retry_returnsUpdatedCount() throws Exception {
         String attemptId = startMockAndGetId();
 
-        // First answer
         mockMvc.perform(post("/api/v1/mock-exams/attempts/{id}/answers", attemptId)
                         .header("Authorization", "Bearer " + userId)
                         .contentType(MediaType.APPLICATION_JSON)
@@ -165,7 +180,6 @@ class MockExamControllerTest extends IntegrationTestBase {
                                 {"question_id":"%s","variant_id":"%s","selected_choice_key":"A"}
                                 """.formatted(q1, v1)));
 
-        // Retry same question
         mockMvc.perform(post("/api/v1/mock-exams/attempts/{id}/answers", attemptId)
                         .header("Authorization", "Bearer " + userId)
                         .contentType(MediaType.APPLICATION_JSON)
@@ -174,7 +188,7 @@ class MockExamControllerTest extends IntegrationTestBase {
                                 """.formatted(q1, v1)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.saved").value(true))
-                .andExpect(jsonPath("$.data.answeredCount").value(1)); // still 1 unique
+                .andExpect(jsonPath("$.data.answered_count").value(1));
     }
 
     // ---------------------------------------------------------------
@@ -190,11 +204,64 @@ class MockExamControllerTest extends IntegrationTestBase {
         mockMvc.perform(post("/api/v1/mock-exams/attempts/{id}/submit", attemptId)
                         .header("Authorization", "Bearer " + userId))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.mockAttemptId").value(attemptId))
+                .andExpect(jsonPath("$.data.mock_attempt_id").value(attemptId))
                 .andExpect(jsonPath("$.data.status").value("submitted"))
-                .andExpect(jsonPath("$.data.correctCount").value(1))
-                .andExpect(jsonPath("$.data.wrongCount").value(1))
-                .andExpect(jsonPath("$.data.scorePercent").isNumber());
+                .andExpect(jsonPath("$.data.correct_count").value(1))
+                .andExpect(jsonPath("$.data.wrong_count").value(1))
+                .andExpect(jsonPath("$.data.score_percent").isNumber())
+                .andExpect(jsonPath("$.data.weak_topics").isArray())
+                .andExpect(jsonPath("$.data.next_action.type").isString());
+    }
+
+    @Test
+    void submitMockExam_allCorrect_nextActionIsPractice() throws Exception {
+        String attemptId = startMockAndGetId();
+        saveAnswerForAttempt(attemptId, q1, v1, "B"); // correct (q1 correct key = "B")
+        saveAnswerForAttempt(attemptId, q2, v2, "A"); // correct (q2 correct key = "A")
+
+        mockMvc.perform(post("/api/v1/mock-exams/attempts/{id}/submit", attemptId)
+                        .header("Authorization", "Bearer " + userId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.correct_count").value(2))
+                .andExpect(jsonPath("$.data.wrong_count").value(0))
+                .andExpect(jsonPath("$.data.next_action.type").value("practice"));
+    }
+
+    @Test
+    void startMockAttempt_noActiveMockTemplate_returns422() throws Exception {
+        fixtures.truncateAll();
+        Long noTemplateUser = fixtures.insertUser("notemplate@example.com");
+        fixtures.insertAccessPass(noTemplateUser, "active",
+                OffsetDateTime.now().minusDays(1), OffsetDateTime.now().plusDays(30), 3, 0);
+        // No mock exam template inserted
+
+        mockMvc.perform(post("/api/v1/mock-exams/attempts")
+                        .header("Authorization", "Bearer " + noTemplateUser)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"language":"en"}
+                                """))
+                .andExpect(status().isUnprocessableEntity())
+                .andExpect(jsonPath("$.error.code").value("NO_MOCK_EXAM_AVAILABLE"));
+    }
+
+    // ---------------------------------------------------------------
+    // POST /api/v1/mock-exams/attempts/{id}/answers — ownership
+    // ---------------------------------------------------------------
+
+    @Test
+    void saveAnswer_forbiddenUser_returns403() throws Exception {
+        Long otherUser = fixtures.insertUser("other@example.com");
+        String attemptId = startMockAndGetId();
+
+        mockMvc.perform(post("/api/v1/mock-exams/attempts/{id}/answers", attemptId)
+                        .header("Authorization", "Bearer " + otherUser)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"question_id":"%s","variant_id":"%s","selected_choice_key":"A"}
+                                """.formatted(q1, v1)))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.error.code").value("FORBIDDEN"));
     }
 
     // ---------------------------------------------------------------
@@ -208,9 +275,9 @@ class MockExamControllerTest extends IntegrationTestBase {
         mockMvc.perform(post("/api/v1/mock-exams/attempts/{id}/exit", attemptId)
                         .header("Authorization", "Bearer " + userId))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.mockAttemptId").value(attemptId))
+                .andExpect(jsonPath("$.data.mock_attempt_id").value(attemptId))
                 .andExpect(jsonPath("$.data.status").value("ended_by_exit"))
-                .andExpect(jsonPath("$.data.quotaConsumed").value(true));
+                .andExpect(jsonPath("$.data.quota_consumed").value(true));
     }
 
     // ---------------------------------------------------------------
@@ -229,7 +296,7 @@ class MockExamControllerTest extends IntegrationTestBase {
                                 """))
                 .andReturn();
         String body = result.getResponse().getContentAsString();
-        String key = "\"mockAttemptId\":\"";
+        String key = "\"mock_attempt_id\":\"";
         int start = body.indexOf(key) + key.length();
         int end   = body.indexOf("\"", start);
         return body.substring(start, end);

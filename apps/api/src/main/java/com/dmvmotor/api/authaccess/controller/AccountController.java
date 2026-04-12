@@ -12,6 +12,7 @@ import jakarta.validation.constraints.Pattern;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.HashMap;
 import java.util.Map;
 
 @RestController
@@ -78,20 +79,26 @@ public class AccountController {
 
     private Map<String, Object> toDto(MeResult me) {
         AccessInfo a = me.access();
-        return Map.of(
-                "userId",   String.valueOf(me.userId()),
-                "email",    me.email() != null ? me.email() : "",
-                "language", me.language(),
-                "access", Map.of(
-                        "state",        a.state(),
-                        "hasActivePass", a.hasActivePass(),
-                        "mockRemaining", a.mockRemaining(),
-                        "expiresAt",    ""
-                ),
-                "learning", Map.of(
-                        "hasInProgressPractice", me.hasInProgressPractice(),
-                        "hasInProgressReview",   false   // TODO: implement when review module ships
-                )
-        );
+
+        // expires_at: null for free_trial/no-pass, ISO string for active/expired passes
+        Object expiresAt = a.expiresAt() != null ? a.expiresAt().toString() : null;
+
+        Map<String, Object> access = new HashMap<>();
+        access.put("state",           a.state());
+        access.put("has_active_pass", a.hasActivePass());
+        access.put("mock_remaining",  a.mockRemaining());
+        access.put("expires_at",      expiresAt);
+
+        Map<String, Object> learning = new HashMap<>();
+        learning.put("has_in_progress_practice", me.hasInProgressPractice());
+        learning.put("has_in_progress_review",   me.hasInProgressReview());
+
+        Map<String, Object> dto = new HashMap<>();
+        dto.put("user_id",  String.valueOf(me.userId()));
+        dto.put("email",    me.email() != null ? me.email() : "");
+        dto.put("language", me.language());
+        dto.put("access",   access);
+        dto.put("learning", learning);
+        return dto;
     }
 }

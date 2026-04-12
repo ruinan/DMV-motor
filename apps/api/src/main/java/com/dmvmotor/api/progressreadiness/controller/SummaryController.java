@@ -27,13 +27,17 @@ public class SummaryController {
         requireAuth(userId);
         SummaryResult result = summaryService.getSummary(userId);
         return ApiResponse.ok(Map.of(
-                "completionScore",  result.completionScore(),
-                "readinessScore",   result.readinessScore(),
-                "isReadyCandidate", result.isReadyCandidate(),
-                "weakTopics", result.weakTopics().stream()
-                        .map(t -> Map.of("topicId", String.valueOf(t.topicId()),
-                                         "label",   String.valueOf(t.topicId())))
-                        .toList()
+                "completion_score",  result.completionScore(),
+                "readiness_score",   result.readinessScore(),
+                "is_ready_candidate", result.isReadyCandidate(),
+                "weak_topics", result.weakTopics().stream()
+                        .map(t -> Map.of(
+                                "topic_id", String.valueOf(t.topicId()),
+                                "label",    t.label()))
+                        .toList(),
+                "next_action", Map.of(
+                        "type",  result.nextActionType(),
+                        "label", result.nextActionLabel())
         ));
     }
 
@@ -42,9 +46,9 @@ public class SummaryController {
         requireAuth(userId);
         ReadinessResult result = summaryService.getReadiness(userId);
         return ApiResponse.ok(Map.of(
-                "readinessScore",   result.readinessScore(),
-                "isReadyCandidate", result.isReadyCandidate(),
-                "missingGates",     result.missingGates()
+                "readiness_score",    result.readinessScore(),
+                "is_ready_candidate", result.isReadyCandidate(),
+                "missing_gates",      result.missingGates()
         ));
     }
 

@@ -2,7 +2,6 @@ package com.dmvmotor.api.practice.controller;
 
 import com.dmvmotor.api.common.ApiResponse;
 import com.dmvmotor.api.common.CurrentUser;
-import com.dmvmotor.api.content.domain.Choice;
 import com.dmvmotor.api.content.domain.QuestionDetail;
 import com.dmvmotor.api.practice.application.PracticeService;
 import jakarta.validation.Valid;
@@ -10,7 +9,6 @@ import jakarta.validation.constraints.NotBlank;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.List;
 import java.util.Map;
 
 @RestController
@@ -30,60 +28,61 @@ public class PracticeSessionController {
         var result = practiceService.startSession(userId, req.entryType(),
                 req.language() != null ? req.language() : "en");
         return ApiResponse.ok(Map.of(
-                "sessionId",    String.valueOf(result.sessionId()),
-                "entryType",    result.entryType(),
-                "status",       result.status(),
-                "language",     result.language(),
-                "nextQuestion", toQuestionDto(result.nextQuestion())
+                "session_id",    String.valueOf(result.sessionId()),
+                "entry_type",    result.entryType(),
+                "status",        result.status(),
+                "language",      result.language(),
+                "next_question", toQuestionDto(result.nextQuestion())
         ));
     }
 
     @GetMapping("/{id}/next-question")
-    public ApiResponse<?> nextQuestion(@PathVariable Long id) {
-        QuestionDetail q = practiceService.getNextQuestion(id);
-        int answered = practiceService.getSessionStatus(id).answeredCount();
+    public ApiResponse<?> nextQuestion(@CurrentUser Long userId, @PathVariable Long id) {
+        QuestionDetail q = practiceService.getNextQuestion(id, userId);
+        int answered = practiceService.getSessionStatus(id, userId).answeredCount();
         return ApiResponse.ok(Map.of(
-                "questionId", String.valueOf(q.questionId()),
-                "variantId",  String.valueOf(q.variantId()),
-                "stem",       q.stem(),
-                "choices",    q.choices(),
-                "progress",   Map.of("answeredCount", answered)
+                "question_id", String.valueOf(q.questionId()),
+                "variant_id",  String.valueOf(q.variantId()),
+                "stem",        q.stem(),
+                "choices",     q.choices(),
+                "progress",    Map.of("answered_count", answered)
         ));
     }
 
     @GetMapping("/{id}")
-    public ApiResponse<?> getSession(@PathVariable Long id) {
-        var status = practiceService.getSessionStatus(id);
+    public ApiResponse<?> getSession(@CurrentUser Long userId, @PathVariable Long id) {
+        var status = practiceService.getSessionStatus(id, userId);
         return ApiResponse.ok(Map.of(
-                "sessionId",    String.valueOf(status.sessionId()),
-                "status",       status.status(),
-                "answeredCount", status.answeredCount(),
-                "totalCount",   status.totalCount()
+                "session_id",    String.valueOf(status.sessionId()),
+                "status",        status.status(),
+                "answered_count", status.answeredCount(),
+                "total_count",   status.totalCount()
         ));
     }
 
     @PostMapping("/{id}/answers")
-    public ApiResponse<?> submitAnswer(@PathVariable Long id,
+    public ApiResponse<?> submitAnswer(@CurrentUser Long userId,
+                                        @PathVariable Long id,
                                         @Valid @RequestBody AnswerRequest req) {
-        var result = practiceService.submitAnswer(id,
+        var result = practiceService.submitAnswer(id, userId,
                 Long.parseLong(req.questionId()),
                 Long.parseLong(req.variantId()),
                 req.selectedChoiceKey());
         return ApiResponse.ok(Map.of(
-                "questionId",       String.valueOf(result.questionId()),
-                "isCorrect",        result.isCorrect(),
-                "correctChoiceKey", result.correctChoiceKey(),
-                "explanation",      result.explanation() != null ? result.explanation() : "",
-                "progress",         Map.of("answeredCount", result.answeredCount())
+                "question_id",        String.valueOf(result.questionId()),
+                "is_correct",         result.isCorrect(),
+                "correct_choice_key", result.correctChoiceKey(),
+                "explanation",        result.explanation() != null ? result.explanation() : "",
+                "progress",           Map.of("answered_count", result.answeredCount())
         ));
     }
 
     @PostMapping("/{id}/complete")
-    public ApiResponse<?> completeSession(@PathVariable Long id) {
-        var result = practiceService.completeSession(id);
+    public ApiResponse<?> completeSession(@CurrentUser Long userId, @PathVariable Long id) {
+        var result = practiceService.completeSession(id, userId);
         return ApiResponse.ok(Map.of(
-                "sessionId", String.valueOf(result.sessionId()),
-                "status",    result.status()
+                "session_id", String.valueOf(result.sessionId()),
+                "status",     result.status()
         ));
     }
 
@@ -96,7 +95,6 @@ public class PracticeSessionController {
             String language
     ) {
         String entryType() { return entry_type; }
-        // language() auto-generated by record; null-safe handled in controller
     }
 
     record AnswerRequest(
@@ -111,10 +109,10 @@ public class PracticeSessionController {
 
     private Map<String, Object> toQuestionDto(QuestionDetail q) {
         return Map.of(
-                "questionId", String.valueOf(q.questionId()),
-                "variantId",  String.valueOf(q.variantId()),
-                "stem",       q.stem(),
-                "choices",    q.choices()
+                "question_id", String.valueOf(q.questionId()),
+                "variant_id",  String.valueOf(q.variantId()),
+                "stem",        q.stem(),
+                "choices",     q.choices()
         );
     }
 }

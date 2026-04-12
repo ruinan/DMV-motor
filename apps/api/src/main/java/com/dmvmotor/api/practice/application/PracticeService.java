@@ -47,8 +47,8 @@ public class PracticeService {
         return new StartSessionResult(sessionId, entryType, "in_progress", language, first);
     }
 
-    public QuestionDetail getNextQuestion(Long sessionId) {
-        PracticeSession session = requireSession(sessionId);
+    public QuestionDetail getNextQuestion(Long sessionId, Long requestUserId) {
+        PracticeSession session = requireSession(sessionId, requestUserId);
 
         return sessionRepo.findNextUnansweredQuestion(sessionId, session.languageCode())
                 .orElseThrow(() -> new BusinessException("SESSION_COMPLETED",
@@ -56,17 +56,17 @@ public class PracticeService {
                         HttpStatus.NOT_FOUND));
     }
 
-    public SessionStatus getSessionStatus(Long sessionId) {
-        PracticeSession session = requireSession(sessionId);
+    public SessionStatus getSessionStatus(Long sessionId, Long requestUserId) {
+        PracticeSession session = requireSession(sessionId, requestUserId);
         int answered = sessionRepo.countAnswered(sessionId);
         int total    = sessionRepo.countTotal(session.languageCode());
         return new SessionStatus(sessionId, session.status(), answered, total);
     }
 
     @Transactional
-    public AnswerResult submitAnswer(Long sessionId, Long questionId,
+    public AnswerResult submitAnswer(Long sessionId, Long requestUserId, Long questionId,
                                      Long variantId, String selectedKey) {
-        PracticeSession session = requireSession(sessionId);
+        PracticeSession session = requireSession(sessionId, requestUserId);
 
         if (sessionRepo.hasAttempt(sessionId, questionId)) {
             throw new BusinessException("QUESTION_ALREADY_SUBMITTED",
@@ -93,8 +93,8 @@ public class PracticeService {
     }
 
     @Transactional
-    public CompletedSession completeSession(Long sessionId) {
-        PracticeSession session = requireSession(sessionId);
+    public CompletedSession completeSession(Long sessionId, Long requestUserId) {
+        PracticeSession session = requireSession(sessionId, requestUserId);
 
         if (!session.isInProgress()) {
             throw new BusinessException("CONFLICT_STATE",
@@ -105,10 +105,16 @@ public class PracticeService {
         return new CompletedSession(sessionId, "completed");
     }
 
-    private PracticeSession requireSession(Long sessionId) {
-        return sessionRepo.findById(sessionId)
+    private PracticeSession requireSession(Long sessionId, Long requestUserId) {
+        PracticeSession session = sessionRepo.findById(sessionId)
                 .orElseThrow(() -> new ResourceNotFoundException(
                         "Practice session not found: " + sessionId));
+        // Owned sessions: requestUserId must match. Anonymous sessions (userId=null) are open.
+        if (session.userId() != null && !session.userId().equals(requestUserId)) {
+            throw new BusinessException("FORBIDDEN",
+                    "Session belongs to a different user", HttpStatus.FORBIDDEN);
+        }
+        return session;
     }
 
     // ---------------------------------------------------------------

@@ -1,6 +1,8 @@
 spring:
   application:
     name: dmv-motor-api
+  jackson:
+    property-naming-strategy: SNAKE_CASE
   datasource:
     url: ${DB_URL:jdbc:postgresql://localhost:5432/dmv_motor}
     username: ${DB_USERNAME:dmv_motor}

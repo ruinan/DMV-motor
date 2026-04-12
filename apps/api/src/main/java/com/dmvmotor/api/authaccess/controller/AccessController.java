@@ -24,11 +24,11 @@ public class AccessController {
     public ApiResponse<?> getAccess(@CurrentUser Long userId) {
         AccessInfo info = accessService.getAccess(userId);
         return ApiResponse.ok(Map.of(
-                "state",         info.state(),
-                "hasActivePass", info.hasActivePass(),
-                "mockRemaining", info.mockRemaining(),
-                "canUseReview",  info.canUseReview(),
-                "canUseMockExam", info.canUseMockExam()
+                "state",            info.state(),
+                "has_active_pass",  info.hasActivePass(),
+                "mock_remaining",   info.mockRemaining(),
+                "can_use_review",   info.canUseReview(),
+                "can_use_mock_exam", info.canUseMockExam()
         ));
     }
 }

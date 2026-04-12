@@ -25,8 +25,21 @@ public class SummaryService {
         List<WeakTopic> weakTopics = findWeakTopics(userId);
         int completionScore = calcCompletionScore(userId);
 
+        String nextActionType;
+        String nextActionLabel;
+        if (!weakTopics.isEmpty()) {
+            nextActionType  = "review";
+            nextActionLabel = "Finish review pack";
+        } else if (!readiness.isReadyCandidate()) {
+            nextActionType  = "mock_exam";
+            nextActionLabel = "Take a mock exam";
+        } else {
+            nextActionType  = "none";
+            nextActionLabel = "You're ready!";
+        }
+
         return new SummaryResult(completionScore, readiness.readinessScore(),
-                readiness.isReadyCandidate(), weakTopics);
+                readiness.isReadyCandidate(), weakTopics, nextActionType, nextActionLabel);
     }
 
     public ReadinessResult getReadiness(Long userId) {
@@ -108,7 +121,9 @@ public class SummaryService {
             int completionScore,
             int readinessScore,
             boolean isReadyCandidate,
-            List<WeakTopic> weakTopics
+            List<WeakTopic> weakTopics,
+            String nextActionType,
+            String nextActionLabel
     ) {}
 
     public record ReadinessResult(

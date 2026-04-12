@@ -158,6 +158,26 @@ public class MockExamRepository {
     // Value objects
     // ---------------------------------------------------------------
 
+    public List<WeakTopicRow> findWeakTopicsByAttemptId(Long attemptId) {
+        var mar = Tables.MOCK_ATTEMPT_RESULTS;
+        var q   = Tables.QUESTIONS;
+        var t   = Tables.TOPICS;
+        return dsl.select(t.ID, t.NAME_EN, org.jooq.impl.DSL.count())
+                .from(mar)
+                .join(q).on(q.ID.eq(mar.QUESTION_ID))
+                .join(t).on(t.ID.eq(q.PRIMARY_TOPIC_ID))
+                .where(mar.MOCK_ATTEMPT_ID.eq(attemptId).and(mar.IS_CORRECT.isFalse()))
+                .groupBy(t.ID, t.NAME_EN)
+                .orderBy(org.jooq.impl.DSL.count().desc())
+                .limit(5)
+                .fetch()
+                .map(r -> new WeakTopicRow(r.get(t.ID), r.get(t.NAME_EN)));
+    }
+
+    // ---------------------------------------------------------------
+    // Value objects
+    // ---------------------------------------------------------------
+
     public record AttemptRow(
             Long    id,
             Long    userId,
@@ -169,4 +189,6 @@ public class MockExamRepository {
     ) {}
 
     public record AnswerRow(Long questionId, String selectedKey) {}
+
+    public record WeakTopicRow(Long topicId, String label) {}
 }

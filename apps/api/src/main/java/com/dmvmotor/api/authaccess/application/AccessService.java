@@ -4,6 +4,7 @@ import com.dmvmotor.api.authaccess.domain.AccessPass;
 import com.dmvmotor.api.authaccess.infrastructure.AccessRepository;
 import org.springframework.stereotype.Service;
 
+import java.time.OffsetDateTime;
 import java.util.Optional;
 
 @Service
@@ -19,7 +20,7 @@ public class AccessService {
         Optional<AccessPass> passOpt = accessRepo.findLatestPassByUserId(userId);
 
         if (passOpt.isEmpty()) {
-            return new AccessInfo("free_trial", false, 0, false, false);
+            return new AccessInfo("free_trial", false, 0, false, false, null);
         }
 
         AccessPass pass = passOpt.get();
@@ -28,14 +29,16 @@ public class AccessService {
         boolean canUseMock = hasActive && mockRemaining > 0;
 
         String state = hasActive ? "active" : "expired";
-        return new AccessInfo(state, hasActive, mockRemaining, hasActive, canUseMock);
+        return new AccessInfo(state, hasActive, mockRemaining, hasActive, canUseMock,
+                pass.expiresAt());
     }
 
     public record AccessInfo(
-            String  state,
-            boolean hasActivePass,
-            int     mockRemaining,
-            boolean canUseReview,
-            boolean canUseMockExam
+            String         state,
+            boolean        hasActivePass,
+            int            mockRemaining,
+            boolean        canUseReview,
+            boolean        canUseMockExam,
+            OffsetDateTime expiresAt
     ) {}
 }

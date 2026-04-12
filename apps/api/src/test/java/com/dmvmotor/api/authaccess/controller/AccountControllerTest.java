@@ -33,13 +33,14 @@ class AccountControllerTest extends IntegrationTestBase {
         mockMvc.perform(get("/api/v1/me")
                         .header("Authorization", "Bearer " + userId))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.userId").value(String.valueOf(userId)))
+                .andExpect(jsonPath("$.data.user_id").value(String.valueOf(userId)))
                 .andExpect(jsonPath("$.data.email").value("alice@example.com"))
                 .andExpect(jsonPath("$.data.language").value("en"))
                 .andExpect(jsonPath("$.data.access.state").value("free_trial"))
-                .andExpect(jsonPath("$.data.access.hasActivePass").value(false))
-                .andExpect(jsonPath("$.data.access.mockRemaining").value(0))
-                .andExpect(jsonPath("$.data.learning.hasInProgressPractice").value(false));
+                .andExpect(jsonPath("$.data.access.has_active_pass").value(false))
+                .andExpect(jsonPath("$.data.access.mock_remaining").value(0))
+                .andExpect(jsonPath("$.data.learning.has_in_progress_practice").value(false))
+                .andExpect(jsonPath("$.data.learning.has_in_progress_review").value(false));
     }
 
     @Test
@@ -63,6 +64,20 @@ class AccountControllerTest extends IntegrationTestBase {
                         .header("Authorization", "Bearer " + noEmailUserId))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.email").value(""));
+    }
+
+    @Test
+    void getMe_withActivePass_expiresAtIsPresent() throws Exception {
+        fixtures.insertAccessPass(userId, "active",
+                java.time.OffsetDateTime.now().minusDays(1),
+                java.time.OffsetDateTime.now().plusDays(30), 3, 0);
+
+        mockMvc.perform(get("/api/v1/me")
+                        .header("Authorization", "Bearer " + userId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.access.state").value("active"))
+                .andExpect(jsonPath("$.data.access.has_active_pass").value(true))
+                .andExpect(jsonPath("$.data.access.expires_at").isString());
     }
 
     // ---------------------------------------------------------------

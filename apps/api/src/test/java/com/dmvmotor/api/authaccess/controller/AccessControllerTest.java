@@ -25,10 +25,6 @@ class AccessControllerTest extends IntegrationTestBase {
         userId = fixtures.insertUser("bob@example.com");
     }
 
-    // ---------------------------------------------------------------
-    // GET /api/v1/access
-    // ---------------------------------------------------------------
-
     @Test
     void getAccess_nonBearerAuthHeader_treatsAsAnonymous() throws Exception {
         mockMvc.perform(get("/api/v1/access")
@@ -50,10 +46,10 @@ class AccessControllerTest extends IntegrationTestBase {
         mockMvc.perform(get("/api/v1/access"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.state").value("free_trial"))
-                .andExpect(jsonPath("$.data.hasActivePass").value(false))
-                .andExpect(jsonPath("$.data.mockRemaining").value(0))
-                .andExpect(jsonPath("$.data.canUseReview").value(false))
-                .andExpect(jsonPath("$.data.canUseMockExam").value(false));
+                .andExpect(jsonPath("$.data.has_active_pass").value(false))
+                .andExpect(jsonPath("$.data.mock_remaining").value(0))
+                .andExpect(jsonPath("$.data.can_use_review").value(false))
+                .andExpect(jsonPath("$.data.can_use_mock_exam").value(false));
     }
 
     @Test
@@ -62,7 +58,7 @@ class AccessControllerTest extends IntegrationTestBase {
                         .header("Authorization", "Bearer " + userId))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.state").value("free_trial"))
-                .andExpect(jsonPath("$.data.hasActivePass").value(false));
+                .andExpect(jsonPath("$.data.has_active_pass").value(false));
     }
 
     @Test
@@ -75,10 +71,10 @@ class AccessControllerTest extends IntegrationTestBase {
                         .header("Authorization", "Bearer " + userId))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.state").value("active"))
-                .andExpect(jsonPath("$.data.hasActivePass").value(true))
-                .andExpect(jsonPath("$.data.mockRemaining").value(2))
-                .andExpect(jsonPath("$.data.canUseReview").value(true))
-                .andExpect(jsonPath("$.data.canUseMockExam").value(true));
+                .andExpect(jsonPath("$.data.has_active_pass").value(true))
+                .andExpect(jsonPath("$.data.mock_remaining").value(2))
+                .andExpect(jsonPath("$.data.can_use_review").value(true))
+                .andExpect(jsonPath("$.data.can_use_mock_exam").value(true));
     }
 
     @Test
@@ -91,7 +87,7 @@ class AccessControllerTest extends IntegrationTestBase {
                         .header("Authorization", "Bearer " + userId))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.state").value("expired"))
-                .andExpect(jsonPath("$.data.hasActivePass").value(false))
-                .andExpect(jsonPath("$.data.mockRemaining").value(0));
+                .andExpect(jsonPath("$.data.has_active_pass").value(false))
+                .andExpect(jsonPath("$.data.mock_remaining").value(0));
     }
 }

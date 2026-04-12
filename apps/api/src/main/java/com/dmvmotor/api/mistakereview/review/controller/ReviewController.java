@@ -3,7 +3,6 @@ package com.dmvmotor.api.mistakereview.review.controller;
 import com.dmvmotor.api.common.ApiResponse;
 import com.dmvmotor.api.common.BusinessException;
 import com.dmvmotor.api.common.CurrentUser;
-import com.dmvmotor.api.content.domain.Choice;
 import com.dmvmotor.api.content.domain.QuestionDetail;
 import com.dmvmotor.api.mistakereview.review.application.ReviewService;
 import com.dmvmotor.api.mistakereview.review.application.ReviewService.*;
@@ -12,7 +11,6 @@ import jakarta.validation.constraints.NotBlank;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.List;
 import java.util.Map;
 
 @RestController
@@ -30,9 +28,11 @@ public class ReviewController {
         requireAuth(userId);
         ReviewPackResult pack = reviewService.getOrCreatePack(userId);
         return ApiResponse.ok(Map.of(
-                "reviewPackId", String.valueOf(pack.packId()),
-                "status",       pack.status(),
-                "tasks",        pack.tasks().stream().map(this::toTaskDto).toList()
+                "review_pack_id",          String.valueOf(pack.packId()),
+                "status",                  pack.status(),
+                "target_question_count",   pack.targetQuestionCount(),
+                "completed_question_count", pack.completedQuestionCount(),
+                "tasks",                   pack.tasks().stream().map(this::toTaskDto).toList()
         ));
     }
 
@@ -43,12 +43,12 @@ public class ReviewController {
             @RequestParam(defaultValue = "en") String language
     ) {
         requireAuth(userId);
-        TaskQuestionsResult result = reviewService.getTaskQuestions(id, language);
+        TaskQuestionsResult result = reviewService.getTaskQuestions(id, userId, language);
         return ApiResponse.ok(Map.of(
-                "reviewTaskId", String.valueOf(result.taskId()),
-                "taskType",     result.taskType(),
-                "topicId",      String.valueOf(result.topicId()),
-                "questions",    result.questions().stream().map(this::toQuestionDto).toList()
+                "review_task_id", String.valueOf(result.taskId()),
+                "task_type",      result.taskType(),
+                "topic_id",       String.valueOf(result.topicId()),
+                "questions",      result.questions().stream().map(this::toQuestionDto).toList()
         ));
     }
 
@@ -65,13 +65,13 @@ public class ReviewController {
                 Long.parseLong(req.variantId()),
                 req.selectedChoiceKey());
         return ApiResponse.ok(Map.of(
-                "questionId",       String.valueOf(result.questionId()),
-                "isCorrect",        result.isCorrect(),
-                "correctChoiceKey", result.correctChoiceKey(),
-                "explanation",      result.explanation() != null ? result.explanation() : "",
-                "taskProgress",     Map.of(
-                        "answeredCount", result.answeredCount(),
-                        "targetCount",  result.targetCount()
+                "question_id",        String.valueOf(result.questionId()),
+                "is_correct",         result.isCorrect(),
+                "correct_choice_key", result.correctChoiceKey(),
+                "explanation",        result.explanation() != null ? result.explanation() : "",
+                "task_progress",      Map.of(
+                        "answered_count", result.answeredCount(),
+                        "target_count",  result.targetCount()
                 )
         ));
     }
@@ -82,10 +82,11 @@ public class ReviewController {
             @PathVariable Long id
     ) {
         requireAuth(userId);
-        CompleteTaskResult result = reviewService.completeTask(id);
+        CompleteTaskResult result = reviewService.completeTask(id, userId);
         return ApiResponse.ok(Map.of(
-                "reviewTaskId", String.valueOf(result.taskId()),
-                "completed",    result.completed()
+                "review_task_id", String.valueOf(result.taskId()),
+                "completed",      result.completed(),
+                "next_action",    Map.of("type", "continue_review", "label", "Continue review")
         ));
     }
 
@@ -105,20 +106,22 @@ public class ReviewController {
 
     private Map<String, Object> toTaskDto(TaskSummary t) {
         return Map.of(
-                "reviewTaskId", String.valueOf(t.taskId()),
-                "topicId",      String.valueOf(t.topicId()),
-                "type",         t.type(),
-                "status",       t.status(),
-                "priority",     t.priority()
+                "review_task_id",           String.valueOf(t.taskId()),
+                "topic_id",                 String.valueOf(t.topicId()),
+                "type",                     t.type(),
+                "status",                   t.status(),
+                "priority",                 t.priority(),
+                "target_question_count",    t.targetQuestionCount(),
+                "completed_question_count", t.completedQuestionCount()
         );
     }
 
     private Map<String, Object> toQuestionDto(QuestionDetail q) {
         return Map.of(
-                "questionId", String.valueOf(q.questionId()),
-                "variantId",  String.valueOf(q.variantId()),
-                "stem",       q.stem(),
-                "choices",    q.choices()
+                "question_id", String.valueOf(q.questionId()),
+                "variant_id",  String.valueOf(q.variantId()),
+                "stem",        q.stem(),
+                "choices",     q.choices()
         );
     }
 

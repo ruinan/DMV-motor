@@ -40,9 +40,9 @@ class TopicControllerTest extends IntegrationTestBase {
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data.items", hasSize(2)))
                 .andExpect(jsonPath("$.data.items[0].code").value("TRAFFIC_SIGNS"))
-                .andExpect(jsonPath("$.data.items[0].nameEn").value("Traffic Signs"))
-                .andExpect(jsonPath("$.data.items[0].nameZh").value("交通标志"))
-                .andExpect(jsonPath("$.data.items[0].isKeyTopic").value(true))
+                .andExpect(jsonPath("$.data.items[0].name_en").value("Traffic Signs"))
+                .andExpect(jsonPath("$.data.items[0].name_zh").value("交通标志"))
+                .andExpect(jsonPath("$.data.items[0].is_key_topic").value(true))
                 .andExpect(jsonPath("$.data.items[1].code").value("RIGHT_OF_WAY"));
     }
 
@@ -53,7 +53,7 @@ class TopicControllerTest extends IntegrationTestBase {
 
         mockMvc.perform(get("/api/v1/topics"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.items[?(@.code=='CHILD')].parentTopicId")
+                .andExpect(jsonPath("$.data.items[?(@.code=='CHILD')].parent_topic_id")
                         .value(parentId.toString()));
     }
 

@@ -6,6 +6,7 @@ import com.dmvmotor.api.common.CurrentUser;
 import com.dmvmotor.api.content.domain.QuestionDetail;
 import com.dmvmotor.api.mockexam.application.MockExamService;
 import com.dmvmotor.api.mockexam.application.MockExamService.*;
+import com.dmvmotor.api.mockexam.infrastructure.MockExamRepository.WeakTopicRow;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import org.springframework.http.HttpStatus;
@@ -27,9 +28,9 @@ public class MockExamController {
     public ApiResponse<?> getMockAccess(@CurrentUser Long userId) {
         MockAccessResult result = mockExamService.checkAccess(userId);
         return ApiResponse.ok(Map.of(
-                "allowed",       result.allowed(),
-                "mockRemaining", result.mockRemaining(),
-                "reason",        result.reason() != null ? result.reason() : ""
+                "allowed",        result.allowed(),
+                "mock_remaining", result.mockRemaining(),
+                "reason",         result.reason() != null ? result.reason() : ""
         ));
     }
 
@@ -43,9 +44,9 @@ public class MockExamController {
         StartAttemptResult result = mockExamService.startAttempt(
                 userId, req.language() != null ? req.language() : "en");
         return ApiResponse.ok(Map.of(
-                "mockAttemptId",           String.valueOf(result.attemptId()),
-                "status",                  result.status(),
-                "mockRemainingAfterStart", result.mockRemainingAfterStart(),
+                "mock_attempt_id",             String.valueOf(result.attemptId()),
+                "status",                      result.status(),
+                "mock_remaining_after_start",  result.mockRemainingAfterStart(),
                 "questions", result.questions().stream().map(this::toQuestionDto).toList()
         ));
     }
@@ -58,13 +59,13 @@ public class MockExamController {
     ) {
         requireAuth(userId);
         SaveAnswerResult result = mockExamService.saveAnswer(
-                id,
+                id, userId,
                 Long.parseLong(req.questionId()),
                 Long.parseLong(req.variantId()),
                 req.selectedKey());
         return ApiResponse.ok(Map.of(
-                "saved",         result.saved(),
-                "answeredCount", result.answeredCount()
+                "saved",          result.saved(),
+                "answered_count", result.answeredCount()
         ));
     }
 
@@ -74,13 +75,19 @@ public class MockExamController {
             @PathVariable Long id
     ) {
         requireAuth(userId);
-        SubmitResult result = mockExamService.submitAttempt(id);
+        SubmitResult result = mockExamService.submitAttempt(id, userId);
         return ApiResponse.ok(Map.of(
-                "mockAttemptId", String.valueOf(result.attemptId()),
-                "status",        result.status(),
-                "scorePercent",  result.scorePercent(),
-                "correctCount",  result.correctCount(),
-                "wrongCount",    result.wrongCount()
+                "mock_attempt_id", String.valueOf(result.attemptId()),
+                "status",          result.status(),
+                "score_percent",   result.scorePercent(),
+                "correct_count",   result.correctCount(),
+                "wrong_count",     result.wrongCount(),
+                "weak_topics",     result.weakTopics().stream()
+                        .map(t -> Map.of(
+                                "topic_id", String.valueOf(t.topicId()),
+                                "label",    t.label()))
+                        .toList(),
+                "next_action",     result.nextAction()
         ));
     }
 
@@ -90,12 +97,12 @@ public class MockExamController {
             @PathVariable Long id
     ) {
         requireAuth(userId);
-        ExitResult result = mockExamService.exitAttempt(id);
+        ExitResult result = mockExamService.exitAttempt(id, userId);
         return ApiResponse.ok(Map.of(
-                "mockAttemptId", String.valueOf(result.attemptId()),
-                "status",        result.status(),
-                "quotaConsumed", result.quotaConsumed(),
-                "answeredCount", result.answeredCount()
+                "mock_attempt_id", String.valueOf(result.attemptId()),
+                "status",          result.status(),
+                "quota_consumed",  result.quotaConsumed(),
+                "answered_count",  result.answeredCount()
         ));
     }
 
@@ -117,10 +124,10 @@ public class MockExamController {
 
     private Map<String, Object> toQuestionDto(QuestionDetail q) {
         return Map.of(
-                "questionId", String.valueOf(q.questionId()),
-                "variantId",  String.valueOf(q.variantId()),
-                "stem",       q.stem(),
-                "choices",    q.choices()
+                "question_id", String.valueOf(q.questionId()),
+                "variant_id",  String.valueOf(q.variantId()),
+                "stem",        q.stem(),
+                "choices",     q.choices()
         );
     }
 

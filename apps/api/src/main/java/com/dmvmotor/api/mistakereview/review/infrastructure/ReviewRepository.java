@@ -69,6 +69,7 @@ public class ReviewRepository {
                 .fetch()
                 .map(r -> new TaskRow(
                         r.get(rt.ID),
+                        r.get(rt.USER_ID),
                         r.get(rt.TOPIC_ID),
                         r.get(rt.TASK_TYPE),
                         r.get(rt.STATUS),
@@ -84,6 +85,7 @@ public class ReviewRepository {
         if (r == null) return Optional.empty();
         return Optional.of(new TaskRow(
                 r.get(rt.ID),
+                r.get(rt.USER_ID),
                 r.get(rt.TOPIC_ID),
                 r.get(rt.TASK_TYPE),
                 r.get(rt.STATUS),
@@ -163,6 +165,7 @@ public class ReviewRepository {
 
     public record TaskRow(
             Long   id,
+            Long   userId,
             Long   topicId,
             String taskType,
             String status,

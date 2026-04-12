@@ -43,21 +43,21 @@ public class MistakeController {
         return ApiResponse.okWithMeta(
                 Map.of("items", items),
                 Map.of(
-                        "page",     result.page(),
-                        "pageSize", result.pageSize(),
-                        "total",    result.total()
+                        "page",      result.page(),
+                        "page_size", result.pageSize(),
+                        "total",     result.total()
                 )
         );
     }
 
     private Map<String, Object> toItemDto(MistakeRecord r) {
         return Map.of(
-                "mistakeId",   String.valueOf(r.id()),
-                "questionId",  String.valueOf(r.questionId()),
-                "topicId",     String.valueOf(r.topicId()),
-                "wrongCount",  r.wrongCount(),
-                "lastWrongAt", r.lastWrongAt().toString(),
-                "source",      r.lastEntrySource()
+                "mistake_id",   String.valueOf(r.id()),
+                "question_id",  String.valueOf(r.questionId()),
+                "topic_id",     String.valueOf(r.topicId()),
+                "wrong_count",  r.wrongCount(),
+                "last_wrong_at", r.lastWrongAt().toString(),
+                "source",       r.lastEntrySource()
         );
     }
 }

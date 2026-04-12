@@ -42,10 +42,12 @@ class SummaryControllerTest extends IntegrationTestBase {
         mockMvc.perform(get("/api/v1/summary")
                         .header("Authorization", "Bearer " + userId))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.completionScore").isNumber())
-                .andExpect(jsonPath("$.data.readinessScore").isNumber())
-                .andExpect(jsonPath("$.data.isReadyCandidate").value(false))
-                .andExpect(jsonPath("$.data.weakTopics").isArray());
+                .andExpect(jsonPath("$.data.completion_score").isNumber())
+                .andExpect(jsonPath("$.data.readiness_score").isNumber())
+                .andExpect(jsonPath("$.data.is_ready_candidate").value(false))
+                .andExpect(jsonPath("$.data.weak_topics").isArray())
+                .andExpect(jsonPath("$.data.next_action.type").isString())
+                .andExpect(jsonPath("$.data.next_action.label").isString());
     }
 
     @Test
@@ -56,8 +58,9 @@ class SummaryControllerTest extends IntegrationTestBase {
         mockMvc.perform(get("/api/v1/summary")
                         .header("Authorization", "Bearer " + userId))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.weakTopics[0].topicId")
-                        .value(String.valueOf(topicId)));
+                .andExpect(jsonPath("$.data.weak_topics[0].topic_id")
+                        .value(String.valueOf(topicId)))
+                .andExpect(jsonPath("$.data.weak_topics[0].label").isString());
     }
 
     // ---------------------------------------------------------------
@@ -75,14 +78,13 @@ class SummaryControllerTest extends IntegrationTestBase {
         mockMvc.perform(get("/api/v1/readiness")
                         .header("Authorization", "Bearer " + userId))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.readinessScore").isNumber())
-                .andExpect(jsonPath("$.data.isReadyCandidate").value(false))
-                .andExpect(jsonPath("$.data.missingGates").isArray());
+                .andExpect(jsonPath("$.data.readiness_score").isNumber())
+                .andExpect(jsonPath("$.data.is_ready_candidate").value(false))
+                .andExpect(jsonPath("$.data.missing_gates").isArray());
     }
 
     @Test
     void getReadiness_userWithPassedMockAndNoMistakes_returnsReady() throws Exception {
-        // Insert a passed mock attempt (≥83% score)
         Long mockExamId = fixtures.insertMockExam("READINESS_TEST_V1", 1);
         Long q1 = fixtures.insertQuestion(topicId, "A");
         fixtures.insertMockExamQuestion(mockExamId, q1, 1);
@@ -94,6 +96,6 @@ class SummaryControllerTest extends IntegrationTestBase {
         mockMvc.perform(get("/api/v1/readiness")
                         .header("Authorization", "Bearer " + userId))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.isReadyCandidate").value(true));
+                .andExpect(jsonPath("$.data.is_ready_candidate").value(true));
     }
 }

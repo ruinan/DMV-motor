@@ -1,5 +1,7 @@
 package com.dmvmotor.api.mistakereview.review.application;
 
+import com.dmvmotor.api.authaccess.application.AccessService;
+import com.dmvmotor.api.authaccess.infrastructure.UserRepository;
 import com.dmvmotor.api.common.BusinessException;
 import com.dmvmotor.api.common.ResourceNotFoundException;
 import com.dmvmotor.api.content.domain.QuestionDetail;
@@ -25,19 +27,32 @@ public class ReviewService {
     private final MistakeListRepository mistakeListRepo;
     private final MistakeRepository     mistakeRepo;
     private final QuestionRepository    questionRepo;
+    private final AccessService         accessService;
+    private final UserRepository        userRepo;
 
     public ReviewService(ReviewRepository reviewRepo,
                          MistakeListRepository mistakeListRepo,
                          MistakeRepository mistakeRepo,
-                         QuestionRepository questionRepo) {
+                         QuestionRepository questionRepo,
+                         AccessService accessService,
+                         UserRepository userRepo) {
         this.reviewRepo      = reviewRepo;
         this.mistakeListRepo = mistakeListRepo;
         this.mistakeRepo     = mistakeRepo;
         this.questionRepo    = questionRepo;
+        this.accessService   = accessService;
+        this.userRepo        = userRepo;
     }
 
     @Transactional
     public ReviewPackResult getOrCreatePack(Long userId) {
+        // Access control: review requires an active pass
+        if (!accessService.getAccess(userId).canUseReview()) {
+            throw new BusinessException("ACCESS_DENIED",
+                    "Active access pass required to use review",
+                    HttpStatus.FORBIDDEN);
+        }
+
         var existingPackId = reviewRepo.findActivePackId(userId);
         if (existingPackId.isPresent()) {
             return buildPackResult(existingPackId.get());
@@ -72,10 +87,8 @@ public class ReviewService {
         return buildPackResult(packId);
     }
 
-    public TaskQuestionsResult getTaskQuestions(Long taskId, String language) {
-        TaskRow task = reviewRepo.findTaskById(taskId)
-                .orElseThrow(() -> new ResourceNotFoundException(
-                        "Review task not found: " + taskId));
+    public TaskQuestionsResult getTaskQuestions(Long taskId, Long userId, String language) {
+        TaskRow task = requireTask(taskId, userId);
 
         List<Long> questionIds = reviewRepo.findQuestionIdsByTaskId(taskId);
         List<QuestionDetail> questions = questionIds.stream()
@@ -91,17 +104,20 @@ public class ReviewService {
     public ReviewAnswerResult submitAnswer(Long taskId, Long userId,
                                            Long questionId, Long variantId,
                                            String selectedKey) {
-        TaskRow task = reviewRepo.findTaskById(taskId)
-                .orElseThrow(() -> new ResourceNotFoundException(
-                        "Review task not found: " + taskId));
+        TaskRow task = requireTask(taskId, userId);
 
         if (reviewRepo.hasAnswer(taskId, questionId)) {
             throw new BusinessException("QUESTION_ALREADY_SUBMITTED",
                     "Question already answered in this task", HttpStatus.CONFLICT);
         }
 
+        // Use user's language preference for answer validation and explanation
+        String language = userRepo.findById(userId)
+                .map(u -> u.languagePreference())
+                .orElse("en");
+
         QuestionDetail question = questionRepo
-                .findByIdAndLanguage(questionId, "en")
+                .findByIdAndLanguage(questionId, language)
                 .orElseThrow(() -> new ResourceNotFoundException(
                         "Question not found: " + questionId));
 
@@ -127,10 +143,8 @@ public class ReviewService {
     }
 
     @Transactional
-    public CompleteTaskResult completeTask(Long taskId) {
-        reviewRepo.findTaskById(taskId)
-                .orElseThrow(() -> new ResourceNotFoundException(
-                        "Review task not found: " + taskId));
+    public CompleteTaskResult completeTask(Long taskId, Long userId) {
+        requireTask(taskId, userId);
         reviewRepo.updateTaskStatus(taskId, "completed");
         return new CompleteTaskResult(taskId, true);
     }
@@ -139,10 +153,14 @@ public class ReviewService {
     // Result types
     // ---------------------------------------------------------------
 
-    public record ReviewPackResult(Long packId, String status, List<TaskSummary> tasks) {}
+    public record ReviewPackResult(
+            Long packId, String status,
+            int targetQuestionCount, int completedQuestionCount,
+            List<TaskSummary> tasks) {}
 
     public record TaskSummary(
-            Long taskId, Long topicId, String type, String status, int priority) {}
+            Long taskId, Long topicId, String type, String status, int priority,
+            int targetQuestionCount, int completedQuestionCount) {}
 
     public record TaskQuestionsResult(
             Long taskId, String taskType, Long topicId, List<QuestionDetail> questions) {}
@@ -153,12 +171,30 @@ public class ReviewService {
 
     public record CompleteTaskResult(Long taskId, boolean completed) {}
 
+    // ---------------------------------------------------------------
+    // Helpers
+    // ---------------------------------------------------------------
+
+    private TaskRow requireTask(Long taskId, Long userId) {
+        TaskRow task = reviewRepo.findTaskById(taskId)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Review task not found: " + taskId));
+        if (!task.userId().equals(userId)) {
+            throw new BusinessException("FORBIDDEN",
+                    "Task belongs to a different user", HttpStatus.FORBIDDEN);
+        }
+        return task;
+    }
+
     private ReviewPackResult buildPackResult(Long packId) {
         List<TaskRow> tasks = reviewRepo.findTasksByPackId(packId);
         List<TaskSummary> summaries = tasks.stream()
                 .map(t -> new TaskSummary(t.id(), t.topicId(), t.taskType(),
-                        t.status(), t.priority()))
+                        t.status(), t.priority(),
+                        t.targetQuestionCount(), t.completedQuestionCount()))
                 .toList();
-        return new ReviewPackResult(packId, "active", summaries);
+        int targetTotal    = summaries.stream().mapToInt(TaskSummary::targetQuestionCount).sum();
+        int completedTotal = summaries.stream().mapToInt(TaskSummary::completedQuestionCount).sum();
+        return new ReviewPackResult(packId, "active", targetTotal, completedTotal, summaries);
     }
 }

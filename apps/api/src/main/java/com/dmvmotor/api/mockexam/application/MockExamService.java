@@ -14,6 +14,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Map;
 
 @Service
 public class MockExamService {
@@ -67,17 +68,17 @@ public class MockExamService {
     }
 
     @Transactional
-    public SaveAnswerResult saveAnswer(Long attemptId, Long questionId,
-                                       Long variantId, String selectedKey) {
-        AttemptRow attempt = requireAttempt(attemptId);
+    public SaveAnswerResult saveAnswer(Long attemptId, Long userId,
+                                       Long questionId, Long variantId, String selectedKey) {
+        AttemptRow attempt = requireAttempt(attemptId, userId);
         boolean isNew = mockExamRepo.upsertAnswer(attemptId, questionId, variantId, selectedKey);
         int answeredCount = isNew ? attempt.answeredCount() + 1 : attempt.answeredCount();
         return new SaveAnswerResult(true, answeredCount);
     }
 
     @Transactional
-    public SubmitResult submitAttempt(Long attemptId) {
-        AttemptRow attempt = requireAttempt(attemptId);
+    public SubmitResult submitAttempt(Long attemptId, Long userId) {
+        AttemptRow attempt = requireAttempt(attemptId, userId);
 
         List<AnswerRow> answers = mockExamRepo.findAnswersByAttemptId(attemptId);
         int correctCount = 0;
@@ -97,12 +98,20 @@ public class MockExamService {
         int scorePercent = total == 0 ? 0 : (int) Math.round(100.0 * correctCount / total);
         mockExamRepo.scoreAttempt(attemptId, correctCount, wrongCount, scorePercent);
 
-        return new SubmitResult(attemptId, "submitted", scorePercent, correctCount, wrongCount);
+        List<MockExamRepository.WeakTopicRow> weakTopics =
+                mockExamRepo.findWeakTopicsByAttemptId(attemptId);
+
+        Map<String, String> nextAction = wrongCount > 0
+                ? Map.of("type", "review", "label", "Review weak topics first")
+                : Map.of("type", "practice", "label", "Keep practicing");
+
+        return new SubmitResult(attemptId, "submitted", scorePercent,
+                correctCount, wrongCount, weakTopics, nextAction);
     }
 
     @Transactional
-    public ExitResult exitAttempt(Long attemptId) {
-        AttemptRow attempt = requireAttempt(attemptId);
+    public ExitResult exitAttempt(Long attemptId, Long userId) {
+        AttemptRow attempt = requireAttempt(attemptId, userId);
         mockExamRepo.updateAttemptStatus(attemptId, "ended_by_exit");
         return new ExitResult(attemptId, "ended_by_exit", true, attempt.answeredCount());
     }
@@ -121,15 +130,22 @@ public class MockExamService {
 
     public record SubmitResult(
             Long attemptId, String status,
-            int scorePercent, int correctCount, int wrongCount) {}
+            int scorePercent, int correctCount, int wrongCount,
+            List<MockExamRepository.WeakTopicRow> weakTopics,
+            Map<String, String> nextAction) {}
 
     public record ExitResult(
             Long attemptId, String status,
             boolean quotaConsumed, int answeredCount) {}
 
-    private AttemptRow requireAttempt(Long attemptId) {
-        return mockExamRepo.findAttemptById(attemptId)
+    private AttemptRow requireAttempt(Long attemptId, Long userId) {
+        AttemptRow attempt = mockExamRepo.findAttemptById(attemptId)
                 .orElseThrow(() -> new ResourceNotFoundException(
                         "Mock attempt not found: " + attemptId));
+        if (!attempt.userId().equals(userId)) {
+            throw new BusinessException("FORBIDDEN",
+                    "Attempt belongs to a different user", HttpStatus.FORBIDDEN);
+        }
+        return attempt;
     }
 }
