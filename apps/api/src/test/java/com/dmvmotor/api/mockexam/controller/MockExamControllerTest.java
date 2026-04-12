@@ -1,0 +1,247 @@
+package com.dmvmotor.api.mockexam.controller;
+
+import com.dmvmotor.api.IntegrationTestBase;
+import com.dmvmotor.api.TestFixtures;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.MediaType;
+import org.springframework.test.web.servlet.MockMvc;
+
+import java.time.OffsetDateTime;
+
+import static org.hamcrest.Matchers.*;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
+
+class MockExamControllerTest extends IntegrationTestBase {
+
+    @Autowired MockMvc      mockMvc;
+    @Autowired TestFixtures fixtures;
+
+    private Long userId;
+    private Long topicId;
+    private Long q1;
+    private Long q2;
+    private Long v1;
+    private Long v2;
+    private Long mockExamId;
+
+    @BeforeEach
+    void setUp() {
+        fixtures.truncateAll();
+        userId  = fixtures.insertUser("exam@example.com");
+        topicId = fixtures.insertTopic("EXAM_TOPIC");
+        q1 = fixtures.insertQuestion(topicId, "B");
+        q2 = fixtures.insertQuestion(topicId, "A");
+        v1 = fixtures.insertVariantReturningId(q1, "en", "Q1 stem?",
+                "[{\"key\":\"A\",\"text\":\"Wrong\"},{\"key\":\"B\",\"text\":\"Right\"}]",
+                "Explanation 1");
+        v2 = fixtures.insertVariantReturningId(q2, "en", "Q2 stem?",
+                "[{\"key\":\"A\",\"text\":\"Right\"},{\"key\":\"B\",\"text\":\"Wrong\"}]",
+                "Explanation 2");
+        mockExamId = fixtures.insertMockExam("TEST_EXAM_V1", 2);
+        fixtures.insertMockExamQuestion(mockExamId, q1, 1);
+        fixtures.insertMockExamQuestion(mockExamId, q2, 2);
+    }
+
+    // ---------------------------------------------------------------
+    // GET /api/v1/mock-exams/access
+    // ---------------------------------------------------------------
+
+    @Test
+    void getMockAccess_anonymous_returnsNotAllowed() throws Exception {
+        mockMvc.perform(get("/api/v1/mock-exams/access"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.allowed").value(false))
+                .andExpect(jsonPath("$.data.mockRemaining").value(0));
+    }
+
+    @Test
+    void getMockAccess_userNoPass_returnsNotAllowed() throws Exception {
+        mockMvc.perform(get("/api/v1/mock-exams/access")
+                        .header("Authorization", "Bearer " + userId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.allowed").value(false));
+    }
+
+    @Test
+    void getMockAccess_userWithActivePassAndQuota_returnsAllowed() throws Exception {
+        fixtures.insertAccessPass(userId, "active",
+                OffsetDateTime.now().minusDays(1), OffsetDateTime.now().plusDays(30), 3, 0);
+
+        mockMvc.perform(get("/api/v1/mock-exams/access")
+                        .header("Authorization", "Bearer " + userId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.allowed").value(true))
+                .andExpect(jsonPath("$.data.mockRemaining").value(3));
+    }
+
+    @Test
+    void getMockAccess_userWithNoRemainingQuota_returnsNotAllowed() throws Exception {
+        fixtures.insertAccessPass(userId, "active",
+                OffsetDateTime.now().minusDays(1), OffsetDateTime.now().plusDays(30), 3, 3);
+
+        mockMvc.perform(get("/api/v1/mock-exams/access")
+                        .header("Authorization", "Bearer " + userId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.allowed").value(false));
+    }
+
+    // ---------------------------------------------------------------
+    // POST /api/v1/mock-exams/attempts
+    // ---------------------------------------------------------------
+
+    @Test
+    void startMockAttempt_anonymous_returns401() throws Exception {
+        mockMvc.perform(post("/api/v1/mock-exams/attempts")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"language":"en"}
+                                """))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void startMockAttempt_userNoPass_returns403() throws Exception {
+        mockMvc.perform(post("/api/v1/mock-exams/attempts")
+                        .header("Authorization", "Bearer " + userId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"language":"en"}
+                                """))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.error.code").value("ACCESS_DENIED"));
+    }
+
+    @Test
+    void startMockAttempt_withValidPass_returnsMockAttemptWithQuestions() throws Exception {
+        fixtures.insertAccessPass(userId, "active",
+                OffsetDateTime.now().minusDays(1), OffsetDateTime.now().plusDays(30), 3, 0);
+
+        mockMvc.perform(post("/api/v1/mock-exams/attempts")
+                        .header("Authorization", "Bearer " + userId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"language":"en"}
+                                """))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.data.mockAttemptId").isString())
+                .andExpect(jsonPath("$.data.status").value("in_progress"))
+                .andExpect(jsonPath("$.data.mockRemainingAfterStart").value(2))
+                .andExpect(jsonPath("$.data.questions", hasSize(2)))
+                .andExpect(jsonPath("$.data.questions[0].questionId").isString())
+                .andExpect(jsonPath("$.data.questions[0].stem").isString());
+    }
+
+    // ---------------------------------------------------------------
+    // POST /api/v1/mock-exams/attempts/{id}/answers
+    // ---------------------------------------------------------------
+
+    @Test
+    void saveAnswer_newAnswer_returnsSavedTrue() throws Exception {
+        String attemptId = startMockAndGetId();
+
+        mockMvc.perform(post("/api/v1/mock-exams/attempts/{id}/answers", attemptId)
+                        .header("Authorization", "Bearer " + userId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"question_id":"%s","variant_id":"%s","selected_choice_key":"B"}
+                                """.formatted(q1, v1)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.saved").value(true))
+                .andExpect(jsonPath("$.data.answeredCount").value(1));
+    }
+
+    @Test
+    void saveAnswer_retry_returnsUpdatedCount() throws Exception {
+        String attemptId = startMockAndGetId();
+
+        // First answer
+        mockMvc.perform(post("/api/v1/mock-exams/attempts/{id}/answers", attemptId)
+                        .header("Authorization", "Bearer " + userId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"question_id":"%s","variant_id":"%s","selected_choice_key":"A"}
+                                """.formatted(q1, v1)));
+
+        // Retry same question
+        mockMvc.perform(post("/api/v1/mock-exams/attempts/{id}/answers", attemptId)
+                        .header("Authorization", "Bearer " + userId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"question_id":"%s","variant_id":"%s","selected_choice_key":"B"}
+                                """.formatted(q1, v1)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.saved").value(true))
+                .andExpect(jsonPath("$.data.answeredCount").value(1)); // still 1 unique
+    }
+
+    // ---------------------------------------------------------------
+    // POST /api/v1/mock-exams/attempts/{id}/submit
+    // ---------------------------------------------------------------
+
+    @Test
+    void submitMockExam_returnsScoreAndWeakTopics() throws Exception {
+        String attemptId = startMockAndGetId();
+        saveAnswerForAttempt(attemptId, q1, v1, "B"); // correct
+        saveAnswerForAttempt(attemptId, q2, v2, "B"); // wrong
+
+        mockMvc.perform(post("/api/v1/mock-exams/attempts/{id}/submit", attemptId)
+                        .header("Authorization", "Bearer " + userId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.mockAttemptId").value(attemptId))
+                .andExpect(jsonPath("$.data.status").value("submitted"))
+                .andExpect(jsonPath("$.data.correctCount").value(1))
+                .andExpect(jsonPath("$.data.wrongCount").value(1))
+                .andExpect(jsonPath("$.data.scorePercent").isNumber());
+    }
+
+    // ---------------------------------------------------------------
+    // POST /api/v1/mock-exams/attempts/{id}/exit
+    // ---------------------------------------------------------------
+
+    @Test
+    void exitMockExam_setsStatusEndedByExit() throws Exception {
+        String attemptId = startMockAndGetId();
+
+        mockMvc.perform(post("/api/v1/mock-exams/attempts/{id}/exit", attemptId)
+                        .header("Authorization", "Bearer " + userId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.mockAttemptId").value(attemptId))
+                .andExpect(jsonPath("$.data.status").value("ended_by_exit"))
+                .andExpect(jsonPath("$.data.quotaConsumed").value(true));
+    }
+
+    // ---------------------------------------------------------------
+    // Helpers
+    // ---------------------------------------------------------------
+
+    private String startMockAndGetId() throws Exception {
+        fixtures.insertAccessPass(userId, "active",
+                OffsetDateTime.now().minusDays(1), OffsetDateTime.now().plusDays(30), 3, 0);
+
+        var result = mockMvc.perform(post("/api/v1/mock-exams/attempts")
+                        .header("Authorization", "Bearer " + userId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"language":"en"}
+                                """))
+                .andReturn();
+        String body = result.getResponse().getContentAsString();
+        String key = "\"mockAttemptId\":\"";
+        int start = body.indexOf(key) + key.length();
+        int end   = body.indexOf("\"", start);
+        return body.substring(start, end);
+    }
+
+    private void saveAnswerForAttempt(String attemptId, Long qId, Long vId, String choice)
+            throws Exception {
+        mockMvc.perform(post("/api/v1/mock-exams/attempts/{id}/answers", attemptId)
+                .header("Authorization", "Bearer " + userId)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                        {"question_id":"%s","variant_id":"%s","selected_choice_key":"%s"}
+                        """.formatted(qId, vId, choice)));
+    }
+}

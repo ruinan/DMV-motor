@@ -147,6 +147,25 @@ public class TestFixtures {
     }
 
     // ---------------------------------------------------------------
+    // Mock Exams
+    // ---------------------------------------------------------------
+
+    public Long insertMockExam(String code, int questionCount) {
+        return jdbc.queryForObject("""
+                INSERT INTO mock_exams (code, question_count, status)
+                VALUES (?, ?, 'active')
+                RETURNING id
+                """, Long.class, code, questionCount);
+    }
+
+    public void insertMockExamQuestion(Long mockExamId, Long questionId, int sortOrder) {
+        jdbc.update("""
+                INSERT INTO mock_exam_questions (mock_exam_id, question_id, sort_order)
+                VALUES (?, ?, ?)
+                """, mockExamId, questionId, sortOrder);
+    }
+
+    // ---------------------------------------------------------------
     // Access Passes
     // ---------------------------------------------------------------
 
