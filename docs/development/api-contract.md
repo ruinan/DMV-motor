@@ -47,16 +47,16 @@
 
 | 接口 | 测试类 | 状态 |
 |------|--------|------|
-| `GET /api/v1/mistakes` | — | ⬜ |
+| `GET /api/v1/mistakes` | `MistakeControllerTest` | ✅ |
 
 ### Review
 
 | 接口 | 测试类 | 状态 |
 |------|--------|------|
-| `GET /api/v1/review/pack` | — | ⬜ |
-| `GET /api/v1/review/tasks/{id}/questions` | — | ⬜ |
-| `POST /api/v1/review/tasks/{id}/answers` | — | ⬜ |
-| `POST /api/v1/review/tasks/{id}/complete` | — | ⬜ |
+| `GET /api/v1/review/pack` | `ReviewControllerTest` | ✅ |
+| `GET /api/v1/review/tasks/{id}/questions` | `ReviewControllerTest` | ✅ |
+| `POST /api/v1/review/tasks/{id}/answers` | `ReviewControllerTest` | ✅ |
+| `POST /api/v1/review/tasks/{id}/complete` | `ReviewControllerTest` | ✅ |
 
 ### Mock Exam
 
