@@ -633,9 +633,19 @@ MVP 阶段如果列表很短，也允许某些接口先不分页，
 {
   "question_id": "q_xxx",
   "variant_id": "qv_xxx",
-  "selected_choice_key": "B"
+  "selected_choice_key": "B",
+  "language": "en"
 }
 ```
+
+字段说明：
+
+| 字段 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| `question_id` | string | ✅ | 题目 ID |
+| `variant_id` | string | ✅ | 题目变体 ID |
+| `selected_choice_key` | string | ✅ | 用户选择的选项 key |
+| `language` | string | ❌ | 展示该题时使用的语言（`en` / `zh`）。**必须与 `GET /questions` 请求时使用的 `language` 保持一致**，否则可能导致 variant 不匹配。省略时回退为用户语言偏好。 |
 
 响应 `data`：
 
@@ -644,10 +654,7 @@ MVP 阶段如果列表很短，也允许某些接口先不分页，
   "question_id": "q_xxx",
   "is_correct": false,
   "correct_choice_key": "C",
-  "explanation": {
-    "type": "short",
-    "text": "You should yield in this situation."
-  },
+  "explanation": "You should yield in this situation.",
   "task_progress": {
     "answered_count": 2,
     "target_count": 3
@@ -659,6 +666,7 @@ MVP 阶段如果列表很短，也允许某些接口先不分页，
 
 - 格式与 practice answer 基本一致，额外返回当前 task 内的作答进度
 - review 答案同样写入 `practice_attempts`，`entry_source` 标记为 `review`
+- **`language` 字段是正确性判定的锚点**：后端用该语言查题、获取 `correct_choice_key`，确保判题与展示来自同一 variant
 
 ### `POST /api/v1/review/tasks/{task_id}/complete`
 
