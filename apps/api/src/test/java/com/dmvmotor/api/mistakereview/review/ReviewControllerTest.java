@@ -158,6 +158,55 @@ class ReviewControllerTest extends IntegrationTestBase {
     }
 
     @Test
+    void submitReviewAnswer_correct_doesNotImmediatelyDeactivateMistake() throws Exception {
+        // Correct answer during review must NOT deactivate the mistake right away.
+        // Deactivation happens only after completeTask, per review-and-readiness-engine.md.
+        fixtures.insertMistakeRecord(userId, questionId1, topicId, 1, "practice");
+        String packBody = mockMvc.perform(get("/api/v1/review/pack")
+                        .header("Authorization", "Bearer " + userId))
+                .andReturn().getResponse().getContentAsString();
+        String taskId = extractTaskId(packBody);
+
+        // Answer correctly
+        mockMvc.perform(post("/api/v1/review/tasks/{id}/answers", taskId)
+                        .header("Authorization", "Bearer " + userId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"question_id":"%s","variant_id":"%s","selected_choice_key":"B"}
+                                """.formatted(questionId1, variantId1)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.is_correct").value(true));
+
+        // Mistake NOT yet deactivated → pack still exists (same pack is returned)
+        mockMvc.perform(get("/api/v1/review/pack")
+                        .header("Authorization", "Bearer " + userId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.review_pack_id")
+                        .value(extractField(packBody, "review_pack_id")));
+    }
+
+    @Test
+    void submitReviewAnswer_withLanguageParam_usesSpecifiedLanguage() throws Exception {
+        // Insert a Chinese variant for the question
+        fixtures.insertVariantReturningId(questionId1, "zh", "这道题是什么意思？",
+                "[{\"key\":\"A\",\"text\":\"停止\"},{\"key\":\"B\",\"text\":\"注意\"}]",
+                "闪烁黄灯表示谨慎前行。");
+        fixtures.insertMistakeRecord(userId, questionId1, topicId, 1, "practice");
+        String taskId = getTaskId();
+
+        // Submit with language=zh; answer must be judged against zh variant
+        mockMvc.perform(post("/api/v1/review/tasks/{id}/answers", taskId)
+                        .header("Authorization", "Bearer " + userId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"question_id":"%s","variant_id":"%s","selected_choice_key":"B","language":"zh"}
+                                """.formatted(questionId1, variantId1)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.is_correct").value(true))
+                .andExpect(jsonPath("$.data.correct_choice_key").value("B"));
+    }
+
+    @Test
     void submitReviewAnswer_alreadyAnswered_returns409() throws Exception {
         fixtures.insertMistakeRecord(userId, questionId1, topicId, 1, "practice");
         String taskId = getTaskId();

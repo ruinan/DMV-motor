@@ -49,12 +49,13 @@ public class MockExamRepository {
     // Mock Attempts
     // ---------------------------------------------------------------
 
-    public Long createAttempt(Long userId, Long mockExamId, String language) {
+    public Long createAttempt(Long userId, Long mockExamId, String language, int learningCycle) {
         var ma = Tables.MOCK_ATTEMPTS;
         return dsl.insertInto(ma)
                 .set(ma.USER_ID, userId)
                 .set(ma.MOCK_EXAM_ID, mockExamId)
                 .set(ma.LANGUAGE_CODE, language)
+                .set(ma.LEARNING_CYCLE, learningCycle)
                 .returningResult(ma.ID)
                 .fetchOne()
                 .value1();
@@ -71,7 +72,8 @@ public class MockExamRepository {
                 r.get(ma.LANGUAGE_CODE),
                 r.get(ma.STATUS),
                 r.get(ma.ANSWERED_COUNT),
-                r.get(ma.QUOTA_CONSUMED)
+                r.get(ma.QUOTA_CONSUMED),
+                r.get(ma.LEARNING_CYCLE)
         ));
     }
 
@@ -190,7 +192,8 @@ public class MockExamRepository {
             String  language,
             String  status,
             int     answeredCount,
-            boolean quotaConsumed
+            boolean quotaConsumed,
+            int     learningCycle
     ) {}
 
     public record AnswerRow(Long questionId, String selectedKey) {}

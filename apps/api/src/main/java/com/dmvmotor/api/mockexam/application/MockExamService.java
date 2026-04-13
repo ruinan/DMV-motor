@@ -60,7 +60,8 @@ public class MockExamService {
                         "No active mock exam template found",
                         HttpStatus.UNPROCESSABLE_ENTITY));
 
-        Long attemptId = mockExamRepo.createAttempt(userId, mockExamId, language);
+        int cycle = userRepo.findById(userId).map(u -> u.resetCount()).orElse(0);
+        Long attemptId = mockExamRepo.createAttempt(userId, mockExamId, language, cycle);
         mockExamRepo.consumeMockQuota(userId);
 
         List<Long> questionIds = mockExamRepo.findQuestionIdsByMockExamId(mockExamId);
@@ -133,6 +134,10 @@ public class MockExamService {
     @Transactional
     public ExitResult exitAttempt(Long attemptId, Long userId) {
         AttemptRow attempt = requireAttempt(attemptId, userId);
+        if (!"in_progress".equals(attempt.status())) {
+            throw new BusinessException("MOCK_ALREADY_ENDED",
+                    "Mock exam already submitted or exited", HttpStatus.CONFLICT);
+        }
         mockExamRepo.updateAttemptStatus(attemptId, "ended_by_exit");
         return new ExitResult(attemptId, "ended_by_exit", true, attempt.answeredCount());
     }

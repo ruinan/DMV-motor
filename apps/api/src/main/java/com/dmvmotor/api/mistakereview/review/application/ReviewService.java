@@ -46,34 +46,34 @@ public class ReviewService {
 
     @Transactional
     public ReviewPackResult getOrCreatePack(Long userId) {
-        // Access control: review requires an active pass
         if (!accessService.getAccess(userId).canUseReview()) {
             throw new BusinessException("ACCESS_DENIED",
                     "Active access pass required to use review",
                     HttpStatus.FORBIDDEN);
         }
 
-        var existingPackId = reviewRepo.findActivePackId(userId);
+        int cycle = cycleFor(userId);
+
+        var existingPackId = reviewRepo.findActivePackId(userId, cycle);
         if (existingPackId.isPresent()) {
             return buildPackResult(existingPackId.get());
         }
 
         List<MistakeRecord> mistakes = mistakeListRepo
-                .findActiveMistakes(userId, null, 1, Integer.MAX_VALUE);
+                .findActiveMistakes(userId, null, 1, Integer.MAX_VALUE, cycle);
         if (mistakes.isEmpty()) {
             throw new BusinessException("NO_MISTAKES_TO_REVIEW",
                     "No active mistakes to review", HttpStatus.NOT_FOUND);
         }
 
-        // Group questions by topic, track aggregate wrong count per topic for priority
-        Map<Long, List<Long>> byTopic       = new LinkedHashMap<>();
-        Map<Long, Integer>    wrongByTopic  = new LinkedHashMap<>();
+        Map<Long, List<Long>> byTopic      = new LinkedHashMap<>();
+        Map<Long, Integer>    wrongByTopic = new LinkedHashMap<>();
         for (MistakeRecord m : mistakes) {
             byTopic.computeIfAbsent(m.topicId(), k -> new ArrayList<>()).add(m.questionId());
             wrongByTopic.merge(m.topicId(), m.wrongCount(), Integer::sum);
         }
 
-        Long packId = reviewRepo.createPack(userId);
+        Long packId = reviewRepo.createPack(userId, cycle);
         for (var entry : byTopic.entrySet()) {
             Long       topicId     = entry.getKey();
             List<Long> questionIds = entry.getValue();
@@ -103,7 +103,7 @@ public class ReviewService {
     @Transactional
     public ReviewAnswerResult submitAnswer(Long taskId, Long userId,
                                            Long questionId, Long variantId,
-                                           String selectedKey) {
+                                           String selectedKey, String language) {
         TaskRow task = requireTask(taskId, userId);
 
         if (reviewRepo.hasAnswer(taskId, questionId)) {
@@ -111,13 +111,15 @@ public class ReviewService {
                     "Question already answered in this task", HttpStatus.CONFLICT);
         }
 
-        // Use user's language preference for answer validation and explanation
-        String language = userRepo.findById(userId)
-                .map(u -> u.languagePreference())
-                .orElse("en");
+        UserRepository.UserRow user = userRepo.findById(userId).orElse(null);
+        // Use the language the question was shown in; fall back to user preference.
+        String resolvedLanguage = (language != null && !language.isBlank())
+                ? language
+                : (user != null ? user.languagePreference() : "en");
+        int cycle = user != null ? user.resetCount() : 0;
 
         QuestionDetail question = questionRepo
-                .findByIdAndLanguage(questionId, language)
+                .findByIdAndLanguage(questionId, resolvedLanguage)
                 .orElseThrow(() -> new ResourceNotFoundException(
                         "Question not found: " + questionId));
 
@@ -127,10 +129,11 @@ public class ReviewService {
         reviewRepo.markQuestionAnswered(taskId, questionId, isCorrect);
         reviewRepo.incrementCompletedCount(taskId);
 
-        if (isCorrect) {
-            mistakeListRepo.setActive(userId, questionId, false);
-        } else {
-            mistakeRepo.upsertMistake(userId, questionId, question.topicId(), "review");
+        // Wrong answer: update/create mistake record. Correct answer: do NOT deactivate yet.
+        // MistakeRecord deactivation is evaluated at task completion (completeTask) after
+        // reviewing all questions, per docs/review-and-readiness-engine.md.
+        if (!isCorrect) {
+            mistakeRepo.upsertMistake(userId, questionId, question.topicId(), "review", cycle);
         }
 
         if ("pending".equals(task.status())) {
@@ -144,8 +147,27 @@ public class ReviewService {
 
     @Transactional
     public CompleteTaskResult completeTask(Long taskId, Long userId) {
-        requireTask(taskId, userId);
+        TaskRow task = requireTask(taskId, userId);
+        int cycle = cycleFor(userId);
+
+        // Mastery evaluation: deactivate MistakeRecords for correctly-answered questions.
+        // Simplified MVP: answered correctly in this review task → deactivate mistake.
+        // TODO(MASTERY): replace with full mastery check (topic ≥80% rate, last 8 related
+        // questions ≥6 correct, per docs/parameters.md mastery_threshold) once query
+        // infrastructure for recent-attempt history is in place.
+        List<Long> correctQIds = reviewRepo.findCorrectlyAnsweredQuestionIds(taskId);
+        for (Long qId : correctQIds) {
+            mistakeListRepo.setActive(userId, qId, false, cycle);
+        }
+
         reviewRepo.updateTaskStatus(taskId, "completed");
+
+        // Close the pack once all tasks are done
+        int remaining = reviewRepo.countIncompleteTasks(task.reviewPackId());
+        if (remaining == 0) {
+            reviewRepo.updatePackStatus(task.reviewPackId(), "completed");
+        }
+
         return new CompleteTaskResult(taskId, true);
     }
 
@@ -174,6 +196,10 @@ public class ReviewService {
     // ---------------------------------------------------------------
     // Helpers
     // ---------------------------------------------------------------
+
+    private int cycleFor(Long userId) {
+        return userRepo.findById(userId).map(u -> u.resetCount()).orElse(0);
+    }
 
     private TaskRow requireTask(Long taskId, Long userId) {
         TaskRow task = reviewRepo.findTaskById(taskId)

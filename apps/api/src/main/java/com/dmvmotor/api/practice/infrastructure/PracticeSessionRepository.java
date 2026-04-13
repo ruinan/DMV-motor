@@ -24,12 +24,13 @@ public class PracticeSessionRepository {
         this.objectMapper = objectMapper;
     }
 
-    public Long create(Long userId, String entryType, String languageCode) {
+    public Long create(Long userId, String entryType, String languageCode, int learningCycle) {
         var ps = Tables.PRACTICE_SESSIONS;
         return dsl.insertInto(ps)
-                .set(ps.USER_ID,       userId)
-                .set(ps.ENTRY_TYPE,    entryType)
-                .set(ps.LANGUAGE_CODE, languageCode)
+                .set(ps.USER_ID,        userId)
+                .set(ps.ENTRY_TYPE,     entryType)
+                .set(ps.LANGUAGE_CODE,  languageCode)
+                .set(ps.LEARNING_CYCLE, learningCycle)
                 .returningResult(ps.ID)
                 .fetchOne()
                 .value1();
@@ -42,22 +43,35 @@ public class PracticeSessionRepository {
         return Optional.of(map(r));
     }
 
-    /** Returns the next unanswered question for this session, or empty if all answered. */
-    public Optional<QuestionDetail> findNextUnansweredQuestion(Long sessionId, String languageCode) {
+    /**
+     * Returns the next unanswered question for this session, or empty if all answered.
+     * For free_trial sessions the pool is restricted to questions marked allow_in_free_trial.
+     */
+    public Optional<QuestionDetail> findNextUnansweredQuestion(
+            Long sessionId, String languageCode, String entryType) {
         var q  = Tables.QUESTIONS;
         var qv = Tables.QUESTION_VARIANTS;
         var pa = Tables.PRACTICE_ATTEMPTS;
 
+        var condition = q.ALLOW_IN_PRACTICE.isTrue()
+                .and(q.STATUS.eq("active"))
+                .and(q.ID.notIn(
+                        dsl.select(pa.QUESTION_ID)
+                           .from(pa)
+                           .where(pa.PRACTICE_SESSION_ID.eq(sessionId))
+                ));
+
+        if ("free_trial".equals(entryType)) {
+            condition = condition.and(
+                    org.jooq.impl.DSL.field(
+                            org.jooq.impl.DSL.name("allow_in_free_trial"),
+                            Boolean.class).isTrue());
+        }
+
         Record r = dsl.select()
                 .from(q)
                 .join(qv).on(qv.QUESTION_ID.eq(q.ID).and(qv.LANGUAGE_CODE.eq(languageCode)))
-                .where(q.ALLOW_IN_PRACTICE.isTrue()
-                        .and(q.STATUS.eq("active"))
-                        .and(q.ID.notIn(
-                                dsl.select(pa.QUESTION_ID)
-                                   .from(pa)
-                                   .where(pa.PRACTICE_SESSION_ID.eq(sessionId))
-                        )))
+                .where(condition)
                 .orderBy(q.ID.asc())
                 .limit(1)
                 .fetchOne();
@@ -84,13 +98,22 @@ public class PracticeSessionRepository {
         return dsl.fetchCount(pa, pa.PRACTICE_SESSION_ID.eq(sessionId));
     }
 
-    public int countTotal(String languageCode) {
+    public int countTotal(String languageCode, String entryType) {
         var q  = Tables.QUESTIONS;
         var qv = Tables.QUESTION_VARIANTS;
+
+        var condition = q.ALLOW_IN_PRACTICE.isTrue().and(q.STATUS.eq("active"));
+        if ("free_trial".equals(entryType)) {
+            condition = condition.and(
+                    org.jooq.impl.DSL.field(
+                            org.jooq.impl.DSL.name("allow_in_free_trial"),
+                            Boolean.class).isTrue());
+        }
+
         return dsl.fetchCount(
                 dsl.select().from(q)
                    .join(qv).on(qv.QUESTION_ID.eq(q.ID).and(qv.LANGUAGE_CODE.eq(languageCode)))
-                   .where(q.ALLOW_IN_PRACTICE.isTrue().and(q.STATUS.eq("active")))
+                   .where(condition)
         );
     }
 
@@ -113,16 +136,12 @@ public class PracticeSessionRepository {
                 .execute();
     }
 
-    public void deleteAllByUserId(Long userId) {
-        var ps = Tables.PRACTICE_SESSIONS;
-        // CASCADE in DB deletes practice_attempts for these sessions automatically
-        dsl.deleteFrom(ps).where(ps.USER_ID.eq(userId)).execute();
-    }
-
-    public boolean existsInProgressByUserId(Long userId) {
+    public boolean existsInProgressByUserId(Long userId, int learningCycle) {
         var ps = Tables.PRACTICE_SESSIONS;
         return dsl.fetchExists(ps,
-                ps.USER_ID.eq(userId).and(ps.STATUS.eq("in_progress")));
+                ps.USER_ID.eq(userId)
+                        .and(ps.STATUS.eq("in_progress"))
+                        .and(ps.LEARNING_CYCLE.eq(learningCycle)));
     }
 
     public void updateStatus(Long sessionId, String status) {

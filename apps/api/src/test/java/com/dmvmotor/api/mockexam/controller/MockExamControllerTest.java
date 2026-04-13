@@ -306,6 +306,32 @@ class MockExamControllerTest extends IntegrationTestBase {
                 .andExpect(jsonPath("$.data.quota_consumed").value(true));
     }
 
+    @Test
+    void exitMockExam_alreadySubmitted_returns409() throws Exception {
+        String attemptId = startMockAndGetId();
+        saveAnswerForAttempt(attemptId, q1, v1, "B");
+        saveAnswerForAttempt(attemptId, q2, v2, "A");
+        submitAttempt(attemptId);
+
+        mockMvc.perform(post("/api/v1/mock-exams/attempts/{id}/exit", attemptId)
+                        .header("Authorization", "Bearer " + userId))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.error.code").value("MOCK_ALREADY_ENDED"));
+    }
+
+    @Test
+    void exitMockExam_alreadyExited_returns409() throws Exception {
+        String attemptId = startMockAndGetId();
+
+        mockMvc.perform(post("/api/v1/mock-exams/attempts/{id}/exit", attemptId)
+                        .header("Authorization", "Bearer " + userId));
+
+        mockMvc.perform(post("/api/v1/mock-exams/attempts/{id}/exit", attemptId)
+                        .header("Authorization", "Bearer " + userId))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.error.code").value("MOCK_ALREADY_ENDED"));
+    }
+
     // ---------------------------------------------------------------
     // Helpers
     // ---------------------------------------------------------------

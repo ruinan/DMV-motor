@@ -15,27 +15,27 @@ public class MistakeRepository {
         this.dsl = dsl;
     }
 
-    public void deleteAllByUserId(Long userId) {
-        var mr = Tables.MISTAKE_RECORDS;
-        dsl.deleteFrom(mr).where(mr.USER_ID.eq(userId)).execute();
-    }
-
-    /** Upsert: increment wrong_count if record exists, create if not. */
-    public void upsertMistake(Long userId, Long questionId, Long topicId, String entrySource) {
-        var mr = Tables.MISTAKE_RECORDS;
+    /** Upsert within the current learning cycle: increment wrong_count if exists, create if not. */
+    public void upsertMistake(Long userId, Long questionId, Long topicId,
+                               String entrySource, int learningCycle) {
+        var mr  = Tables.MISTAKE_RECORDS;
         var now = OffsetDateTime.now();
 
         boolean exists = dsl.fetchExists(mr,
-                mr.USER_ID.eq(userId).and(mr.QUESTION_ID.eq(questionId)));
+                mr.USER_ID.eq(userId)
+                        .and(mr.QUESTION_ID.eq(questionId))
+                        .and(mr.LEARNING_CYCLE.eq(learningCycle)));
 
         if (exists) {
             dsl.update(mr)
-                    .set(mr.WRONG_COUNT, mr.WRONG_COUNT.add(1))
-                    .set(mr.LAST_WRONG_AT, now)
+                    .set(mr.WRONG_COUNT,       mr.WRONG_COUNT.add(1))
+                    .set(mr.LAST_WRONG_AT,     now)
                     .set(mr.LAST_ENTRY_SOURCE, entrySource)
-                    .set(mr.IS_ACTIVE, true)
-                    .set(mr.UPDATED_AT, now)
-                    .where(mr.USER_ID.eq(userId).and(mr.QUESTION_ID.eq(questionId)))
+                    .set(mr.IS_ACTIVE,         true)
+                    .set(mr.UPDATED_AT,        now)
+                    .where(mr.USER_ID.eq(userId)
+                            .and(mr.QUESTION_ID.eq(questionId))
+                            .and(mr.LEARNING_CYCLE.eq(learningCycle)))
                     .execute();
         } else {
             dsl.insertInto(mr)
@@ -43,6 +43,7 @@ public class MistakeRepository {
                     .set(mr.QUESTION_ID,       questionId)
                     .set(mr.PRIMARY_TOPIC_ID,  topicId)
                     .set(mr.LAST_ENTRY_SOURCE, entrySource)
+                    .set(mr.LEARNING_CYCLE,    learningCycle)
                     .execute();
         }
     }

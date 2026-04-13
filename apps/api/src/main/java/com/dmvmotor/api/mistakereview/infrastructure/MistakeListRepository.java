@@ -4,7 +4,6 @@ import com.dmvmotor.api.infrastructure.jooq.generated.Tables;
 import com.dmvmotor.api.mistakereview.domain.MistakeRecord;
 import org.jooq.Condition;
 import org.jooq.DSLContext;
-import org.jooq.impl.DSL;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
@@ -19,9 +18,12 @@ public class MistakeListRepository {
     }
 
     public List<MistakeRecord> findActiveMistakes(Long userId, Long topicId,
-                                                   int page, int pageSize) {
+                                                   int page, int pageSize,
+                                                   int learningCycle) {
         var mr = Tables.MISTAKE_RECORDS;
-        Condition condition = mr.USER_ID.eq(userId).and(mr.IS_ACTIVE.isTrue());
+        Condition condition = mr.USER_ID.eq(userId)
+                .and(mr.IS_ACTIVE.isTrue())
+                .and(mr.LEARNING_CYCLE.eq(learningCycle));
         if (topicId != null) {
             condition = condition.and(mr.PRIMARY_TOPIC_ID.eq(topicId));
         }
@@ -44,17 +46,21 @@ public class MistakeListRepository {
                 ));
     }
 
-    public void setActive(Long userId, Long questionId, boolean isActive) {
+    public void setActive(Long userId, Long questionId, boolean isActive, int learningCycle) {
         var mr = Tables.MISTAKE_RECORDS;
         dsl.update(mr)
                 .set(mr.IS_ACTIVE, isActive)
-                .where(mr.USER_ID.eq(userId).and(mr.QUESTION_ID.eq(questionId)))
+                .where(mr.USER_ID.eq(userId)
+                        .and(mr.QUESTION_ID.eq(questionId))
+                        .and(mr.LEARNING_CYCLE.eq(learningCycle)))
                 .execute();
     }
 
-    public int countActiveMistakes(Long userId, Long topicId) {
+    public int countActiveMistakes(Long userId, Long topicId, int learningCycle) {
         var mr = Tables.MISTAKE_RECORDS;
-        Condition condition = mr.USER_ID.eq(userId).and(mr.IS_ACTIVE.isTrue());
+        Condition condition = mr.USER_ID.eq(userId)
+                .and(mr.IS_ACTIVE.isTrue())
+                .and(mr.LEARNING_CYCLE.eq(learningCycle));
         if (topicId != null) {
             condition = condition.and(mr.PRIMARY_TOPIC_ID.eq(topicId));
         }

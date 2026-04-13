@@ -73,10 +73,19 @@ public class TestFixtures {
     // Questions
     // ---------------------------------------------------------------
 
+    public Long insertKeyCoverageQuestion(Long topicId, String correctChoiceKey) {
+        return jdbc.queryForObject("""
+                INSERT INTO questions
+                    (primary_topic_id, correct_choice_key, status, allow_in_free_trial, is_key_coverage)
+                VALUES (?, ?, 'active', true, true)
+                RETURNING id
+                """, Long.class, topicId, correctChoiceKey);
+    }
+
     public Long insertQuestion(Long topicId, String correctChoiceKey) {
         return jdbc.queryForObject("""
-                INSERT INTO questions (primary_topic_id, correct_choice_key, status)
-                VALUES (?, ?, 'active')
+                INSERT INTO questions (primary_topic_id, correct_choice_key, status, allow_in_free_trial)
+                VALUES (?, ?, 'active', true)
                 RETURNING id
                 """, Long.class, topicId, correctChoiceKey);
     }
@@ -124,6 +133,10 @@ public class TestFixtures {
                 """, Long.class, email);
     }
 
+    public void incrementUserResetCount(Long userId) {
+        jdbc.update("UPDATE users SET reset_count = reset_count + 1 WHERE id = ?", userId);
+    }
+
     public Long insertUserWithoutEmail() {
         return jdbc.queryForObject("""
                 INSERT INTO users (language_preference)
@@ -137,14 +150,19 @@ public class TestFixtures {
     // ---------------------------------------------------------------
 
     public Long insertMockAttemptWithScore(Long userId, Long mockExamId, int scorePercent) {
+        return insertMockAttemptWithScore(userId, mockExamId, scorePercent, 0);
+    }
+
+    public Long insertMockAttemptWithScore(Long userId, Long mockExamId,
+                                            int scorePercent, int learningCycle) {
         return jdbc.queryForObject("""
                 INSERT INTO mock_attempts
                     (user_id, mock_exam_id, status, score_percent, correct_count,
-                     wrong_count, answered_count, quota_consumed)
-                VALUES (?, ?, 'submitted', ?, ?, 0, ?, true)
+                     wrong_count, answered_count, quota_consumed, learning_cycle)
+                VALUES (?, ?, 'submitted', ?, ?, 0, ?, true, ?)
                 RETURNING id
                 """, Long.class, userId, mockExamId, scorePercent,
-                scorePercent / 10, scorePercent / 10); // rough counts
+                scorePercent / 10, scorePercent / 10, learningCycle);
     }
 
     // ---------------------------------------------------------------

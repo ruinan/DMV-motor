@@ -263,6 +263,24 @@ class PracticeSessionControllerTest extends IntegrationTestBase {
                 .andExpect(jsonPath("$.error.code").value("ACCESS_DENIED"));
     }
 
+    @Test
+    void startSession_fullType_withActivePass_createsSession() throws Exception {
+        Long uid = fixtures.insertUser("full_pass@example.com");
+        fixtures.insertAccessPass(uid, "active",
+                java.time.OffsetDateTime.now().minusDays(1),
+                java.time.OffsetDateTime.now().plusDays(30), 3, 0);
+
+        mockMvc.perform(post("/api/v1/practice/sessions")
+                        .header("Authorization", "Bearer " + uid)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"entry_type":"full","language":"en"}
+                                """))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.data.entry_type").value("full"))
+                .andExpect(jsonPath("$.data.next_question.question_id").isString());
+    }
+
     // ---------------------------------------------------------------
     // Ownership / FORBIDDEN tests
     // ---------------------------------------------------------------

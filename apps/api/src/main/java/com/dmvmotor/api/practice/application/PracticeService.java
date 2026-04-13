@@ -1,5 +1,7 @@
 package com.dmvmotor.api.practice.application;
 
+import com.dmvmotor.api.authaccess.application.AccessService;
+import com.dmvmotor.api.authaccess.infrastructure.UserRepository;
 import com.dmvmotor.api.common.BusinessException;
 import com.dmvmotor.api.common.ResourceNotFoundException;
 import com.dmvmotor.api.content.domain.QuestionDetail;
@@ -18,29 +20,52 @@ public class PracticeService {
     private final PracticeSessionRepository sessionRepo;
     private final QuestionRepository        questionRepo;
     private final MistakeRepository         mistakeRepo;
+    private final AccessService             accessService;
+    private final UserRepository            userRepo;
 
     public PracticeService(PracticeSessionRepository sessionRepo,
                            QuestionRepository questionRepo,
-                           MistakeRepository mistakeRepo) {
-        this.sessionRepo  = sessionRepo;
-        this.questionRepo = questionRepo;
-        this.mistakeRepo  = mistakeRepo;
+                           MistakeRepository mistakeRepo,
+                           AccessService accessService,
+                           UserRepository userRepo) {
+        this.sessionRepo   = sessionRepo;
+        this.questionRepo  = questionRepo;
+        this.mistakeRepo   = mistakeRepo;
+        this.accessService = accessService;
+        this.userRepo      = userRepo;
     }
 
     @Transactional
     public StartSessionResult startSession(Long userId, String entryType, String language) {
-        // Verify at least one question is available before creating session
-        int total = sessionRepo.countTotal(language);
+        // entry_type=full requires an active access pass
+        if ("full".equals(entryType)) {
+            if (userId == null) {
+                throw new BusinessException("UNAUTHORIZED",
+                        "Authentication required for full practice", HttpStatus.UNAUTHORIZED);
+            }
+            if (!accessService.getAccess(userId).hasActivePass()) {
+                throw new BusinessException("ACCESS_DENIED",
+                        "Active access pass required for full practice", HttpStatus.FORBIDDEN);
+            }
+        }
+
+        // Determine learning cycle (anonymous sessions always use cycle 0)
+        int cycle = 0;
+        if (userId != null) {
+            cycle = userRepo.findById(userId).map(u -> u.resetCount()).orElse(0);
+        }
+
+        int total = sessionRepo.countTotal(language, entryType);
         if (total == 0) {
             throw new BusinessException("NO_QUESTIONS_AVAILABLE",
                     "No practice questions available for language: " + language,
                     HttpStatus.UNPROCESSABLE_ENTITY);
         }
 
-        Long sessionId = sessionRepo.create(userId, entryType, language);
+        Long sessionId = sessionRepo.create(userId, entryType, language, cycle);
 
         QuestionDetail first = sessionRepo
-                .findNextUnansweredQuestion(sessionId, language)
+                .findNextUnansweredQuestion(sessionId, language, entryType)
                 .orElseThrow(() -> new BusinessException("NO_QUESTIONS_AVAILABLE",
                         "No questions available", HttpStatus.UNPROCESSABLE_ENTITY));
 
@@ -50,7 +75,8 @@ public class PracticeService {
     public QuestionDetail getNextQuestion(Long sessionId, Long requestUserId) {
         PracticeSession session = requireSession(sessionId, requestUserId);
 
-        return sessionRepo.findNextUnansweredQuestion(sessionId, session.languageCode())
+        return sessionRepo.findNextUnansweredQuestion(
+                        sessionId, session.languageCode(), session.entryType())
                 .orElseThrow(() -> new BusinessException("SESSION_COMPLETED",
                         "No more questions in this session",
                         HttpStatus.NOT_FOUND));
@@ -59,7 +85,7 @@ public class PracticeService {
     public SessionStatus getSessionStatus(Long sessionId, Long requestUserId) {
         PracticeSession session = requireSession(sessionId, requestUserId);
         int answered = sessionRepo.countAnswered(sessionId);
-        int total    = sessionRepo.countTotal(session.languageCode());
+        int total    = sessionRepo.countTotal(session.languageCode(), session.entryType());
         return new SessionStatus(sessionId, session.status(), answered, total);
     }
 
@@ -83,8 +109,9 @@ public class PracticeService {
                 variantId, selectedKey, isCorrect);
 
         if (!isCorrect && session.userId() != null) {
+            int cycle = userRepo.findById(session.userId()).map(u -> u.resetCount()).orElse(0);
             mistakeRepo.upsertMistake(session.userId(), questionId,
-                    question.topicId(), "practice");
+                    question.topicId(), "practice", cycle);
         }
 
         int answeredCount = sessionRepo.countAnswered(sessionId);

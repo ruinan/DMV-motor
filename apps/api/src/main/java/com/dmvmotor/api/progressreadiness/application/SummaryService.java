@@ -15,6 +15,12 @@ public class SummaryService {
     /** Minimum mock score (%) to be considered "passed" for readiness. */
     private static final int MOCK_PASS_THRESHOLD = 83;
 
+    /**
+     * Minimum percentage of key-coverage questions the user must have attempted
+     * in the current learning cycle before the KEY_COVERAGE_INCOMPLETE gate clears.
+     */
+    private static final int KEY_COVERAGE_THRESHOLD_PCT = 80;
+
     private final DSLContext     dsl;
     private final UserRepository userRepo;
 
@@ -53,14 +59,17 @@ public class SummaryService {
     private ReadinessResult getReadiness(Long userId, int cycle) {
         List<String> missingGates = new ArrayList<>();
 
-        boolean hasPassing = hasPassingMock(userId);
+        boolean hasPassing = hasPassingMock(userId, cycle);
         if (!hasPassing) missingGates.add("MOCK_SCORE_NOT_STABLE");
 
         int activeMistakes = countActiveMistakes(userId, cycle);
         if (activeMistakes > 0) missingGates.add("KEY_TOPIC_COVERAGE_LOW");
 
-        boolean isReady      = missingGates.isEmpty();
-        int     readinessScore = calcReadinessScore(hasPassing, activeMistakes);
+        boolean hasKeyCoverage = hasSufficientKeyCoverage(userId, cycle);
+        if (!hasKeyCoverage) missingGates.add("KEY_COVERAGE_INCOMPLETE");
+
+        boolean isReady        = missingGates.isEmpty();
+        int     readinessScore = calcReadinessScore(hasPassing, activeMistakes, hasKeyCoverage);
 
         return new ReadinessResult(readinessScore, isReady, missingGates);
     }
@@ -91,12 +100,34 @@ public class SummaryService {
         return Math.min(100, (int) Math.round(100.0 * answered / totalActive));
     }
 
-    private boolean hasPassingMock(Long userId) {
+    private boolean hasPassingMock(Long userId, int cycle) {
         var ma = Tables.MOCK_ATTEMPTS;
         return dsl.fetchExists(ma,
                 ma.USER_ID.eq(userId)
                         .and(ma.STATUS.eq("submitted"))
-                        .and(ma.SCORE_PERCENT.greaterOrEqual(MOCK_PASS_THRESHOLD)));
+                        .and(ma.SCORE_PERCENT.greaterOrEqual(MOCK_PASS_THRESHOLD))
+                        .and(ma.LEARNING_CYCLE.eq(cycle)));
+    }
+
+    private boolean hasSufficientKeyCoverage(Long userId, int cycle) {
+        var q  = Tables.QUESTIONS;
+        var pa = Tables.PRACTICE_ATTEMPTS;
+        var ps = Tables.PRACTICE_SESSIONS;
+
+        int totalKey = dsl.fetchCount(q,
+                q.IS_KEY_COVERAGE.isTrue().and(q.STATUS.eq("active")));
+        if (totalKey == 0) return true; // no key questions defined → gate trivially passes
+
+        int answered = dsl.fetchCount(
+                dsl.selectDistinct(pa.QUESTION_ID)
+                   .from(pa)
+                   .join(ps).on(ps.ID.eq(pa.PRACTICE_SESSION_ID))
+                   .join(q).on(q.ID.eq(pa.QUESTION_ID))
+                   .where(pa.USER_ID.eq(userId)
+                           .and(ps.LEARNING_CYCLE.eq(cycle))
+                           .and(q.IS_KEY_COVERAGE.isTrue())));
+
+        return answered * 100 / totalKey >= KEY_COVERAGE_THRESHOLD_PCT;
     }
 
     private int countActiveMistakes(Long userId, int cycle) {
@@ -107,11 +138,12 @@ public class SummaryService {
                         .and(mr.LEARNING_CYCLE.eq(cycle)));
     }
 
-    private int calcReadinessScore(boolean hasPassing, int activeMistakes) {
+    private int calcReadinessScore(boolean hasPassing, int activeMistakes, boolean hasKeyCoverage) {
         int score = 0;
-        if (hasPassing) score += 50;
-        if (activeMistakes == 0) score += 50;
-        else score += Math.max(0, 50 - activeMistakes * 5);
+        if (hasPassing)    score += 40;
+        if (hasKeyCoverage) score += 20;
+        if (activeMistakes == 0) score += 40;
+        else score += Math.max(0, 40 - activeMistakes * 5);
         return Math.min(100, score);
     }
 
