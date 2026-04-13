@@ -1,5 +1,6 @@
 package com.dmvmotor.api.progressreadiness.application;
 
+import com.dmvmotor.api.authaccess.infrastructure.UserRepository;
 import com.dmvmotor.api.infrastructure.jooq.generated.Tables;
 import org.jooq.DSLContext;
 import org.jooq.impl.DSL;
@@ -14,16 +15,19 @@ public class SummaryService {
     /** Minimum mock score (%) to be considered "passed" for readiness. */
     private static final int MOCK_PASS_THRESHOLD = 83;
 
-    private final DSLContext dsl;
+    private final DSLContext     dsl;
+    private final UserRepository userRepo;
 
-    public SummaryService(DSLContext dsl) {
-        this.dsl = dsl;
+    public SummaryService(DSLContext dsl, UserRepository userRepo) {
+        this.dsl      = dsl;
+        this.userRepo = userRepo;
     }
 
     public SummaryResult getSummary(Long userId) {
-        ReadinessResult readiness = getReadiness(userId);
-        List<WeakTopic> weakTopics = findWeakTopics(userId);
-        int completionScore = calcCompletionScore(userId);
+        int cycle = cycleFor(userId);
+        ReadinessResult readiness = getReadiness(userId, cycle);
+        List<WeakTopic> weakTopics = findWeakTopics(userId, cycle);
+        int completionScore = calcCompletionScore(userId, cycle);
 
         String nextActionType;
         String nextActionLabel;
@@ -43,12 +47,16 @@ public class SummaryService {
     }
 
     public ReadinessResult getReadiness(Long userId) {
+        return getReadiness(userId, cycleFor(userId));
+    }
+
+    private ReadinessResult getReadiness(Long userId, int cycle) {
         List<String> missingGates = new ArrayList<>();
 
         boolean hasPassing = hasPassingMock(userId);
         if (!hasPassing) missingGates.add("MOCK_SCORE_NOT_STABLE");
 
-        int activeMistakes = countActiveMistakes(userId);
+        int activeMistakes = countActiveMistakes(userId, cycle);
         if (activeMistakes > 0) missingGates.add("KEY_TOPIC_COVERAGE_LOW");
 
         boolean isReady      = missingGates.isEmpty();
@@ -61,9 +69,14 @@ public class SummaryService {
     // Internals
     // ---------------------------------------------------------------
 
-    private int calcCompletionScore(Long userId) {
+    private int cycleFor(Long userId) {
+        return userRepo.findById(userId).map(u -> u.resetCount()).orElse(0);
+    }
+
+    private int calcCompletionScore(Long userId, int cycle) {
         var q  = Tables.QUESTIONS;
         var pa = Tables.PRACTICE_ATTEMPTS;
+        var ps = Tables.PRACTICE_SESSIONS;
 
         int totalActive = dsl.fetchCount(q,
                 q.ALLOW_IN_PRACTICE.isTrue().and(q.STATUS.eq("active")));
@@ -72,7 +85,8 @@ public class SummaryService {
         int answered = dsl.fetchCount(
                 dsl.selectDistinct(pa.QUESTION_ID)
                    .from(pa)
-                   .where(pa.USER_ID.eq(userId)));
+                   .join(ps).on(ps.ID.eq(pa.PRACTICE_SESSION_ID))
+                   .where(pa.USER_ID.eq(userId).and(ps.LEARNING_CYCLE.eq(cycle))));
 
         return Math.min(100, (int) Math.round(100.0 * answered / totalActive));
     }
@@ -85,10 +99,12 @@ public class SummaryService {
                         .and(ma.SCORE_PERCENT.greaterOrEqual(MOCK_PASS_THRESHOLD)));
     }
 
-    private int countActiveMistakes(Long userId) {
+    private int countActiveMistakes(Long userId, int cycle) {
         var mr = Tables.MISTAKE_RECORDS;
         return dsl.fetchCount(mr,
-                mr.USER_ID.eq(userId).and(mr.IS_ACTIVE.isTrue()));
+                mr.USER_ID.eq(userId)
+                        .and(mr.IS_ACTIVE.isTrue())
+                        .and(mr.LEARNING_CYCLE.eq(cycle)));
     }
 
     private int calcReadinessScore(boolean hasPassing, int activeMistakes) {
@@ -99,13 +115,15 @@ public class SummaryService {
         return Math.min(100, score);
     }
 
-    private List<WeakTopic> findWeakTopics(Long userId) {
+    private List<WeakTopic> findWeakTopics(Long userId, int cycle) {
         var mr = Tables.MISTAKE_RECORDS;
         var t  = Tables.TOPICS;
         return dsl.select(t.ID, t.NAME_EN, DSL.sum(mr.WRONG_COUNT))
                 .from(mr)
                 .join(t).on(t.ID.eq(mr.PRIMARY_TOPIC_ID))
-                .where(mr.USER_ID.eq(userId).and(mr.IS_ACTIVE.isTrue()))
+                .where(mr.USER_ID.eq(userId)
+                        .and(mr.IS_ACTIVE.isTrue())
+                        .and(mr.LEARNING_CYCLE.eq(cycle)))
                 .groupBy(t.ID, t.NAME_EN)
                 .orderBy(DSL.sum(mr.WRONG_COUNT).desc())
                 .limit(5)

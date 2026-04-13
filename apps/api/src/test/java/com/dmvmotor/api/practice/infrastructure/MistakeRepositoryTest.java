@@ -29,21 +29,21 @@ class MistakeRepositoryTest extends IntegrationTestBase {
 
     @Test
     void upsertMistake_newRecord_insertsRowWithWrongCountOne() {
-        mistakeRepository.upsertMistake(userId, questionId, topicId, "practice");
+        mistakeRepository.upsertMistake(userId, questionId, topicId, "practice", 0);
 
         Integer count = jdbc.queryForObject(
-                "SELECT wrong_count FROM mistake_records WHERE user_id=? AND question_id=?",
+                "SELECT wrong_count FROM mistake_records WHERE user_id=? AND question_id=? AND learning_cycle=0",
                 Integer.class, userId, questionId);
         assertThat(count).isEqualTo(1);
     }
 
     @Test
     void upsertMistake_existingRecord_incrementsWrongCount() {
-        mistakeRepository.upsertMistake(userId, questionId, topicId, "practice");
-        mistakeRepository.upsertMistake(userId, questionId, topicId, "review");
+        mistakeRepository.upsertMistake(userId, questionId, topicId, "practice", 0);
+        mistakeRepository.upsertMistake(userId, questionId, topicId, "review", 0);
 
         Integer count = jdbc.queryForObject(
-                "SELECT wrong_count FROM mistake_records WHERE user_id=? AND question_id=?",
+                "SELECT wrong_count FROM mistake_records WHERE user_id=? AND question_id=? AND learning_cycle=0",
                 Integer.class, userId, questionId);
         assertThat(count).isEqualTo(2);
     }

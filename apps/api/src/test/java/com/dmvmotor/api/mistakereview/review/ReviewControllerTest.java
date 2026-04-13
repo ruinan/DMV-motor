@@ -241,6 +241,37 @@ class ReviewControllerTest extends IntegrationTestBase {
                 .andExpect(jsonPath("$.data.next_action.type").value("continue_review"));
     }
 
+    @Test
+    void completeTask_allTasksDone_marksPackCompleted() throws Exception {
+        // Single mistake → single task → answer correctly (deactivates mistake), then complete task.
+        // After that, getReviewPack should return 404 because: old pack is completed AND no active mistakes remain.
+        fixtures.insertMistakeRecord(userId, questionId1, topicId, 1, "practice");
+        String packBody = mockMvc.perform(get("/api/v1/review/pack")
+                        .header("Authorization", "Bearer " + userId))
+                .andReturn().getResponse().getContentAsString();
+        String taskId = extractTaskId(packBody);
+
+        // Answer correctly → deactivates the mistake
+        mockMvc.perform(post("/api/v1/review/tasks/{id}/answers", taskId)
+                        .header("Authorization", "Bearer " + userId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"question_id":"%s","variant_id":"%s","selected_choice_key":"B"}
+                                """.formatted(questionId1, variantId1)));
+
+        // Complete the only task → should also mark the pack as completed
+        mockMvc.perform(post("/api/v1/review/tasks/{id}/complete", taskId)
+                        .header("Authorization", "Bearer " + userId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.completed").value(true));
+
+        // Pack is completed + no active mistakes → next getOrCreatePack returns 404
+        mockMvc.perform(get("/api/v1/review/pack")
+                        .header("Authorization", "Bearer " + userId))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.error.code").value("NO_MISTAKES_TO_REVIEW"));
+    }
+
     // ---------------------------------------------------------------
     // Helpers
     // ---------------------------------------------------------------

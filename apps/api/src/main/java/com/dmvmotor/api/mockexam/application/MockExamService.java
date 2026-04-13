@@ -2,6 +2,7 @@ package com.dmvmotor.api.mockexam.application;
 
 import com.dmvmotor.api.authaccess.application.AccessService;
 import com.dmvmotor.api.authaccess.application.AccessService.AccessInfo;
+import com.dmvmotor.api.authaccess.infrastructure.UserRepository;
 import com.dmvmotor.api.common.BusinessException;
 import com.dmvmotor.api.common.ResourceNotFoundException;
 import com.dmvmotor.api.content.domain.QuestionDetail;
@@ -9,6 +10,7 @@ import com.dmvmotor.api.content.infrastructure.QuestionRepository;
 import com.dmvmotor.api.mockexam.infrastructure.MockExamRepository;
 import com.dmvmotor.api.mockexam.infrastructure.MockExamRepository.AnswerRow;
 import com.dmvmotor.api.mockexam.infrastructure.MockExamRepository.AttemptRow;
+import com.dmvmotor.api.practice.infrastructure.MistakeRepository;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -22,13 +24,19 @@ public class MockExamService {
     private final MockExamRepository mockExamRepo;
     private final AccessService      accessService;
     private final QuestionRepository questionRepo;
+    private final MistakeRepository  mistakeRepo;
+    private final UserRepository     userRepo;
 
     public MockExamService(MockExamRepository mockExamRepo,
                            AccessService accessService,
-                           QuestionRepository questionRepo) {
-        this.mockExamRepo = mockExamRepo;
+                           QuestionRepository questionRepo,
+                           MistakeRepository mistakeRepo,
+                           UserRepository userRepo) {
+        this.mockExamRepo  = mockExamRepo;
         this.accessService = accessService;
         this.questionRepo  = questionRepo;
+        this.mistakeRepo   = mistakeRepo;
+        this.userRepo      = userRepo;
     }
 
     public MockAccessResult checkAccess(Long userId) {
@@ -80,6 +88,13 @@ public class MockExamService {
     public SubmitResult submitAttempt(Long attemptId, Long userId) {
         AttemptRow attempt = requireAttempt(attemptId, userId);
 
+        if (!"in_progress".equals(attempt.status())) {
+            throw new BusinessException("MOCK_ALREADY_ENDED",
+                    "Mock exam already submitted or exited", HttpStatus.CONFLICT);
+        }
+
+        int cycle = userRepo.findById(userId).map(u -> u.resetCount()).orElse(0);
+
         List<AnswerRow> answers = mockExamRepo.findAnswersByAttemptId(attemptId);
         int correctCount = 0;
         int wrongCount   = 0;
@@ -91,10 +106,16 @@ public class MockExamService {
                             "Question not found: " + answer.questionId()));
             boolean isCorrect = q.correctChoiceKey().equals(answer.selectedKey());
             mockExamRepo.markAnswerCorrectness(attemptId, answer.questionId(), isCorrect);
-            if (isCorrect) correctCount++; else wrongCount++;
+            if (isCorrect) {
+                correctCount++;
+            } else {
+                wrongCount++;
+                mistakeRepo.upsertMistake(userId, answer.questionId(),
+                        q.topicId(), "mock_exam", cycle);
+            }
         }
 
-        int total        = answers.size();
+        int total        = mockExamRepo.findMockExamQuestionCount(attempt.mockExamId());
         int scorePercent = total == 0 ? 0 : (int) Math.round(100.0 * correctCount / total);
         mockExamRepo.scoreAttempt(attemptId, correctCount, wrongCount, scorePercent);
 

@@ -153,4 +153,41 @@ class AccountControllerTest extends IntegrationTestBase {
                                 """))
                 .andExpect(status().isUnauthorized());
     }
+
+    @Test
+    void resetLearning_isSoftReset_practiceSessionStillExistsAfterReset() throws Exception {
+        // Create a practice session before reset — data must not be deleted
+        Long topicId = fixtures.insertTopic("RESET_TEST_TOPIC");
+        Long qId     = fixtures.insertQuestion(topicId, "A");
+        fixtures.insertVariant(qId, "en", "Soft reset test question?",
+                "[{\"key\":\"A\",\"text\":\"Yes\"},{\"key\":\"B\",\"text\":\"No\"}]",
+                null);
+
+        // Start a practice session (creates a row in practice_sessions)
+        mockMvc.perform(post("/api/v1/practice/sessions")
+                        .header("Authorization", "Bearer " + userId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"entry_type":"free_trial","language":"en"}
+                                """))
+                .andExpect(status().isCreated());
+
+        // Reset
+        mockMvc.perform(post("/api/v1/me/reset-learning")
+                        .header("Authorization", "Bearer " + userId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"confirm":true}
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.reset").value(true));
+
+        // After reset: getMe still works — user exists, data not deleted
+        mockMvc.perform(get("/api/v1/me")
+                        .header("Authorization", "Bearer " + userId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.user_id").value(String.valueOf(userId)))
+                // No in-progress session in the NEW cycle
+                .andExpect(jsonPath("$.data.learning.has_in_progress_practice").value(false));
+    }
 }

@@ -214,6 +214,32 @@ class MockExamControllerTest extends IntegrationTestBase {
     }
 
     @Test
+    void submitMockExam_alreadySubmitted_returns409() throws Exception {
+        String attemptId = startMockAndGetId();
+        submitAttempt(attemptId);
+
+        mockMvc.perform(post("/api/v1/mock-exams/attempts/{id}/submit", attemptId)
+                        .header("Authorization", "Bearer " + userId))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.error.code").value("MOCK_ALREADY_ENDED"));
+    }
+
+    @Test
+    void submitMockExam_partialAnswers_scoreBasedOnTotalQuestions() throws Exception {
+        String attemptId = startMockAndGetId();
+        // Only answer q1 correctly; q2 left unanswered
+        saveAnswerForAttempt(attemptId, q1, v1, "B"); // correct
+
+        mockMvc.perform(post("/api/v1/mock-exams/attempts/{id}/submit", attemptId)
+                        .header("Authorization", "Bearer " + userId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.correct_count").value(1))
+                .andExpect(jsonPath("$.data.wrong_count").value(0))
+                // score = round(100 * 1 / 2) = 50, NOT 100 (total = 2 questions in exam)
+                .andExpect(jsonPath("$.data.score_percent").value(50));
+    }
+
+    @Test
     void submitMockExam_allCorrect_nextActionIsPractice() throws Exception {
         String attemptId = startMockAndGetId();
         saveAnswerForAttempt(attemptId, q1, v1, "B"); // correct (q1 correct key = "B")
@@ -310,5 +336,10 @@ class MockExamControllerTest extends IntegrationTestBase {
                 .content("""
                         {"question_id":"%s","variant_id":"%s","selected_choice_key":"%s"}
                         """.formatted(qId, vId, choice)));
+    }
+
+    private void submitAttempt(String attemptId) throws Exception {
+        mockMvc.perform(post("/api/v1/mock-exams/attempts/{id}/submit", attemptId)
+                .header("Authorization", "Bearer " + userId));
     }
 }

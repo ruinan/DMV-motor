@@ -40,6 +40,11 @@ public class MockExamRepository {
                 .fetch(meq.QUESTION_ID);
     }
 
+    public int findMockExamQuestionCount(Long mockExamId) {
+        var meq = Tables.MOCK_EXAM_QUESTIONS;
+        return dsl.fetchCount(meq, meq.MOCK_EXAM_ID.eq(mockExamId));
+    }
+
     // ---------------------------------------------------------------
     // Mock Attempts
     // ---------------------------------------------------------------

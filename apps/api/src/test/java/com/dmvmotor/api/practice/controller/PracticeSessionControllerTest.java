@@ -235,6 +235,35 @@ class PracticeSessionControllerTest extends IntegrationTestBase {
     }
 
     // ---------------------------------------------------------------
+    // entry_type=full access control
+    // ---------------------------------------------------------------
+
+    @Test
+    void startSession_fullType_anonymous_returns401() throws Exception {
+        mockMvc.perform(post("/api/v1/practice/sessions")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"entry_type":"full","language":"en"}
+                                """))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.error.code").value("UNAUTHORIZED"));
+    }
+
+    @Test
+    void startSession_fullType_noPass_returns403() throws Exception {
+        Long uid = fixtures.insertUser("nopass_full@example.com");
+
+        mockMvc.perform(post("/api/v1/practice/sessions")
+                        .header("Authorization", "Bearer " + uid)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"entry_type":"full","language":"en"}
+                                """))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.error.code").value("ACCESS_DENIED"));
+    }
+
+    // ---------------------------------------------------------------
     // Ownership / FORBIDDEN tests
     // ---------------------------------------------------------------
 
