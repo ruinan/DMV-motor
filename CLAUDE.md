@@ -94,7 +94,7 @@ Claude 在本项目中扮演**小公司 CTO** 的角色：
 ## 待决策清单
 
 1. [模块/功能] 问题描述
-   - 选项 A：...（推荐，理由：...）1
+   - 选项 A：...（推荐，理由：...）    1
    - 选项 B：...
 
 2. [模块/功能] 问题描述
@@ -153,30 +153,35 @@ Claude 在本项目中扮演**小公司 CTO** 的角色：
 
 **项目：** California M1 笔试备考 App（DMV Motor）
 
-**当前阶段：** 阶段 1 — 内容与基础数据层（进行中）
+**当前阶段：** 阶段 1 完成 → 准备进入阶段 2（账户与访问控制）
 
 **基础设施：**
 - 后端：Java 21 + Spring Boot 3.4 + jOOQ + Flyway
 - DB：PostgreSQL 16（本地 Docker 容器 `dmv-motor-postgres`，volume `dmv-motor-pgdata`）
 - 测试：Testcontainers（静态容器，`IntegrationTestBase` + `TestFixtures`）
+- 部署：GCP Cloud Run + Cloud SQL（Terraform，`infra/terraform/`）
+- CI/CD：GitHub Actions（`.github/workflows/deploy.yml`）
 
-**已完成：**
-- [x] V1 migration（全部基础表）
+**已完成（阶段 1）：**
+- [x] V1–V10 migrations（基础表 + 所有功能扩展）
 - [x] jOOQ codegen 配置
 - [x] Docker 本地 PostgreSQL（持久化 volume）
 - [x] 测试基础设施（`IntegrationTestBase` + `TestFixtures`）
-- [x] 测试策略文档（`docs/development/testing-strategy.md`）
 - [x] 统一响应格式 `ApiResponse<T>` + 全局异常处理
-- [x] `GET /api/v1/topics`
-- [x] `GET /api/v1/questions/{id}?language=en|zh`
-- [x] CLAUDE.md 工作规范
+- [x] 全部 MVP API 端点（99 tests，JaCoCo ≥90%）
+- [x] V10：53 条真实 CA M1 题目（EN+ZH）+ CA_M1_30Q mock exam
+- [x] GCP 部署基础设施（Terraform + Dockerfile + prod profile + CI/CD）
+- [x] 学习周期隔离（soft reset，reset_count）
+- [x] Free trial 隔离（allow_in_free_trial 字段）
+- [x] TODO(MASTERY)：掌握度评判算法待上线前实现
 
-**进行中 / 待做（阶段 1 剩余）：**
-- [ ] 内容 seed 数据（真实题目 + topic）
-- [ ] 至少 1 套 mock exam 模板数据
+**进行中 / 待做（阶段 2）：**
+- [ ] GCP 首次部署（bootstrap：创建 GCS bucket → `terraform init` → `terraform apply`）
+- [ ] GitHub Actions secrets 配置（WIF_PROVIDER, WIF_SERVICE_ACCOUNT）
+- [ ] 前端 Next.js（未开始）
 - [ ] `mvnw` wrapper（目前用本地 mvn）
 
-**下一阶段：** 阶段 2 — 账户与访问控制
+**下一阶段：** 阶段 2 — 账户与访问控制（或先完成 GCP 首次部署）
 
 **未解决的决策点：** 无
 
