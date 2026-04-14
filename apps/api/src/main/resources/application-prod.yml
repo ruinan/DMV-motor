@@ -1,0 +1,33 @@
+spring:
+  datasource:
+    url: ${SPRING_DATASOURCE_URL}
+    username: ${SPRING_DATASOURCE_USERNAME}
+    password: ${SPRING_DATASOURCE_PASSWORD}
+    hikari:
+      # Cloud Run is serverless — keep pool small to avoid exhausting Cloud SQL connections
+      minimum-idle: 1
+      maximum-pool-size: 5
+      connection-timeout: 20000
+      idle-timeout: 300000
+
+  lifecycle:
+    timeout-per-shutdown-phase: 25s  # graceful drain before Cloud Run kills container
+
+server:
+  shutdown: graceful
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      probes:
+        enabled: true        # enables /actuator/health/liveness and /actuator/health/readiness
+      show-details: never    # don't leak DB details in public health response
+  health:
+    livenessstate:
+      enabled: true
+    readinessstate:
+      enabled: true
