@@ -49,3 +49,20 @@ build/
 *.secret
 application-local.yml
 application-local.yaml
+
+### Terraform ###
+# provider plugins + module cache (large, machine-specific)
+**/.terraform/
+# planned state files and overrides (sensitive + machine-local)
+*.tfstate
+*.tfstate.*
+*.tfplan
+tfplan.out
+apply.log
+crash.log
+crash.*.log
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+# DO NOT ignore .terraform.lock.hcl — provider version lock, must be committed

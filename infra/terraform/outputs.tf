@@ -18,3 +18,14 @@ output "artifact_registry_url" {
   description = "Artifact Registry base URL for Docker images"
   value       = "${var.region}-docker.pkg.dev/${var.project_id}/dmv-motor"
 }
+
+# --- Workload Identity Federation outputs (for GitHub Actions secrets) ---
+output "wif_provider" {
+  description = "Set as GitHub Actions secret WIF_PROVIDER"
+  value       = google_iam_workload_identity_pool_provider.github.name
+}
+
+output "wif_service_account" {
+  description = "Set as GitHub Actions secret WIF_SERVICE_ACCOUNT"
+  value       = google_service_account.deployer.email
+}

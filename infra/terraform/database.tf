@@ -8,12 +8,13 @@ resource "google_sql_database_instance" "main" {
 
   settings {
     tier              = var.db_tier
-    availability_type = "ZONAL" # single-zone; change to REGIONAL for HA
+    edition           = "ENTERPRISE" # ENTERPRISE_PLUS doesn't allow shared-core tiers like db-f1-micro
+    availability_type = "ZONAL"      # single-zone; change to REGIONAL for HA
 
     backup_configuration {
-      enabled            = true
-      start_time         = "03:00" # 3 AM UTC = 7 PM PST
-      binary_log_enabled = false   # not applicable for Postgres
+      enabled                        = true
+      start_time                     = "03:00" # 3 AM UTC = 7 PM PST
+      binary_log_enabled             = false   # not applicable for Postgres
       transaction_log_retention_days = 7
       backup_retention_settings {
         retained_backups = 7
@@ -21,7 +22,7 @@ resource "google_sql_database_instance" "main" {
     }
 
     ip_configuration {
-      ipv4_enabled    = false        # private IP only
+      ipv4_enabled    = false # private IP only
       private_network = google_compute_network.vpc.id
     }
 

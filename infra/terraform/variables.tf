@@ -28,9 +28,14 @@ variable "db_user" {
 }
 
 variable "image_tag" {
-  description = "Docker image tag to deploy (e.g. git SHA)"
+  description = "Docker image tag to deploy. Use 'bootstrap' on first apply to use a placeholder hello-container (since Artifact Registry has no image yet). After first CI/CD deploy, lifecycle.ignore_changes keeps TF from reverting the image."
   type        = string
-  default     = "latest"
+  default     = "bootstrap"
+}
+
+variable "github_repo" {
+  description = "GitHub repo in 'owner/name' form, used to scope Workload Identity Federation"
+  type        = string
 }
 
 variable "api_min_instances" {

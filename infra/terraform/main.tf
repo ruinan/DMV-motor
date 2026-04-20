@@ -8,11 +8,14 @@ provider "google" {
 # ---------------------------------------------------------------
 locals {
   services = [
-    "run.googleapis.com",            # Cloud Run
-    "sqladmin.googleapis.com",       # Cloud SQL
-    "secretmanager.googleapis.com",  # Secret Manager
-    "artifactregistry.googleapis.com",
-    "vpcaccess.googleapis.com",      # Serverless VPC Access
+    "run.googleapis.com",               # Cloud Run
+    "sqladmin.googleapis.com",          # Cloud SQL
+    "secretmanager.googleapis.com",     # Secret Manager
+    "artifactregistry.googleapis.com",  # Docker images
+    "servicenetworking.googleapis.com", # Private Service Access for Cloud SQL
+    "compute.googleapis.com",           # VPC / subnet / Direct VPC egress
+    "iamcredentials.googleapis.com",    # WIF token minting
+    "sts.googleapis.com",               # WIF STS exchange
     "cloudresourcemanager.googleapis.com",
     "iam.googleapis.com",
   ]
