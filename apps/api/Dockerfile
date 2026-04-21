@@ -1,11 +1,11 @@
-# Build stage
-FROM eclipse-temurin:21-jdk-alpine AS build
+# Build stage — jOOQ generated sources are committed to src/main/java,
+# so the build does not need a live database or codegen profile.
+FROM maven:3.9-eclipse-temurin-21-alpine AS build
 WORKDIR /build
 COPY pom.xml .
 COPY src ./src
-# Skip jOOQ codegen (generated sources committed or already in target); skip tests
 RUN --mount=type=cache,target=/root/.m2 \
-    mvn package -DskipTests -Djooq.codegen.skip=true
+    mvn package -DskipTests
 
 # Runtime stage — minimal JRE image
 FROM eclipse-temurin:21-jre-alpine

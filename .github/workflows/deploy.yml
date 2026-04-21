@@ -6,6 +6,7 @@ on:
     paths:
       - 'apps/api/**'
       - '.github/workflows/deploy.yml'
+  workflow_dispatch: {}
 
 env:
   PROJECT_ID: dmv-motor-prod
@@ -18,10 +19,12 @@ jobs:
     name: Test
     runs-on: ubuntu-latest
     services:
+      # Failsafe IT tests use application-it.yml which expects dmv_motor_it.
+      # Unit tests run in Testcontainers and ignore this service.
       postgres:
         image: postgres:16-alpine
         env:
-          POSTGRES_DB: dmv_motor_test
+          POSTGRES_DB: dmv_motor_it
           POSTGRES_USER: dmv_motor
           POSTGRES_PASSWORD: dmv_motor
         ports:
@@ -43,11 +46,7 @@ jobs:
 
       - name: Run tests
         working-directory: apps/api
-        env:
-          SPRING_DATASOURCE_URL: jdbc:postgresql://localhost:5432/dmv_motor_test
-          SPRING_DATASOURCE_USERNAME: dmv_motor
-          SPRING_DATASOURCE_PASSWORD: dmv_motor
-        run: mvn verify -Djooq.codegen.skip=true
+        run: mvn verify
 
   deploy:
     name: Build & Deploy

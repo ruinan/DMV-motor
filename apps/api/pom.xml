@@ -18,7 +18,13 @@
 
     <properties>
         <java.version>21</java.version>
-        <!-- jOOQ codegen connects to local DB; override with -Djooq.codegen.url=... -->
+        <!--
+          jOOQ codegen connects to local Postgres (Docker container dmv-motor-postgres).
+          Codegen is OFF by default; opt in with `mvn -Pjooq-gen generate-sources`
+          after schema changes, then commit the regenerated sources under
+          src/main/java/com/dmvmotor/api/infrastructure/jooq/generated/.
+          Override connection via -Djooq.codegen.url=... if needed.
+        -->
         <jooq.codegen.url>jdbc:postgresql://localhost:5432/dmv_motor</jooq.codegen.url>
         <jooq.codegen.username>dmv_motor</jooq.codegen.username>
         <jooq.codegen.password>dmv_motor</jooq.codegen.password>
@@ -159,39 +165,60 @@
                     </execution>
                 </executions>
             </plugin>
-            <plugin>
-                <groupId>org.jooq</groupId>
-                <artifactId>jooq-codegen-maven</artifactId>
-                <executions>
-                    <execution>
-                        <id>jooq-codegen</id>
-                        <phase>generate-sources</phase>
-                        <goals>
-                            <goal>generate</goal>
-                        </goals>
-                    </execution>
-                </executions>
-                <configuration>
-                    <jdbc>
-                        <driver>org.postgresql.Driver</driver>
-                        <url>${jooq.codegen.url}</url>
-                        <user>${jooq.codegen.username}</user>
-                        <password>${jooq.codegen.password}</password>
-                    </jdbc>
-                    <generator>
-                        <database>
-                            <name>org.jooq.meta.postgres.PostgresDatabase</name>
-                            <inputSchema>public</inputSchema>
-                            <includes>.*</includes>
-                            <excludes>flyway_schema_history</excludes>
-                        </database>
-                        <target>
-                            <packageName>com.dmvmotor.api.infrastructure.jooq.generated</packageName>
-                            <directory>target/generated-sources/jooq</directory>
-                        </target>
-                    </generator>
-                </configuration>
-            </plugin>
         </plugins>
     </build>
+
+    <!--
+      jOOQ code generation is opt-in via profile (not part of default build).
+      Generated sources are checked into src/main/java/com/dmvmotor/api/infrastructure/jooq/generated/
+      so that CI and Docker image builds don't need a live database.
+
+      To regenerate after a schema change:
+        1. Start local Postgres (Docker container dmv-motor-postgres must be running)
+        2. Start the app once to apply Flyway migrations (or run Flyway manually)
+        3. mvn -Pjooq-gen generate-sources
+        4. git add src/main/java/com/dmvmotor/api/infrastructure/jooq/generated && commit
+    -->
+    <profiles>
+        <profile>
+            <id>jooq-gen</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.jooq</groupId>
+                        <artifactId>jooq-codegen-maven</artifactId>
+                        <executions>
+                            <execution>
+                                <id>jooq-codegen</id>
+                                <phase>generate-sources</phase>
+                                <goals>
+                                    <goal>generate</goal>
+                                </goals>
+                            </execution>
+                        </executions>
+                        <configuration>
+                            <jdbc>
+                                <driver>org.postgresql.Driver</driver>
+                                <url>${jooq.codegen.url}</url>
+                                <user>${jooq.codegen.username}</user>
+                                <password>${jooq.codegen.password}</password>
+                            </jdbc>
+                            <generator>
+                                <database>
+                                    <name>org.jooq.meta.postgres.PostgresDatabase</name>
+                                    <inputSchema>public</inputSchema>
+                                    <includes>.*</includes>
+                                    <excludes>flyway_schema_history</excludes>
+                                </database>
+                                <target>
+                                    <packageName>com.dmvmotor.api.infrastructure.jooq.generated</packageName>
+                                    <directory>src/main/java</directory>
+                                </target>
+                            </generator>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+    </profiles>
 </project>
