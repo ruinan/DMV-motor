@@ -46,11 +46,7 @@ public class ReviewService {
 
     @Transactional
     public ReviewPackResult getOrCreatePack(Long userId) {
-        if (!accessService.getAccess(userId).canUseReview()) {
-            throw new BusinessException("ACCESS_DENIED",
-                    "Active access pass required to use review",
-                    HttpStatus.FORBIDDEN);
-        }
+        requireReviewAccess(userId);
 
         int cycle = cycleFor(userId);
 
@@ -88,6 +84,7 @@ public class ReviewService {
     }
 
     public TaskQuestionsResult getTaskQuestions(Long taskId, Long userId, String language) {
+        requireReviewAccess(userId);
         TaskRow task = requireTask(taskId, userId);
 
         List<Long> questionIds = reviewRepo.findQuestionIdsByTaskId(taskId);
@@ -104,6 +101,7 @@ public class ReviewService {
     public ReviewAnswerResult submitAnswer(Long taskId, Long userId,
                                            Long questionId, Long variantId,
                                            String selectedKey, String language) {
+        requireReviewAccess(userId);
         TaskRow task = requireTask(taskId, userId);
 
         if (reviewRepo.hasAnswer(taskId, questionId)) {
@@ -147,6 +145,7 @@ public class ReviewService {
 
     @Transactional
     public CompleteTaskResult completeTask(Long taskId, Long userId) {
+        requireReviewAccess(userId);
         TaskRow task = requireTask(taskId, userId);
         int cycle = cycleFor(userId);
 
@@ -199,6 +198,14 @@ public class ReviewService {
 
     private int cycleFor(Long userId) {
         return userRepo.findById(userId).map(u -> u.resetCount()).orElse(0);
+    }
+
+    private void requireReviewAccess(Long userId) {
+        if (!accessService.getAccess(userId).canUseReview()) {
+            throw new BusinessException("ACCESS_DENIED",
+                    "Active access pass required to use review",
+                    HttpStatus.FORBIDDEN);
+        }
     }
 
     private TaskRow requireTask(Long taskId, Long userId) {

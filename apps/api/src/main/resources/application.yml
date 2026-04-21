@@ -16,3 +16,23 @@ management:
     web:
       exposure:
         include: health,info
+
+# Readiness / completion engine parameters — see docs/parameters.md.
+# docs/parameters.md §7 explicitly forbids hardcoding these; override per environment.
+app:
+  readiness:
+    mock-average-threshold: 85
+    mock-minimum-count: 2
+    key-coverage-threshold: 90
+    review-completion-threshold: 80
+    persistent-mistake-wrong-count: 2
+    mock-weight: 40
+    key-coverage-weight: 25
+    high-risk-review-weight: 20
+    recent-stability-weight: 15
+    completion-key-coverage-weight: 50
+    completion-high-risk-review-weight: 30
+    completion-basic-practice-weight: 20
+    ready-threshold: 80
+    recent-practice-window: 20
+    recent-accuracy-threshold: 85

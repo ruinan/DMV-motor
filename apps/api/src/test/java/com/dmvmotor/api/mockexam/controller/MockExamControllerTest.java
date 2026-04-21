@@ -50,27 +50,25 @@ class MockExamControllerTest extends IntegrationTestBase {
     // ---------------------------------------------------------------
 
     @Test
-    void getMockAccess_anonymous_returnsNotAllowed() throws Exception {
+    void getMockAccess_anonymous_returns401() throws Exception {
+        // api-contract.md §16: GET /mock-exams/access 需要登录
         mockMvc.perform(get("/api/v1/mock-exams/access"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.allowed").value(false))
-                .andExpect(jsonPath("$.data.mock_remaining").value(0));
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.error.code").value("UNAUTHORIZED"));
     }
 
     @Test
-    void getMockAccess_nonBearerAuth_treatedAsAnonymous() throws Exception {
+    void getMockAccess_nonBearerAuth_returns401() throws Exception {
         mockMvc.perform(get("/api/v1/mock-exams/access")
                         .header("Authorization", "Basic dXNlcjpwYXNz"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.allowed").value(false));
+                .andExpect(status().isUnauthorized());
     }
 
     @Test
-    void getMockAccess_nonNumericBearerToken_treatedAsAnonymous() throws Exception {
+    void getMockAccess_nonNumericBearerToken_returns401() throws Exception {
         mockMvc.perform(get("/api/v1/mock-exams/access")
                         .header("Authorization", "Bearer notanumber"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.allowed").value(false));
+                .andExpect(status().isUnauthorized());
     }
 
     @Test

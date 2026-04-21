@@ -107,6 +107,49 @@ class ReviewControllerTest extends IntegrationTestBase {
     // ---------------------------------------------------------------
 
     @Test
+    void getTaskQuestions_noAccessPass_returns403() throws Exception {
+        // Defense in depth: even with a valid taskId, a user whose pass expires must not
+        // be able to continue working on it. api-contract.md §15: "需要允许使用 review".
+        fixtures.insertMistakeRecord(userId, questionId1, topicId, 1, "practice");
+        String taskId = getTaskId();
+
+        Long noPassUser = fixtures.insertUser("nopass2@example.com");
+        mockMvc.perform(get("/api/v1/review/tasks/{id}/questions", taskId)
+                        .header("Authorization", "Bearer " + noPassUser)
+                        .param("language", "en"))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.error.code").value("ACCESS_DENIED"));
+    }
+
+    @Test
+    void submitAnswer_noAccessPass_returns403() throws Exception {
+        fixtures.insertMistakeRecord(userId, questionId1, topicId, 1, "practice");
+        String taskId = getTaskId();
+
+        Long noPassUser = fixtures.insertUser("nopass3@example.com");
+        mockMvc.perform(post("/api/v1/review/tasks/{id}/answers", taskId)
+                        .header("Authorization", "Bearer " + noPassUser)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"question_id":"%s","variant_id":"%s","selected_choice_key":"B"}
+                                """.formatted(questionId1, variantId1)))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.error.code").value("ACCESS_DENIED"));
+    }
+
+    @Test
+    void completeTask_noAccessPass_returns403() throws Exception {
+        fixtures.insertMistakeRecord(userId, questionId1, topicId, 1, "practice");
+        String taskId = getTaskId();
+
+        Long noPassUser = fixtures.insertUser("nopass4@example.com");
+        mockMvc.perform(post("/api/v1/review/tasks/{id}/complete", taskId)
+                        .header("Authorization", "Bearer " + noPassUser))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.error.code").value("ACCESS_DENIED"));
+    }
+
+    @Test
     void getTaskQuestions_invalidTaskId_returns404() throws Exception {
         mockMvc.perform(get("/api/v1/review/tasks/{id}/questions", "999999")
                         .header("Authorization", "Bearer " + userId)

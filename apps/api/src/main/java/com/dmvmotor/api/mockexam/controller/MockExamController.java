@@ -26,6 +26,7 @@ public class MockExamController {
 
     @GetMapping("/access")
     public ApiResponse<?> getMockAccess(@CurrentUser Long userId) {
+        requireAuth(userId);
         MockAccessResult result = mockExamService.checkAccess(userId);
         return ApiResponse.ok(Map.of(
                 "allowed",        result.allowed(),
