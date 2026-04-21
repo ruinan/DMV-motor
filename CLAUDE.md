@@ -1,7 +1,7 @@
 # CLAUDE.md — DMV Motor 项目工作规范
 
 > 这个文件是 Claude 的行为规范和项目工作协议。每次对话开始时必须读取。
-> 最后更新：2026-04-10
+> 最后更新：2026-04-21
 
 ---
 
@@ -164,26 +164,54 @@ Claude 在本项目中扮演**小公司 CTO** 的角色：
 
 **已完成（阶段 1）：**
 - [x] V1–V10 migrations（基础表 + 所有功能扩展）
-- [x] jOOQ codegen 配置
+- [x] jOOQ codegen 改为 `-Pjooq-gen` profile，生成源码归档到 `src/main/java/.../jooq/generated/`
 - [x] Docker 本地 PostgreSQL（持久化 volume）
-- [x] 测试基础设施（`IntegrationTestBase` + `TestFixtures`）
-- [x] 统一响应格式 `ApiResponse<T>` + 全局异常处理
-- [x] 全部 MVP API 端点（99 tests，JaCoCo ≥90%）
+- [x] 测试基础设施（`IntegrationTestBase` + `TestFixtures` + `E2ETestBase`）
+- [x] 统一响应格式 `ApiResponse<T>` + 全局异常处理（snake_case JSON）
+- [x] 全部 MVP API 端点（99 单测，JaCoCo ≥90%；7 个 E2E IT 测试全绿）
 - [x] V10：53 条真实 CA M1 题目（EN+ZH）+ CA_M1_30Q mock exam
-- [x] GCP 部署基础设施（Terraform + Dockerfile + prod profile + CI/CD）
+- [x] GCP 基础设施上线（Terraform apply 成功，36 resources）
+- [x] **首次 CI/CD 部署已验证**：commit `12855d6` 经 GitHub Actions → Cloud Run，`/actuator/health=UP`，`/api/v1/questions/1` 返真实 seed 数据
 - [x] 学习周期隔离（soft reset，reset_count）
 - [x] Free trial 隔离（allow_in_free_trial 字段）
+- [x] Cloud SQL 已暂停（activation-policy=NEVER）省钱中
 - [x] TODO(MASTERY)：掌握度评判算法待上线前实现
 
-**进行中 / 待做（阶段 2）：**
-- [ ] GCP 首次部署（bootstrap：创建 GCS bucket → `terraform init` → `terraform apply`）
-- [ ] GitHub Actions secrets 配置（WIF_PROVIDER, WIF_SERVICE_ACCOUNT）
+**进行中 / 待做：**
 - [ ] 前端 Next.js（未开始）
 - [ ] `mvnw` wrapper（目前用本地 mvn）
 
-**下一阶段：** 阶段 2 — 账户与访问控制（或先完成 GCP 首次部署）
+**下一阶段：** 阶段 2 — 账户与访问控制（MVP 开发）
 
 **未解决的决策点：** 无
+
+---
+
+## 12. Cloud SQL 暂停 / 恢复流程
+
+> MVP 开发期，非测试时段让 Cloud SQL 停机省钱（compute 停收费，存储仍计费 ~$0.25/月）
+> 暂停后 Cloud Run 查 DB 会 500，但 Cloud Run 本身不收费（仅按请求计费）
+
+**暂停**（开发结束 / 不需要跑流量时）：
+```bash
+gcloud sql instances patch dmv-motor-pg --activation-policy=NEVER --quiet
+```
+确认状态：`gcloud sql instances describe dmv-motor-pg --format="value(state,settings.activationPolicy)"` → `STOPPED NEVER`
+
+**恢复**（要 demo / 测试 / 继续开发时）：
+```bash
+gcloud sql instances patch dmv-motor-pg --activation-policy=ALWAYS --quiet
+```
+启动约 1-2 分钟。状态变 `RUNNABLE ALWAYS` 后，Cloud Run 自动连接。
+
+**检查当前状态**：
+```bash
+gcloud sql instances describe dmv-motor-pg --format="value(state,settings.activationPolicy)"
+```
+
+**注意**：
+- `terraform apply` **不会**覆盖 activation-policy（ignore_changes 需要确认），如下次 `tfplan` 显示要改 policy，先手工拉齐再 apply
+- 暂停状态下 Cloud Run deploy 仍能成功，但新实例启动后 Flyway 连不上 DB 会 fail-fast —— 所以**每次 deploy 前确保 SQL 是 RUNNABLE**
 
 ---
 
