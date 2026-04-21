@@ -8,8 +8,12 @@ import static io.restassured.RestAssured.given;
 import static org.hamcrest.Matchers.*;
 
 /**
- * E2E practice session flow against seed data (46 real questions from V2).
+ * E2E practice session flow against seed data (V2 + V10 real questions).
  * Creates a unique test user per run and cleans up after.
+ *
+ * NOTE on field names: controllers respond with snake_case (Jackson
+ * property-naming-strategy is SNAKE_CASE in application.yml), so RestAssured
+ * JSON paths use snake_case here even though Java fields use camelCase.
  */
 class PracticeFlowIT extends E2ETestBase {
 
@@ -38,21 +42,21 @@ class PracticeFlowIT extends E2ETestBase {
                 .then()
                 .statusCode(201)
                 .body("data.status", equalTo("in_progress"))
-                .body("data.nextQuestion.questionId", notNullValue())
-                .body("data.nextQuestion.choices", hasSize(greaterThan(0)))
+                .body("data.next_question.question_id", notNullValue())
+                .body("data.next_question.choices", hasSize(greaterThan(0)))
                 .extract().asString();
 
-        String sessionId = extractField(sessionBody, "sessionId");
-        String questionId = extractNestedField(sessionBody, "nextQuestion", "questionId");
-        String variantId  = extractNestedField(sessionBody, "nextQuestion", "variantId");
+        String sessionId = extractField(sessionBody, "session_id");
+        String questionId = extractNestedField(sessionBody, "next_question", "question_id");
+        String variantId  = extractNestedField(sessionBody, "next_question", "variant_id");
 
         // 2. Get next question
         given().accept("application/json")
                 .get("/api/v1/practice/sessions/" + sessionId + "/next-question")
                 .then()
                 .statusCode(200)
-                .body("data.questionId", equalTo(questionId))
-                .body("data.progress.answeredCount", equalTo(0));
+                .body("data.question_id", equalTo(questionId))
+                .body("data.progress.answered_count", equalTo(0));
 
         // 3. Submit an answer (pick first choice key — we don't know correct, just testing flow)
         given()
@@ -64,10 +68,10 @@ class PracticeFlowIT extends E2ETestBase {
                 .post("/api/v1/practice/sessions/" + sessionId + "/answers")
                 .then()
                 .statusCode(200)
-                .body("data.questionId", equalTo(questionId))
-                .body("data.isCorrect", notNullValue())
-                .body("data.correctChoiceKey", notNullValue())
-                .body("data.progress.answeredCount", equalTo(1));
+                .body("data.question_id", equalTo(questionId))
+                .body("data.is_correct", notNullValue())
+                .body("data.correct_choice_key", notNullValue())
+                .body("data.progress.answered_count", equalTo(1));
 
         // 4. Get session status
         given().accept("application/json")
@@ -75,8 +79,8 @@ class PracticeFlowIT extends E2ETestBase {
                 .then()
                 .statusCode(200)
                 .body("data.status", equalTo("in_progress"))
-                .body("data.answeredCount", equalTo(1))
-                .body("data.totalCount", greaterThanOrEqualTo(1));
+                .body("data.answered_count", equalTo(1))
+                .body("data.total_count", greaterThanOrEqualTo(1));
 
         // 5. Complete session
         given().accept("application/json")
@@ -88,6 +92,9 @@ class PracticeFlowIT extends E2ETestBase {
 
     @Test
     void userPractice_wrongAnswer_recordsMistake_visibleInMistakeList() {
+        // entry_type=full requires an active access pass; fresh test users default to free_trial.
+        grantActiveAccessPass(userId);
+
         // 1. Start session
         String sessionBody = given()
                 .contentType("application/json")
@@ -101,16 +108,16 @@ class PracticeFlowIT extends E2ETestBase {
                 .statusCode(201)
                 .extract().asString();
 
-        String sessionId  = extractField(sessionBody, "sessionId");
-        String questionId = extractNestedField(sessionBody, "nextQuestion", "questionId");
-        String variantId  = extractNestedField(sessionBody, "nextQuestion", "variantId");
+        String sessionId  = extractField(sessionBody, "session_id");
+        String questionId = extractNestedField(sessionBody, "next_question", "question_id");
+        String variantId  = extractNestedField(sessionBody, "next_question", "variant_id");
 
         // Fetch the correct answer so we can intentionally answer WRONG
         String questionBody = given().accept("application/json")
                 .queryParam("language", "en")
                 .get("/api/v1/questions/" + questionId)
                 .then().extract().asString();
-        String correctKey = extractField(questionBody, "correctChoiceKey");
+        String correctKey = extractField(questionBody, "correct_choice_key");
         String wrongKey   = "A".equals(correctKey) ? "B" : "A";
 
         // 2. Submit wrong answer
@@ -124,7 +131,7 @@ class PracticeFlowIT extends E2ETestBase {
                 .post("/api/v1/practice/sessions/" + sessionId + "/answers")
                 .then()
                 .statusCode(200)
-                .body("data.isCorrect", is(false));
+                .body("data.is_correct", is(false));
 
         // 3. Mistake should appear in list
         given().accept("application/json")
@@ -133,7 +140,7 @@ class PracticeFlowIT extends E2ETestBase {
                 .then()
                 .statusCode(200)
                 .body("data.items", hasSize(1))
-                .body("data.items[0].questionId", equalTo(questionId))
+                .body("data.items[0].question_id", equalTo(questionId))
                 .body("meta.total", equalTo(1));
     }
 
@@ -144,7 +151,7 @@ class PracticeFlowIT extends E2ETestBase {
                 .get("/api/v1/me")
                 .then()
                 .statusCode(200)
-                .body("data.userId", equalTo(String.valueOf(userId)))
+                .body("data.user_id", equalTo(String.valueOf(userId)))
                 .body("data.language", equalTo("en"))
                 .body("data.access.state", equalTo("free_trial"));
 
@@ -168,6 +175,16 @@ class PracticeFlowIT extends E2ETestBase {
     // ---------------------------------------------------------------
     // Helpers
     // ---------------------------------------------------------------
+
+    /** Inserts an active access pass for the given user (expires in 30 days, 5 mock attempts). */
+    private void grantActiveAccessPass(Long userId) {
+        jdbc.update("""
+                INSERT INTO access_passes
+                    (user_id, status, starts_at, expires_at, mock_exam_total_count, mock_exam_used_count)
+                VALUES
+                    (?, 'active', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP + INTERVAL '30 days', 5, 0)
+                """, userId);
+    }
 
     private String extractField(String json, String field) {
         String key = "\"" + field + "\":\"";
