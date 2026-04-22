@@ -168,7 +168,7 @@ Claude 在本项目中扮演**小公司 CTO** 的角色：
 - [x] Docker 本地 PostgreSQL（持久化 volume）
 - [x] 测试基础设施（`IntegrationTestBase` + `TestFixtures` + `E2ETestBase`）
 - [x] 统一响应格式 `ApiResponse<T>` + 全局异常处理（snake_case JSON）
-- [x] 全部 MVP API 端点（109 单测，JaCoCo branch ≥90%；7 个 E2E IT 测试全绿）
+- [x] 全部 MVP API 端点（117 单测，JaCoCo branch ≥90%；7 个 E2E IT 测试全绿）
 - [x] V10：53 条真实 CA M1 题目（EN+ZH）+ CA_M1_30Q mock exam
 - [x] GCP 基础设施上线（Terraform apply 成功，36 resources）
 - [x] 学习周期隔离（soft reset，reset_count）
@@ -176,13 +176,14 @@ Claude 在本项目中扮演**小公司 CTO** 的角色：
 - [x] **Round 2 纠偏**：ReadinessProperties 参数化；readiness 公式按 docs/parameters.md §7-§8 重写（2-mock avg 85%/key cov 90%/review 80%/持续薄弱点四道硬门槛；40/25/20/15 权重）；/summary 免费/付费分层；/mock-exams/access 401；review task 端点 canUseReview 纵深防御
 - [x] **线上验证**：revision `dmv-motor-api-00004-cjt`（2026-04-21），`/actuator/health=UP`，`/api/v1/questions/1` 返真实 seed
 - [x] Cloud SQL 已暂停（activation-policy=NEVER）省钱中
+- [x] **MASTERY 判定升级**（2026-04-21，commits 3d52861 + b13c972）：`MasteryEvaluator` + `MasteryProperties`（`app.mastery.*`）+ `PracticeHistoryRepository`（双路径查询 practice+review），topic 正确率 ≥80% & 近 8 条 ≥6 道正确两闸门；第三闸门（confusion point）待 schema 扩展后实现，标记为 `TODO(FUTURE_CONFUSION_SCHEMA)`
 
 **进行中 / 待做：**
+- [ ] 第三方认证迁移（Firebase/Supabase/Clerk），替换开发 shim `Bearer <numericUserId>`
 - [ ] 前端 Next.js（未开始）
-- [ ] TODO(MASTERY)：掌握度评判算法（`ReviewService.completeTask`，上线前处理）
 - [ ] `mvnw` wrapper（目前用本地 mvn）
 
-**下一阶段：** 前端 Next.js，或先落地 MASTERY 算法
+**下一阶段：** 前端 Next.js，或第三方认证迁移
 
 **未解决的决策点：** 无
 
