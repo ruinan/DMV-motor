@@ -9,8 +9,14 @@ import java.util.List;
 @Configuration
 public class WebMvcConfig implements WebMvcConfigurer {
 
+    private final UserIdResolver userIdResolver;
+
+    public WebMvcConfig(UserIdResolver userIdResolver) {
+        this.userIdResolver = userIdResolver;
+    }
+
     @Override
     public void addArgumentResolvers(List<HandlerMethodArgumentResolver> resolvers) {
-        resolvers.add(new UserIdResolver());
+        resolvers.add(userIdResolver);
     }
 }

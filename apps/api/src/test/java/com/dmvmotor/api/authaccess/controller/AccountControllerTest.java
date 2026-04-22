@@ -51,10 +51,11 @@ class AccountControllerTest extends IntegrationTestBase {
     }
 
     @Test
-    void getMe_unknownUserId_returns404() throws Exception {
+    void getMe_brandNewFirebaseUid_jitProvisionsAndReturns200() throws Exception {
         mockMvc.perform(get("/api/v1/me")
                         .header("Authorization", "Bearer 9999999"))
-                .andExpect(status().isNotFound());
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.access.state").value("free_trial"));
     }
 
     @Test

@@ -129,12 +129,20 @@ public class TestFixtures {
     // Users
     // ---------------------------------------------------------------
 
+    /**
+     * Inserts a user and stamps {@code firebase_uid = "test-<id>"} so that
+     * {@code Authorization: Bearer <id>} flows through {@code StubFirebaseVerifier}
+     * (numeric → "test-<id>") and resolves back to the same row — preserving
+     * the pre-Firebase test-helper contract where callers pass raw numeric ids.
+     */
     public Long insertUser(String email) {
-        return jdbc.queryForObject("""
+        Long id = jdbc.queryForObject("""
                 INSERT INTO users (email, language_preference)
                 VALUES (?, 'en')
                 RETURNING id
                 """, Long.class, email);
+        stampFirebaseUid(id);
+        return id;
     }
 
     public void incrementUserResetCount(Long userId) {
@@ -142,11 +150,17 @@ public class TestFixtures {
     }
 
     public Long insertUserWithoutEmail() {
-        return jdbc.queryForObject("""
+        Long id = jdbc.queryForObject("""
                 INSERT INTO users (language_preference)
                 VALUES ('en')
                 RETURNING id
                 """, Long.class);
+        stampFirebaseUid(id);
+        return id;
+    }
+
+    private void stampFirebaseUid(Long id) {
+        jdbc.update("UPDATE users SET firebase_uid = ? WHERE id = ?", "test-" + id, id);
     }
 
     // ---------------------------------------------------------------
