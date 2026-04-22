@@ -42,6 +42,10 @@ build/
 ### Mac OS ###
 .DS_Store
 
+### Postman (Desktop workspace artifacts, machine-local) ###
+.postman/
+postman/
+
 ### Project ###
 .claude/
 .progress
