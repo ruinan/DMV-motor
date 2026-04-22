@@ -1,7 +1,7 @@
 # CLAUDE.md — DMV Motor 项目工作规范
 
 > 这个文件是 Claude 的行为规范和项目工作协议。每次对话开始时必须读取。
-> 最后更新：2026-04-21
+> 最后更新：2026-04-21（Round 2 纠偏上线 + Cloud Run revision 00004）
 
 ---
 
@@ -153,7 +153,7 @@ Claude 在本项目中扮演**小公司 CTO** 的角色：
 
 **项目：** California M1 笔试备考 App（DMV Motor）
 
-**当前阶段：** 阶段 1 完成 → 准备进入阶段 2（账户与访问控制）
+**当前阶段：** 后端 MVP 完成（含 Round 2 纠偏），已部署生产
 
 **基础设施：**
 - 后端：Java 21 + Spring Boot 3.4 + jOOQ + Flyway
@@ -162,26 +162,27 @@ Claude 在本项目中扮演**小公司 CTO** 的角色：
 - 部署：GCP Cloud Run + Cloud SQL（Terraform，`infra/terraform/`）
 - CI/CD：GitHub Actions（`.github/workflows/deploy.yml`）
 
-**已完成（阶段 1）：**
+**已完成（后端 MVP）：**
 - [x] V1–V10 migrations（基础表 + 所有功能扩展）
 - [x] jOOQ codegen 改为 `-Pjooq-gen` profile，生成源码归档到 `src/main/java/.../jooq/generated/`
 - [x] Docker 本地 PostgreSQL（持久化 volume）
 - [x] 测试基础设施（`IntegrationTestBase` + `TestFixtures` + `E2ETestBase`）
 - [x] 统一响应格式 `ApiResponse<T>` + 全局异常处理（snake_case JSON）
-- [x] 全部 MVP API 端点（99 单测，JaCoCo ≥90%；7 个 E2E IT 测试全绿）
+- [x] 全部 MVP API 端点（109 单测，JaCoCo branch ≥90%；7 个 E2E IT 测试全绿）
 - [x] V10：53 条真实 CA M1 题目（EN+ZH）+ CA_M1_30Q mock exam
 - [x] GCP 基础设施上线（Terraform apply 成功，36 resources）
-- [x] **首次 CI/CD 部署已验证**：commit `12855d6` 经 GitHub Actions → Cloud Run，`/actuator/health=UP`，`/api/v1/questions/1` 返真实 seed 数据
 - [x] 学习周期隔离（soft reset，reset_count）
 - [x] Free trial 隔离（allow_in_free_trial 字段）
+- [x] **Round 2 纠偏**：ReadinessProperties 参数化；readiness 公式按 docs/parameters.md §7-§8 重写（2-mock avg 85%/key cov 90%/review 80%/持续薄弱点四道硬门槛；40/25/20/15 权重）；/summary 免费/付费分层；/mock-exams/access 401；review task 端点 canUseReview 纵深防御
+- [x] **线上验证**：revision `dmv-motor-api-00004-cjt`（2026-04-21），`/actuator/health=UP`，`/api/v1/questions/1` 返真实 seed
 - [x] Cloud SQL 已暂停（activation-policy=NEVER）省钱中
-- [x] TODO(MASTERY)：掌握度评判算法待上线前实现
 
 **进行中 / 待做：**
 - [ ] 前端 Next.js（未开始）
+- [ ] TODO(MASTERY)：掌握度评判算法（`ReviewService.completeTask`，上线前处理）
 - [ ] `mvnw` wrapper（目前用本地 mvn）
 
-**下一阶段：** 阶段 2 — 账户与访问控制（MVP 开发）
+**下一阶段：** 前端 Next.js，或先落地 MASTERY 算法
 
 **未解决的决策点：** 无
 
