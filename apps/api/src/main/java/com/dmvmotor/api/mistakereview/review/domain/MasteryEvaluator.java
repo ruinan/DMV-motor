@@ -28,6 +28,11 @@ public class MasteryEvaluator {
         this.props = props;
     }
 
+    /** Window size callers should pass to {@code #isMastered} — so history reads match. */
+    public int recentWindow() {
+        return props.recentWindow();
+    }
+
     public boolean isMastered(TopicStats stats, List<Boolean> recentAttempts) {
         if (stats.total() == 0) return false;
         if (recentAttempts.size() < props.recentWindow()) return false;

@@ -334,16 +334,17 @@ class ReviewControllerTest extends IntegrationTestBase {
     }
 
     @Test
-    void completeTask_allTasksDone_marksPackCompleted() throws Exception {
-        // Single mistake → single task → answer correctly (deactivates mistake), then complete task.
-        // After that, getReviewPack should return 404 because: old pack is completed AND no active mistakes remain.
+    void completeTask_masteryReached_deactivatesMistake() throws Exception {
+        // Seed a mastery-qualifying practice history: 10 attempts in this topic, 9 correct,
+        // last 8 all correct. Then complete a review task → mistake gets deactivated.
         fixtures.insertMistakeRecord(userId, questionId1, topicId, 1, "practice");
+        seedPracticeHistory(topicId, /* correct */ 9, /* incorrect */ 1);
+
         String packBody = mockMvc.perform(get("/api/v1/review/pack")
                         .header("Authorization", "Bearer " + userId))
                 .andReturn().getResponse().getContentAsString();
         String taskId = extractTaskId(packBody);
 
-        // Answer correctly → deactivates the mistake
         mockMvc.perform(post("/api/v1/review/tasks/{id}/answers", taskId)
                         .header("Authorization", "Bearer " + userId)
                         .contentType(MediaType.APPLICATION_JSON)
@@ -351,22 +352,100 @@ class ReviewControllerTest extends IntegrationTestBase {
                                 {"question_id":"%s","variant_id":"%s","selected_choice_key":"B"}
                                 """.formatted(questionId1, variantId1)));
 
-        // Complete the only task → should also mark the pack as completed
         mockMvc.perform(post("/api/v1/review/tasks/{id}/complete", taskId)
                         .header("Authorization", "Bearer " + userId))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.completed").value(true));
 
-        // Pack is completed + no active mistakes → next getOrCreatePack returns 404
+        // Mastery reached → mistake deactivated → getMistakes returns empty, getPack 404
+        mockMvc.perform(get("/api/v1/mistakes")
+                        .header("Authorization", "Bearer " + userId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.items", hasSize(0)));
         mockMvc.perform(get("/api/v1/review/pack")
                         .header("Authorization", "Bearer " + userId))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.error.code").value("NO_MISTAKES_TO_REVIEW"));
     }
 
+    @Test
+    void completeTask_topicUnderThreshold_keepsMistakeActive() throws Exception {
+        // 10 attempts, 7 correct → 70% < 80% threshold → not mastered despite task completion.
+        fixtures.insertMistakeRecord(userId, questionId1, topicId, 1, "practice");
+        seedPracticeHistory(topicId, /* correct */ 7, /* incorrect */ 3);
+
+        String taskId = getTaskId();
+        mockMvc.perform(post("/api/v1/review/tasks/{id}/answers", taskId)
+                        .header("Authorization", "Bearer " + userId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"question_id":"%s","variant_id":"%s","selected_choice_key":"B"}
+                                """.formatted(questionId1, variantId1)));
+        mockMvc.perform(post("/api/v1/review/tasks/{id}/complete", taskId)
+                        .header("Authorization", "Bearer " + userId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.completed").value(true));
+
+        // Mistake still active — user hasn't demonstrated topic mastery
+        mockMvc.perform(get("/api/v1/mistakes")
+                        .header("Authorization", "Bearer " + userId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.items", hasSize(1)))
+                .andExpect(jsonPath("$.data.items[0].question_id")
+                        .value(String.valueOf(questionId1)));
+    }
+
+    @Test
+    void completeTask_insufficientHistory_keepsMistakeActive() throws Exception {
+        // Only 5 practice attempts — below the recent-window size (8). Even all-correct
+        // is insufficient evidence per MVP mastery spec.
+        fixtures.insertMistakeRecord(userId, questionId1, topicId, 1, "practice");
+        seedPracticeHistory(topicId, /* correct */ 5, /* incorrect */ 0);
+
+        String taskId = getTaskId();
+        mockMvc.perform(post("/api/v1/review/tasks/{id}/answers", taskId)
+                        .header("Authorization", "Bearer " + userId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"question_id":"%s","variant_id":"%s","selected_choice_key":"B"}
+                                """.formatted(questionId1, variantId1)));
+        mockMvc.perform(post("/api/v1/review/tasks/{id}/complete", taskId)
+                        .header("Authorization", "Bearer " + userId))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(get("/api/v1/mistakes")
+                        .header("Authorization", "Bearer " + userId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.items", hasSize(1)));
+    }
+
     // ---------------------------------------------------------------
     // Helpers
     // ---------------------------------------------------------------
+
+    /**
+     * Seeds {@code correct + incorrect} practice attempts for {@code targetTopicId} in
+     * the user's current learning cycle (0). Each attempt uses a fresh question to satisfy
+     * the {@code uq_session_question} constraint. Incorrect attempts are inserted first so
+     * correct attempts dominate the recent window regardless of timestamp tie-breaking.
+     */
+    private void seedPracticeHistory(Long targetTopicId, int correct, int incorrect) {
+        Long sessionId = fixtures.insertPracticeSession(userId, 0);
+        String choicesJson =
+                "[{\"key\":\"A\",\"text\":\"x\"},{\"key\":\"B\",\"text\":\"y\"}]";
+        for (int i = 0; i < incorrect; i++) {
+            Long q = fixtures.insertQuestion(targetTopicId, "A");
+            Long v = fixtures.insertVariantReturningId(q, "en",
+                    "Wrong " + i, choicesJson, null);
+            fixtures.insertPracticeAttempt(userId, sessionId, q, v, "B", false);
+        }
+        for (int i = 0; i < correct; i++) {
+            Long q = fixtures.insertQuestion(targetTopicId, "A");
+            Long v = fixtures.insertVariantReturningId(q, "en",
+                    "Right " + i, choicesJson, null);
+            fixtures.insertPracticeAttempt(userId, sessionId, q, v, "A", true);
+        }
+    }
 
     private String getTaskId() throws Exception {
         String packBody = mockMvc.perform(get("/api/v1/review/pack")

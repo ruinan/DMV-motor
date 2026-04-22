@@ -8,6 +8,8 @@ import com.dmvmotor.api.content.domain.QuestionDetail;
 import com.dmvmotor.api.content.infrastructure.QuestionRepository;
 import com.dmvmotor.api.mistakereview.domain.MistakeRecord;
 import com.dmvmotor.api.mistakereview.infrastructure.MistakeListRepository;
+import com.dmvmotor.api.mistakereview.review.domain.MasteryEvaluator;
+import com.dmvmotor.api.mistakereview.review.infrastructure.PracticeHistoryRepository;
 import com.dmvmotor.api.mistakereview.review.infrastructure.ReviewRepository;
 import com.dmvmotor.api.mistakereview.review.infrastructure.ReviewRepository.TaskRow;
 import com.dmvmotor.api.practice.infrastructure.MistakeRepository;
@@ -23,25 +25,31 @@ import java.util.Map;
 @Service
 public class ReviewService {
 
-    private final ReviewRepository      reviewRepo;
-    private final MistakeListRepository mistakeListRepo;
-    private final MistakeRepository     mistakeRepo;
-    private final QuestionRepository    questionRepo;
-    private final AccessService         accessService;
-    private final UserRepository        userRepo;
+    private final ReviewRepository          reviewRepo;
+    private final MistakeListRepository     mistakeListRepo;
+    private final MistakeRepository         mistakeRepo;
+    private final QuestionRepository        questionRepo;
+    private final AccessService             accessService;
+    private final UserRepository            userRepo;
+    private final PracticeHistoryRepository historyRepo;
+    private final MasteryEvaluator          masteryEvaluator;
 
     public ReviewService(ReviewRepository reviewRepo,
                          MistakeListRepository mistakeListRepo,
                          MistakeRepository mistakeRepo,
                          QuestionRepository questionRepo,
                          AccessService accessService,
-                         UserRepository userRepo) {
-        this.reviewRepo      = reviewRepo;
-        this.mistakeListRepo = mistakeListRepo;
-        this.mistakeRepo     = mistakeRepo;
-        this.questionRepo    = questionRepo;
-        this.accessService   = accessService;
-        this.userRepo        = userRepo;
+                         UserRepository userRepo,
+                         PracticeHistoryRepository historyRepo,
+                         MasteryEvaluator masteryEvaluator) {
+        this.reviewRepo       = reviewRepo;
+        this.mistakeListRepo  = mistakeListRepo;
+        this.mistakeRepo      = mistakeRepo;
+        this.questionRepo     = questionRepo;
+        this.accessService    = accessService;
+        this.userRepo         = userRepo;
+        this.historyRepo      = historyRepo;
+        this.masteryEvaluator = masteryEvaluator;
     }
 
     @Transactional
@@ -149,14 +157,24 @@ public class ReviewService {
         TaskRow task = requireTask(taskId, userId);
         int cycle = cycleFor(userId);
 
-        // Mastery evaluation: deactivate MistakeRecords for correctly-answered questions.
-        // Simplified MVP: answered correctly in this review task → deactivate mistake.
-        // TODO(MASTERY): replace with full mastery check (topic ≥80% rate, last 8 related
-        // questions ≥6 correct, per docs/parameters.md mastery_threshold) once query
-        // infrastructure for recent-attempt history is in place.
-        List<Long> correctQIds = reviewRepo.findCorrectlyAnsweredQuestionIds(taskId);
-        for (Long qId : correctQIds) {
-            mistakeListRepo.setActive(userId, qId, false, cycle);
+        // Mastery evaluation per docs/parameters.md mastery_threshold:
+        //   (1) topic correctness ≥ threshold percent over the current learning cycle
+        //   (2) last N topic attempts have ≥ K correct
+        // All questions in a review task share a topic (tasks are grouped by topic
+        // in getOrCreatePack), so a single evaluation governs all correct answers.
+        //
+        // TODO(FUTURE_CONFUSION_SCHEMA): add the design doc's third gate
+        // ("不连续错在同一混淆点") once questions gain a confusion_tag /
+        // confusion_points dimension. Do NOT substitute (question_id, wrong_choice_key)
+        // heuristics — they are not equivalent.
+        var stats  = historyRepo.topicStats(userId, task.topicId(), cycle);
+        var recent = historyRepo.lastNAttemptsForTopic(userId, task.topicId(), cycle,
+                masteryEvaluator.recentWindow());
+        if (masteryEvaluator.isMastered(stats, recent)) {
+            List<Long> correctQIds = reviewRepo.findCorrectlyAnsweredQuestionIds(taskId);
+            for (Long qId : correctQIds) {
+                mistakeListRepo.setActive(userId, qId, false, cycle);
+            }
         }
 
         reviewRepo.updateTaskStatus(taskId, "completed");

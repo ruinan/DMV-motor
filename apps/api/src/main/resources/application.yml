@@ -37,3 +37,8 @@ app:
     ready-threshold: 80
     recent-practice-window: 20
     recent-accuracy-threshold: 85
+  # Mastery evaluation — docs/parameters.md mastery_threshold (MVP subset).
+  mastery:
+    topic-correct-rate-threshold: 80
+    recent-window: 8
+    recent-correct-threshold: 6
