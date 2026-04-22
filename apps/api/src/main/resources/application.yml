@@ -1,6 +1,7 @@
 spring:
   application:
     name: dmv-motor-api
+  # Application entry point — see docs/development/ for architecture.
   jackson:
     property-naming-strategy: SNAKE_CASE
   datasource:
