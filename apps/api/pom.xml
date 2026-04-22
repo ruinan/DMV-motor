@@ -62,6 +62,13 @@
             <scope>runtime</scope>
         </dependency>
 
+        <!-- Firebase Admin SDK: verifies ID tokens offline via cached Google public keys. -->
+        <dependency>
+            <groupId>com.google.firebase</groupId>
+            <artifactId>firebase-admin</artifactId>
+            <version>9.4.3</version>
+        </dependency>
+
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-test</artifactId>
@@ -106,6 +113,9 @@
                         <exclude>com/dmvmotor/api/infrastructure/jooq/generated/**</exclude>
                         <!-- Spring Boot entry point — no business logic -->
                         <exclude>com/dmvmotor/api/ApiApplication.class</exclude>
+                        <!-- Prod-only Firebase beans — require live Google creds, exercised via manual smoke test -->
+                        <exclude>com/dmvmotor/api/authaccess/auth/FirebaseConfig.class</exclude>
+                        <exclude>com/dmvmotor/api/authaccess/auth/FirebaseIdTokenVerifier.class</exclude>
                     </excludes>
                 </configuration>
                 <executions>
