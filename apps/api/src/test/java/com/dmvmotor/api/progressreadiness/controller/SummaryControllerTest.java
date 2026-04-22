@@ -188,6 +188,38 @@ class SummaryControllerTest extends IntegrationTestBase {
     }
 
     @Test
+    void getReadiness_reviewTasksIncomplete_firesHighRiskReviewGate() throws Exception {
+        // docs/parameters.md §8: "高风险复习完成达到 80%"
+        // Review pack with 10 target / 5 completed → 50% < 80%, gate fires.
+        Long packId = fixtures.insertReviewPack(paidUserId, 0);
+        fixtures.insertReviewTask(packId, paidUserId, topicId, 10, 5);
+
+        mockMvc.perform(get("/api/v1/readiness")
+                        .header("Authorization", "Bearer " + paidUserId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.is_ready_candidate").value(false))
+                .andExpect(jsonPath("$.data.missing_gates", hasItem("HIGH_RISK_REVIEW_LOW")));
+    }
+
+    @Test
+    void getReadiness_recentPracticeAttempts_contributeToStability() throws Exception {
+        // Stability axis: last N practice attempts' accuracy vs accuracyThreshold.
+        // Exercises the non-empty-recent branch in recentStabilityRatio +
+        // the answered > 0 branch in basicPracticeRatio.
+        Long q1 = fixtures.insertQuestion(topicId, "A");
+        Long v1 = fixtures.insertVariantReturningId(q1, "en", "Stem",
+                "[{\"key\":\"A\",\"text\":\"Yes\"}]", "Expl");
+        Long session = fixtures.insertPracticeSession(paidUserId, 0);
+        fixtures.insertPracticeAttempt(paidUserId, session, q1, v1, "A", true);
+
+        mockMvc.perform(get("/api/v1/readiness")
+                        .header("Authorization", "Bearer " + paidUserId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.readiness_score").isNumber())
+                .andExpect(jsonPath("$.data.is_ready_candidate").value(false));
+    }
+
+    @Test
     void getReadiness_passedMockInPreviousCycle_notReady() throws Exception {
         // Insert a passing mock in learning_cycle=0, then reset the user (cycle becomes 1).
         // The old mock score must NOT satisfy the readiness gate in the new cycle.

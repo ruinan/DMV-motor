@@ -32,6 +32,10 @@ public class TestFixtures {
                     mistake_records,
                     practice_attempts,
                     practice_sessions,
+                    review_task_questions,
+                    review_tasks,
+                    review_packs,
+                    mock_attempts,
                     mock_exam_questions,
                     mock_exams,
                     question_related_topics,
@@ -201,6 +205,53 @@ public class TestFixtures {
     // ---------------------------------------------------------------
     // Access Passes
     // ---------------------------------------------------------------
+
+    // ---------------------------------------------------------------
+    // Review Packs / Tasks (for readiness-engine tests)
+    // ---------------------------------------------------------------
+
+    public Long insertReviewPack(Long userId, int learningCycle) {
+        return jdbc.queryForObject("""
+                INSERT INTO review_packs (user_id, learning_cycle, status)
+                VALUES (?, ?, 'active')
+                RETURNING id
+                """, Long.class, userId, learningCycle);
+    }
+
+    public Long insertReviewTask(Long reviewPackId, Long userId, Long topicId,
+                                  int targetCount, int completedCount) {
+        return jdbc.queryForObject("""
+                INSERT INTO review_tasks
+                    (review_pack_id, user_id, topic_id,
+                     target_question_count, completed_question_count)
+                VALUES (?, ?, ?, ?, ?)
+                RETURNING id
+                """, Long.class, reviewPackId, userId, topicId, targetCount, completedCount);
+    }
+
+    // ---------------------------------------------------------------
+    // Practice Sessions / Attempts (for stability + basic-practice tests)
+    // ---------------------------------------------------------------
+
+    public Long insertPracticeSession(Long userId, int learningCycle) {
+        return jdbc.queryForObject("""
+                INSERT INTO practice_sessions
+                    (user_id, status, entry_type, language_code, learning_cycle)
+                VALUES (?, 'completed', 'full', 'en', ?)
+                RETURNING id
+                """, Long.class, userId, learningCycle);
+    }
+
+    public void insertPracticeAttempt(Long userId, Long practiceSessionId,
+                                       Long questionId, Long variantId,
+                                       String selectedKey, boolean isCorrect) {
+        jdbc.update("""
+                INSERT INTO practice_attempts
+                    (user_id, practice_session_id, question_id, question_variant_id,
+                     selected_choice_key, is_correct)
+                VALUES (?, ?, ?, ?, ?, ?)
+                """, userId, practiceSessionId, questionId, variantId, selectedKey, isCorrect);
+    }
 
     public Long insertAccessPass(Long userId, String status,
                                   OffsetDateTime startsAt, OffsetDateTime expiresAt,
