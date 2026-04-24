@@ -70,6 +70,16 @@ resource "google_cloud_run_v2_service" "api" {
         }
       }
 
+      # Firebase Auth: activates FirebaseIdTokenVerifier (prod) over the
+      # StubFirebaseVerifier (dev/test default). Maps to
+      # app.auth.firebase.enabled via Spring relaxed binding. The Admin SDK
+      # picks up the GCP project from ADC / GOOGLE_CLOUD_PROJECT at runtime,
+      # so no explicit project-id env var is needed here.
+      env {
+        name  = "APP_AUTH_FIREBASE_ENABLED"
+        value = "true"
+      }
+
       # JVM tuning for constrained memory
       env {
         name  = "JAVA_TOOL_OPTIONS"

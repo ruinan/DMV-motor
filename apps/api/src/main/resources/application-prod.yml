@@ -16,6 +16,14 @@ spring:
 server:
   shutdown: graceful
 
+app:
+  auth:
+    firebase:
+      # Prod default — StubFirebaseVerifier is replaced by FirebaseIdTokenVerifier.
+      # Terraform also pins APP_AUTH_FIREBASE_ENABLED=true as the source of truth;
+      # this line is a belt-and-suspenders default if the env var is ever missing.
+      enabled: ${APP_AUTH_FIREBASE_ENABLED:true}
+
 management:
   endpoints:
     web:
