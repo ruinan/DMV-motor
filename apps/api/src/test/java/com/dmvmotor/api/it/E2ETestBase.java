@@ -45,11 +45,18 @@ public abstract class E2ETestBase {
     // Shared helpers
     // ---------------------------------------------------------------
 
-    /** Creates a test user and returns their id. */
+    /**
+     * Creates a test user and returns their id. Stamps {@code firebase_uid = "test-<id>"}
+     * so {@code Authorization: Bearer <id>} flows through {@code StubFirebaseVerifier}
+     * (numeric → "test-<id>") and resolves back to the same row, preserving the
+     * pre-Firebase IT contract where helpers pass raw numeric ids.
+     */
     protected Long createTestUser(String email) {
-        return jdbc.queryForObject(
+        Long id = jdbc.queryForObject(
                 "INSERT INTO users (email, language_preference) VALUES (?, 'en') RETURNING id",
                 Long.class, email);
+        jdbc.update("UPDATE users SET firebase_uid = ? WHERE id = ?", "test-" + id, id);
+        return id;
     }
 
     /** Cascade-deletes the user and all their data (sessions, mistakes, attempts, etc.). */
