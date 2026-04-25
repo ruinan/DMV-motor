@@ -1,7 +1,7 @@
 # CLAUDE.md — DMV Motor 项目工作规范
 
 > 这个文件是 Claude 的行为规范和项目工作协议。每次对话开始时必须读取。
-> 最后更新：2026-04-23（Firebase Auth 迁移 3/3 code-complete，134 tests）
+> 最后更新：2026-04-25（Firebase Auth 迁移已部署生产，revision 00009-hf4，141 tests）
 
 ---
 
@@ -177,14 +177,15 @@ Claude 在本项目中扮演**小公司 CTO** 的角色：
 - [x] **线上验证**：revision `dmv-motor-api-00004-cjt`（2026-04-21），`/actuator/health=UP`，`/api/v1/questions/1` 返真实 seed
 - [x] Cloud SQL 已暂停（activation-policy=NEVER）省钱中
 - [x] **MASTERY 判定升级**（2026-04-21，commits 3d52861 + b13c972）：`MasteryEvaluator` + `MasteryProperties`（`app.mastery.*`）+ `PracticeHistoryRepository`（双路径查询 practice+review），topic 正确率 ≥80% & 近 8 条 ≥6 道正确两闸门；第三闸门（confusion point）待 schema 扩展后实现，标记为 `TODO(FUTURE_CONFUSION_SCHEMA)`
-- [x] **Firebase Auth 迁移 code-complete**（2026-04-23，commits 23e5223 + 323754f + 3/3）：`FirebaseAuthVerifier` 接口 + `StubFirebaseVerifier`（dev/test 默认，`Bearer <numericUserId>` 走它）+ `FirebaseIdTokenVerifier`（prod，`app.auth.firebase.enabled=true` 开启）+ `UserProvisioner`（首次登录按 `firebase_uid` JIT 建号）+ V11 migration；`UserIdResolver` 注入 verifier+provisioner；Terraform 在 Cloud Run 注入 `APP_AUTH_FIREBASE_ENABLED=true`；134 tests 全绿。**未部署** — 需单独审批（cost + Cloud SQL 恢复）
+- [x] **Firebase Auth 迁移 code-complete**（2026-04-23，commits 23e5223 + 323754f + 3e71694）：`FirebaseAuthVerifier` 接口 + `StubFirebaseVerifier`（dev/test 默认，`Bearer <numericUserId>` 走它）+ `FirebaseIdTokenVerifier`（prod，`app.auth.firebase.enabled=true` 开启）+ `UserProvisioner`（首次登录按 `firebase_uid` JIT 建号）+ V11 migration；`UserIdResolver` 注入 verifier+provisioner；Terraform 在 Cloud Run 注入 `APP_AUTH_FIREBASE_ENABLED=true`
+- [x] **Firebase Auth 部署生产**（2026-04-25，revision `dmv-motor-api-00009-hf4`，commits ad2ac85 + 75c351f）：`terraform apply` 推 env 后两轮纠偏：`E2ETestBase.createTestUser` 套用 `TestFixtures` stamp 模式（`firebase_uid="test-<id>"`，原本 IT 没盖导致 JIT 新建 user 与断言不符）；`FirebaseConfig` 加 `@Value` + `setProjectId()` + `application-prod.yml` 默认 `${GOOGLE_CLOUD_PROJECT:dmv-motor-prod}`（Cloud Run ADC `ComputeEngineCredentials` 不带 projectId 且 `GOOGLE_CLOUD_PROJECT` env 不自动注入）。Smoke test 用真实 Firebase ID token 调 `/api/v1/me` 双调 200 + 同 user_id（id=1，幂等 ✅，email/uid 从 token 解码正确）。141 tests 全绿。
+- [x] Cloud SQL 已重新暂停（activation-policy=NEVER）省钱中
 
 **进行中 / 待做：**
-- [ ] Firebase 迁移部署验证（`terraform apply` + smoke test，需成本审批 + Cloud SQL 恢复）
 - [ ] 前端 Next.js（未开始）
 - [ ] `mvnw` wrapper（目前用本地 mvn）
 
-**下一阶段：** 前端 Next.js，或 Firebase 迁移部署验证
+**下一阶段：** 前端 Next.js
 
 **未解决的决策点：** 无
 
