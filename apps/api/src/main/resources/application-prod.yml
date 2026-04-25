@@ -23,6 +23,10 @@ app:
       # Terraform also pins APP_AUTH_FIREBASE_ENABLED=true as the source of truth;
       # this line is a belt-and-suspenders default if the env var is ever missing.
       enabled: ${APP_AUTH_FIREBASE_ENABLED:true}
+      # Required by firebase-admin verifyIdToken: Cloud Run does NOT auto-inject
+      # GOOGLE_CLOUD_PROJECT, and ComputeEngineCredentials carries no project_id,
+      # so we must hand it explicitly to FirebaseOptions.
+      project-id: ${GOOGLE_CLOUD_PROJECT:dmv-motor-prod}
 
 management:
   endpoints:
