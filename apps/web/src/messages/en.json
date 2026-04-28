@@ -78,8 +78,30 @@
     "loading": "Loading..."
   },
   "practice": {
-    "placeholderTitle": "Practice interface — coming soon",
-    "placeholderBody": "The DMV-style answering screen is still in design. Check back shortly.",
-    "backHome": "Back home"
+    "title": "Practice",
+    "subtitle": "Free-trial questions are open to everyone. Sign in for full coverage.",
+    "startFreeTrial": "Start free-trial practice",
+    "startFull": "Start full practice",
+    "starting": "Starting…",
+    "loading": "Loading…",
+    "submitAnswer": "Submit answer",
+    "submitting": "Submitting…",
+    "nextQuestion": "Next question",
+    "finish": "Finish session",
+    "finishing": "Finishing…",
+    "exit": "Exit",
+    "answered": "Answered",
+    "correct": "Correct",
+    "incorrect": "Incorrect",
+    "correctAnswer": "Correct answer",
+    "explanation": "Explanation",
+    "completedTitle": "Session complete",
+    "completedBody": "You've answered every question in this pool.",
+    "backToDashboard": "Back to dashboard",
+    "backHome": "Back home",
+    "errorGeneric": "Something went wrong. Please try again.",
+    "errorAuthRequired": "Sign in to start a full practice session.",
+    "errorPassRequired": "An access pass is required for full practice.",
+    "selectChoice": "Select an answer to continue."
   }
 }

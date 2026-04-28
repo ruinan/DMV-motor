@@ -78,8 +78,30 @@
     "loading": "加载中..."
   },
   "practice": {
-    "placeholderTitle": "练习界面 — 即将上线",
-    "placeholderBody": "仿 DMV 答题界面正在设计中，敬请期待。",
-    "backHome": "返回首页"
+    "title": "练习",
+    "subtitle": "免费试用题人人可练；登录后解锁完整题库。",
+    "startFreeTrial": "开始免费试用练习",
+    "startFull": "开始完整练习",
+    "starting": "正在开始…",
+    "loading": "加载中…",
+    "submitAnswer": "提交答案",
+    "submitting": "提交中…",
+    "nextQuestion": "下一题",
+    "finish": "结束本次练习",
+    "finishing": "结束中…",
+    "exit": "退出",
+    "answered": "已答题",
+    "correct": "答对了",
+    "incorrect": "答错了",
+    "correctAnswer": "正确答案",
+    "explanation": "解析",
+    "completedTitle": "练习已完成",
+    "completedBody": "本轮题目已全部答完。",
+    "backToDashboard": "返回仪表盘",
+    "backHome": "返回首页",
+    "errorGeneric": "出错啦，请重试。",
+    "errorAuthRequired": "请先登录以开始完整练习。",
+    "errorPassRequired": "完整练习需要考试通行证。",
+    "selectChoice": "请先选择一个答案。"
   }
 }
