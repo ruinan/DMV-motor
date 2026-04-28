@@ -1,0 +1,545 @@
+{
+  "info": {
+    "name": "DMV Motor API",
+    "_postman_id": "dmv-motor-api-collection",
+    "description": "DMV Motor backend (Spring Boot) API collection.\n\n## Auth flows\n- **prod env**: run `Auth & Setup → Login (refresh Firebase ID token)` first — its test script writes `idToken` into the collection variable. All authenticated requests inherit Bearer auth via `{{idToken}}`.\n- **local env**: `idToken` is preset to `1` (StubFirebaseVerifier matches `Bearer <numericUserId>` in dev/test). No login needed. Make sure a user with id=1 exists in the local DB; otherwise change `idToken` to a valid id.\n\n## Captured variables\nThese are written by test scripts as you exercise the flow:\n- `sessionId` — set by `Practice → Start session`\n- `questionId`, `variantId` — set by `Practice → Start session` (the first question returned)\n- `mockAttemptId` — set by `Mock Exam → Start attempt`\n- `reviewTaskId` — set by `Review → Get pack` (first task)\n\nDownstream requests reference them, so once you start a flow the rest just work.\n\n## Schema reference\n`docs/development/api-contract.md`\n",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      { "key": "token", "value": "{{idToken}}", "type": "string" }
+    ]
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "", "type": "default", "description": "Override per environment (local / prod)" },
+    { "key": "firebaseApiKey", "value": "AIzaSyC7udEaD0FWMiz91N2pvmLppR4jGG3qhSU", "type": "default", "description": "Web API key from Firebase project (dmv-motor-prod). Public client key, safe to ship." },
+    { "key": "firebaseEmail", "value": "", "type": "default" },
+    { "key": "firebasePassword", "value": "", "type": "secret" },
+    { "key": "idToken", "value": "", "type": "default", "description": "Firebase ID token. prod: filled by Login script. local: preset to '1' by env (stub)." },
+    { "key": "sessionId", "value": "", "type": "default" },
+    { "key": "questionId", "value": "", "type": "default" },
+    { "key": "variantId", "value": "", "type": "default" },
+    { "key": "mockAttemptId", "value": "", "type": "default" },
+    { "key": "reviewTaskId", "value": "", "type": "default" }
+  ],
+  "item": [
+    {
+      "name": "Auth & Setup",
+      "description": "Run Login first when on prod env. Local env sets idToken=1 directly.",
+      "item": [
+        {
+          "name": "Login (refresh Firebase ID token)",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{firebaseEmail}}\",\n  \"password\": \"{{firebasePassword}}\",\n  \"returnSecureToken\": true\n}"
+            },
+            "url": {
+              "raw": "https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key={{firebaseApiKey}}",
+              "protocol": "https",
+              "host": [ "identitytoolkit", "googleapis", "com" ],
+              "path": [ "v1", "accounts:signInWithPassword" ],
+              "query": [ { "key": "key", "value": "{{firebaseApiKey}}" } ]
+            },
+            "description": "Exchanges email+password for a real Firebase ID token. Stores it in the `idToken` collection variable so downstream Bearer-auth requests just work."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "const json = pm.response.json();",
+                  "if (json.idToken) {",
+                  "    pm.collectionVariables.set('idToken', json.idToken);",
+                  "    console.log('idToken stored (' + json.idToken.length + ' chars), localId=' + json.localId);",
+                  "} else {",
+                  "    console.error('No idToken in response:', json);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Health",
+      "item": [
+        {
+          "name": "GET /actuator/health",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/actuator/health",
+              "host": [ "{{baseUrl}}" ],
+              "path": [ "actuator", "health" ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Content (public)",
+      "item": [
+        {
+          "name": "GET /api/v1/topics",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/topics",
+              "host": [ "{{baseUrl}}" ],
+              "path": [ "api", "v1", "topics" ]
+            }
+          }
+        },
+        {
+          "name": "GET /api/v1/questions/:id",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/questions/1?language=en",
+              "host": [ "{{baseUrl}}" ],
+              "path": [ "api", "v1", "questions", "1" ],
+              "query": [ { "key": "language", "value": "en" } ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Account",
+      "item": [
+        {
+          "name": "GET /api/v1/me",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/me",
+              "host": [ "{{baseUrl}}" ],
+              "path": [ "api", "v1", "me" ]
+            }
+          }
+        },
+        {
+          "name": "POST /api/v1/me/reset-learning",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"confirm\": true\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/me/reset-learning",
+              "host": [ "{{baseUrl}}" ],
+              "path": [ "api", "v1", "me", "reset-learning" ]
+            }
+          }
+        },
+        {
+          "name": "PUT /api/v1/me/language",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"language\": \"zh\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/me/language",
+              "host": [ "{{baseUrl}}" ],
+              "path": [ "api", "v1", "me", "language" ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Access",
+      "item": [
+        {
+          "name": "GET /api/v1/access",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/access",
+              "host": [ "{{baseUrl}}" ],
+              "path": [ "api", "v1", "access" ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Practice",
+      "item": [
+        {
+          "name": "POST /api/v1/practice/sessions  (Start session)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"entry_type\": \"free_trial\",\n  \"language\": \"en\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/practice/sessions",
+              "host": [ "{{baseUrl}}" ],
+              "path": [ "api", "v1", "practice", "sessions" ]
+            },
+            "description": "entry_type: 'free_trial' (anonymous OK) or 'full' (requires active access pass). Captures session_id + first question_id/variant_id."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const r = pm.response.json();",
+                  "if (r.success && r.data) {",
+                  "    pm.collectionVariables.set('sessionId', r.data.session_id);",
+                  "    if (r.data.next_question) {",
+                  "        pm.collectionVariables.set('questionId', r.data.next_question.question_id);",
+                  "        pm.collectionVariables.set('variantId', r.data.next_question.variant_id);",
+                  "    }",
+                  "    console.log('sessionId=' + r.data.session_id);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET /api/v1/practice/sessions/:id/next-question",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/practice/sessions/{{sessionId}}/next-question",
+              "host": [ "{{baseUrl}}" ],
+              "path": [ "api", "v1", "practice", "sessions", "{{sessionId}}", "next-question" ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const r = pm.response.json();",
+                  "if (r.success && r.data && r.data.question_id) {",
+                  "    pm.collectionVariables.set('questionId', r.data.question_id);",
+                  "    pm.collectionVariables.set('variantId', r.data.variant_id);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST /api/v1/practice/sessions/:id/answers",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"question_id\": \"{{questionId}}\",\n  \"variant_id\": \"{{variantId}}\",\n  \"selected_choice_key\": \"A\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/practice/sessions/{{sessionId}}/answers",
+              "host": [ "{{baseUrl}}" ],
+              "path": [ "api", "v1", "practice", "sessions", "{{sessionId}}", "answers" ]
+            }
+          }
+        },
+        {
+          "name": "GET /api/v1/practice/sessions/:id  (status)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/practice/sessions/{{sessionId}}",
+              "host": [ "{{baseUrl}}" ],
+              "path": [ "api", "v1", "practice", "sessions", "{{sessionId}}" ]
+            }
+          }
+        },
+        {
+          "name": "POST /api/v1/practice/sessions/:id/complete",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/practice/sessions/{{sessionId}}/complete",
+              "host": [ "{{baseUrl}}" ],
+              "path": [ "api", "v1", "practice", "sessions", "{{sessionId}}", "complete" ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Mistakes",
+      "item": [
+        {
+          "name": "GET /api/v1/mistakes",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/mistakes?page=1&page_size=20",
+              "host": [ "{{baseUrl}}" ],
+              "path": [ "api", "v1", "mistakes" ],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "page_size", "value": "20" },
+                { "key": "topic_id", "value": "", "disabled": true, "description": "optional" }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Review",
+      "item": [
+        {
+          "name": "GET /api/v1/review/pack",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/review/pack",
+              "host": [ "{{baseUrl}}" ],
+              "path": [ "api", "v1", "review", "pack" ]
+            },
+            "description": "Captures first review_task_id into reviewTaskId variable."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const r = pm.response.json();",
+                  "if (r.success && r.data && r.data.tasks && r.data.tasks.length) {",
+                  "    pm.collectionVariables.set('reviewTaskId', r.data.tasks[0].review_task_id);",
+                  "    console.log('reviewTaskId=' + r.data.tasks[0].review_task_id);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET /api/v1/review/tasks/:id/questions",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/review/tasks/{{reviewTaskId}}/questions",
+              "host": [ "{{baseUrl}}" ],
+              "path": [ "api", "v1", "review", "tasks", "{{reviewTaskId}}", "questions" ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const r = pm.response.json();",
+                  "if (r.success && r.data && r.data.questions && r.data.questions.length) {",
+                  "    pm.collectionVariables.set('questionId', r.data.questions[0].question_id);",
+                  "    pm.collectionVariables.set('variantId', r.data.questions[0].variant_id);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST /api/v1/review/tasks/:id/answers",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"question_id\": \"{{questionId}}\",\n  \"variant_id\": \"{{variantId}}\",\n  \"selected_choice_key\": \"A\",\n  \"language\": \"en\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/review/tasks/{{reviewTaskId}}/answers",
+              "host": [ "{{baseUrl}}" ],
+              "path": [ "api", "v1", "review", "tasks", "{{reviewTaskId}}", "answers" ]
+            },
+            "description": "language MUST match the language used to fetch the question variant — judging anchors on it."
+          }
+        },
+        {
+          "name": "POST /api/v1/review/tasks/:id/complete",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/review/tasks/{{reviewTaskId}}/complete",
+              "host": [ "{{baseUrl}}" ],
+              "path": [ "api", "v1", "review", "tasks", "{{reviewTaskId}}", "complete" ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Mock Exam",
+      "item": [
+        {
+          "name": "GET /api/v1/mock-exams/access",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/mock-exams/access",
+              "host": [ "{{baseUrl}}" ],
+              "path": [ "api", "v1", "mock-exams", "access" ]
+            }
+          }
+        },
+        {
+          "name": "POST /api/v1/mock-exams/attempts  (Start attempt)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"language\": \"en\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/mock-exams/attempts",
+              "host": [ "{{baseUrl}}" ],
+              "path": [ "api", "v1", "mock-exams", "attempts" ]
+            },
+            "description": "Consumes 1 mock quota at creation. Captures mock_attempt_id + first question_id/variant_id."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const r = pm.response.json();",
+                  "if (r.success && r.data) {",
+                  "    pm.collectionVariables.set('mockAttemptId', r.data.mock_attempt_id);",
+                  "    if (r.data.questions && r.data.questions.length) {",
+                  "        pm.collectionVariables.set('questionId', r.data.questions[0].question_id);",
+                  "        pm.collectionVariables.set('variantId', r.data.questions[0].variant_id);",
+                  "    }",
+                  "    console.log('mockAttemptId=' + r.data.mock_attempt_id);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST /api/v1/mock-exams/attempts/:id/answers",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"question_id\": \"{{questionId}}\",\n  \"variant_id\": \"{{variantId}}\",\n  \"selected_choice_key\": \"A\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/mock-exams/attempts/{{mockAttemptId}}/answers",
+              "host": [ "{{baseUrl}}" ],
+              "path": [ "api", "v1", "mock-exams", "attempts", "{{mockAttemptId}}", "answers" ]
+            }
+          }
+        },
+        {
+          "name": "POST /api/v1/mock-exams/attempts/:id/submit",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/mock-exams/attempts/{{mockAttemptId}}/submit",
+              "host": [ "{{baseUrl}}" ],
+              "path": [ "api", "v1", "mock-exams", "attempts", "{{mockAttemptId}}", "submit" ]
+            }
+          }
+        },
+        {
+          "name": "POST /api/v1/mock-exams/attempts/:id/exit",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/mock-exams/attempts/{{mockAttemptId}}/exit",
+              "host": [ "{{baseUrl}}" ],
+              "path": [ "api", "v1", "mock-exams", "attempts", "{{mockAttemptId}}", "exit" ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Summary / Readiness",
+      "item": [
+        {
+          "name": "GET /api/v1/summary",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/summary",
+              "host": [ "{{baseUrl}}" ],
+              "path": [ "api", "v1", "summary" ]
+            }
+          }
+        },
+        {
+          "name": "GET /api/v1/readiness",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/readiness",
+              "host": [ "{{baseUrl}}" ],
+              "path": [ "api", "v1", "readiness" ]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

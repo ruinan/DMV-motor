@@ -44,7 +44,7 @@ build/
 
 ### Postman (Desktop workspace artifacts, machine-local) ###
 .postman/
-postman/
+/postman/
 
 ### Project ###
 .claude/

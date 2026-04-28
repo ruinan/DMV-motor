@@ -1,0 +1,85 @@
+{
+  "site": {
+    "brand": "DMV Motor",
+    "signIn": "Sign in",
+    "switchLanguage": "Switch language"
+  },
+  "home": {
+    "badge": "Built for first-time M1 riders",
+    "title": "Ace your California M1 written exam",
+    "subtitle": "Free trial — no signup needed. Master the rules of the road with our DMV-style practice tests.",
+    "ctaPractice": "Start free practice",
+    "ctaSignIn": "Sign in",
+    "heroImageAlt": "Motorcyclist riding on a scenic California highway at sunset",
+    "features": {
+      "questions": {
+        "title": "Real DMV-style questions",
+        "body": "Practice with questions that closely mirror the actual California M1 exam format and difficulty."
+      },
+      "mistakes": {
+        "title": "Mistakes tracked",
+        "body": "We automatically save questions you answer incorrectly so you can focus your review on weak areas."
+      },
+      "mock": {
+        "title": "Mock exam simulator",
+        "body": "Experience the pressure of the real test with our timed, high-stakes simulator mode."
+      }
+    }
+  },
+  "footer": {
+    "copyright": "© 2026 DMV Motor. Not affiliated with the California DMV.",
+    "about": "About",
+    "privacy": "Privacy",
+    "terms": "Terms"
+  },
+  "nav": {
+    "appBrand": "M1 Prep",
+    "dashboard": "Dashboard",
+    "practice": "Practice",
+    "mistakes": "Mistakes",
+    "review": "Review",
+    "mockExam": "Mock Exam",
+    "account": "Account",
+    "signOut": "Sign out"
+  },
+  "dashboard": {
+    "welcomeBack": "Welcome back",
+    "readinessTitle": "Readiness Score",
+    "readinessHint": "Pass-ready when score ≥ 85%.",
+    "readinessLocked": "Get an access pass to unlock readiness scoring.",
+    "needsReview": "Needs review",
+    "completion": "Completion",
+    "mockPassed": "Mock exams passed",
+    "of": "of",
+    "activeMistakes": "Active mistakes",
+    "review": "Review",
+    "ctaTitle": "Continue review",
+    "ctaHint": "Pick up where you left off.",
+    "ctaButton": "Continue review pack",
+    "ctaPracticeButton": "Start practice",
+    "ctaMockButton": "Take a mock exam",
+    "noNextAction": "You're all caught up.",
+    "noWeakTopics": "No weak topics detected yet."
+  },
+  "auth": {
+    "signInTitle": "Sign in to DMV Motor",
+    "email": "Email",
+    "password": "Password",
+    "submit": "Sign in",
+    "loading": "Signing in...",
+    "error": "Sign-in failed. Please try again."
+  },
+  "me": {
+    "title": "Your account",
+    "userId": "User ID",
+    "email": "Email",
+    "language": "Language",
+    "accessState": "Access state",
+    "loading": "Loading..."
+  },
+  "practice": {
+    "placeholderTitle": "Practice interface — coming soon",
+    "placeholderBody": "The DMV-style answering screen is still in design. Check back shortly.",
+    "backHome": "Back home"
+  }
+}

@@ -1,0 +1,85 @@
+{
+  "site": {
+    "brand": "DMV Motor",
+    "signIn": "登录",
+    "switchLanguage": "切换语言"
+  },
+  "home": {
+    "badge": "为第一次考摩托驾照的你而设计",
+    "title": "搞定加州 M1 摩托驾照笔试",
+    "subtitle": "免费试用，无需注册。用真题级别的练习掌握加州交规。",
+    "ctaPractice": "开始免费练习",
+    "ctaSignIn": "登录",
+    "heroImageAlt": "摩托车手在加州夕阳海岸公路上行驶",
+    "features": {
+      "questions": {
+        "title": "真题级别题目",
+        "body": "题型和难度对标加州 M1 真考，临场不会陌生。"
+      },
+      "mistakes": {
+        "title": "错题自动追踪",
+        "body": "答错的题自动入库，复习时聚焦薄弱点，效率翻倍。"
+      },
+      "mock": {
+        "title": "模拟考试",
+        "body": "限时高仿真考场体验，提前适应真考的压力节奏。"
+      }
+    }
+  },
+  "footer": {
+    "copyright": "© 2026 DMV Motor。本应用与加州 DMV 无关联。",
+    "about": "关于",
+    "privacy": "隐私",
+    "terms": "条款"
+  },
+  "nav": {
+    "appBrand": "M1 备考",
+    "dashboard": "仪表盘",
+    "practice": "练习",
+    "mistakes": "错题",
+    "review": "复习",
+    "mockExam": "模拟考试",
+    "account": "账户",
+    "signOut": "退出登录"
+  },
+  "dashboard": {
+    "welcomeBack": "欢迎回来",
+    "readinessTitle": "备考就绪度",
+    "readinessHint": "得分 ≥ 85% 即视为可上考场。",
+    "readinessLocked": "购买考试通行证后解锁就绪度评分。",
+    "needsReview": "建议复习",
+    "completion": "完成度",
+    "mockPassed": "模拟考通过",
+    "of": "/",
+    "activeMistakes": "活跃错题",
+    "review": "去复习",
+    "ctaTitle": "继续复习",
+    "ctaHint": "从上次中断处继续。",
+    "ctaButton": "继续复习包",
+    "ctaPracticeButton": "开始练习",
+    "ctaMockButton": "去考模拟考",
+    "noNextAction": "都搞定啦！",
+    "noWeakTopics": "暂未识别出薄弱知识点。"
+  },
+  "auth": {
+    "signInTitle": "登录 DMV Motor",
+    "email": "邮箱",
+    "password": "密码",
+    "submit": "登录",
+    "loading": "登录中...",
+    "error": "登录失败，请重试。"
+  },
+  "me": {
+    "title": "我的账户",
+    "userId": "用户 ID",
+    "email": "邮箱",
+    "language": "语言",
+    "accessState": "访问状态",
+    "loading": "加载中..."
+  },
+  "practice": {
+    "placeholderTitle": "练习界面 — 即将上线",
+    "placeholderBody": "仿 DMV 答题界面正在设计中，敬请期待。",
+    "backHome": "返回首页"
+  }
+}
