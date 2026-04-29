@@ -279,6 +279,54 @@ class PracticeSessionControllerTest extends IntegrationTestBase {
     }
 
     // ---------------------------------------------------------------
+    // INVALID_ID_FORMAT — path / body string IDs that aren't numeric
+    // ---------------------------------------------------------------
+
+    @Test
+    void submitAnswer_pathIdNotNumeric_returns400() throws Exception {
+        // F1: path variable can't be parsed as Long. Currently bubbles up as Spring's default
+        // 400 (or 500 depending on the converter); we want a uniform envelope.
+        mockMvc.perform(post("/api/v1/practice/sessions/{id}/answers", "abc")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"question_id":"%s","variant_id":"%s","selected_choice_key":"B"}
+                                """.formatted(questionId, variantEnId)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error.code").value("INVALID_ID_FORMAT"));
+    }
+
+    @Test
+    void submitAnswer_bodyQuestionIdNotNumeric_returns400() throws Exception {
+        // F2: body question_id is the string "abc". Long.parseLong throws unchecked → 500;
+        // we want 400 INVALID_ID_FORMAT.
+        String sessionId = startSessionAndGetId("en");
+
+        mockMvc.perform(post("/api/v1/practice/sessions/{id}/answers", sessionId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"question_id":"abc","variant_id":"%s","selected_choice_key":"B"}
+                                """.formatted(variantEnId)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error.code").value("INVALID_ID_FORMAT"))
+                .andExpect(jsonPath("$.error.message", containsString("question_id")));
+    }
+
+    @Test
+    void submitAnswer_bodyVariantIdNotNumeric_returns400() throws Exception {
+        // F3: body variant_id is non-numeric.
+        String sessionId = startSessionAndGetId("en");
+
+        mockMvc.perform(post("/api/v1/practice/sessions/{id}/answers", sessionId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"question_id":"%s","variant_id":"x","selected_choice_key":"B"}
+                                """.formatted(questionId)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error.code").value("INVALID_ID_FORMAT"))
+                .andExpect(jsonPath("$.error.message", containsString("variant_id")));
+    }
+
+    // ---------------------------------------------------------------
     // GET /api/v1/practice/sessions/{id}
     // ---------------------------------------------------------------
 

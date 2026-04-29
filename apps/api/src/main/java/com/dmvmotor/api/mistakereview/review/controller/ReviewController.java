@@ -3,6 +3,7 @@ package com.dmvmotor.api.mistakereview.review.controller;
 import com.dmvmotor.api.common.ApiResponse;
 import com.dmvmotor.api.common.BusinessException;
 import com.dmvmotor.api.common.CurrentUser;
+import com.dmvmotor.api.common.Ids;
 import com.dmvmotor.api.content.domain.QuestionDetail;
 import com.dmvmotor.api.mistakereview.review.application.ReviewService;
 import com.dmvmotor.api.mistakereview.review.application.ReviewService.*;
@@ -61,8 +62,8 @@ public class ReviewController {
         requireAuth(userId);
         ReviewAnswerResult result = reviewService.submitAnswer(
                 id, userId,
-                Long.parseLong(req.questionId()),
-                Long.parseLong(req.variantId()),
+                Ids.parse(req.questionId(), "question_id"),
+                Ids.parse(req.variantId(), "variant_id"),
                 req.selectedChoiceKey(),
                 req.language()); // null if caller omits the field; service falls back to user preference
         return ApiResponse.ok(Map.of(

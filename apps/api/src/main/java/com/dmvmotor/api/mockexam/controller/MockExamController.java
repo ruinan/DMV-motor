@@ -3,6 +3,7 @@ package com.dmvmotor.api.mockexam.controller;
 import com.dmvmotor.api.common.ApiResponse;
 import com.dmvmotor.api.common.BusinessException;
 import com.dmvmotor.api.common.CurrentUser;
+import com.dmvmotor.api.common.Ids;
 import com.dmvmotor.api.content.domain.QuestionDetail;
 import com.dmvmotor.api.mockexam.application.MockExamService;
 import com.dmvmotor.api.mockexam.application.MockExamService.*;
@@ -61,8 +62,8 @@ public class MockExamController {
         requireAuth(userId);
         SaveAnswerResult result = mockExamService.saveAnswer(
                 id, userId,
-                Long.parseLong(req.questionId()),
-                Long.parseLong(req.variantId()),
+                Ids.parse(req.questionId(), "question_id"),
+                Ids.parse(req.variantId(), "variant_id"),
                 req.selectedKey());
         return ApiResponse.ok(Map.of(
                 "saved",          result.saved(),

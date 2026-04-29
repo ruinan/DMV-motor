@@ -2,6 +2,7 @@ package com.dmvmotor.api.practice.controller;
 
 import com.dmvmotor.api.common.ApiResponse;
 import com.dmvmotor.api.common.CurrentUser;
+import com.dmvmotor.api.common.Ids;
 import com.dmvmotor.api.content.domain.QuestionDetail;
 import com.dmvmotor.api.practice.application.PracticeService;
 import jakarta.validation.Valid;
@@ -65,8 +66,8 @@ public class PracticeSessionController {
                                         @PathVariable Long id,
                                         @Valid @RequestBody AnswerRequest req) {
         var result = practiceService.submitAnswer(id, userId,
-                Long.parseLong(req.questionId()),
-                Long.parseLong(req.variantId()),
+                Ids.parse(req.questionId(), "question_id"),
+                Ids.parse(req.variantId(), "variant_id"),
                 req.selectedChoiceKey());
         return ApiResponse.ok(Map.of(
                 "question_id",        String.valueOf(result.questionId()),
