@@ -274,6 +274,61 @@ class MockExamControllerTest extends IntegrationTestBase {
     // ---------------------------------------------------------------
 
     @Test
+    void saveAnswer_questionNotInExam_returns400() throws Exception {
+        // C1: question that's not part of this attempt's mock_exam template
+        Long stranger = fixtures.insertQuestion(topicId, "A");
+        Long strangerVid = fixtures.insertVariantReturningId(stranger, "en", "Off-exam?",
+                "[{\"key\":\"A\",\"text\":\"x\"},{\"key\":\"B\",\"text\":\"y\"}]", "expl");
+        // Note: stranger is NOT inserted into mock_exam_questions for mockExamId.
+
+        String attemptId = startMockAndGetId();
+
+        mockMvc.perform(post("/api/v1/mock-exams/attempts/{id}/answers", attemptId)
+                        .header("Authorization", "Bearer " + userId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"question_id":"%s","variant_id":"%s","selected_choice_key":"A"}
+                                """.formatted(stranger, strangerVid)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error.code").value("QUESTION_NOT_IN_MOCK_EXAM"));
+    }
+
+    @Test
+    void saveAnswer_attemptAlreadySubmitted_returns409() throws Exception {
+        // C2: after submit, further saves must be rejected
+        String attemptId = startMockAndGetId();
+        saveAnswerForAttempt(attemptId, q1, v1, "B");
+        submitAttempt(attemptId);
+
+        mockMvc.perform(post("/api/v1/mock-exams/attempts/{id}/answers", attemptId)
+                        .header("Authorization", "Bearer " + userId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"question_id":"%s","variant_id":"%s","selected_choice_key":"A"}
+                                """.formatted(q2, v2)))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.error.code").value("MOCK_ALREADY_ENDED"));
+    }
+
+    @Test
+    void saveAnswer_attemptAlreadyExited_returns409() throws Exception {
+        // C3: after exit, further saves must be rejected
+        String attemptId = startMockAndGetId();
+        mockMvc.perform(post("/api/v1/mock-exams/attempts/{id}/exit", attemptId)
+                        .header("Authorization", "Bearer " + userId))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(post("/api/v1/mock-exams/attempts/{id}/answers", attemptId)
+                        .header("Authorization", "Bearer " + userId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"question_id":"%s","variant_id":"%s","selected_choice_key":"A"}
+                                """.formatted(q1, v1)))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.error.code").value("MOCK_ALREADY_ENDED"));
+    }
+
+    @Test
     void saveAnswer_forbiddenUser_returns403() throws Exception {
         Long otherUser = fixtures.insertUser("other@example.com");
         String attemptId = startMockAndGetId();

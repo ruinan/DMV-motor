@@ -180,6 +180,90 @@ class PracticeSessionControllerTest extends IntegrationTestBase {
                 .andExpect(jsonPath("$.data.explanation").value(""));
     }
 
+    // ---------------------------------------------------------------
+    // submitAnswer — question pool / session-status guards (A1–A5)
+    // ---------------------------------------------------------------
+
+    @Test
+    void submitAnswer_freeTrialSession_paidOnlyQuestion_returns400() throws Exception {
+        // A1: free_trial session, question is allow_in_free_trial=false
+        Long paidQid = fixtures.insertPaidOnlyQuestion(topicId, "A");
+        Long paidVid = fixtures.insertVariantReturningId(paidQid, "en", "Paid only?",
+                "[{\"key\":\"A\",\"text\":\"x\"},{\"key\":\"B\",\"text\":\"y\"}]", "expl");
+
+        String sessionId = startSessionAndGetId("en");
+
+        mockMvc.perform(post("/api/v1/practice/sessions/{id}/answers", sessionId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"question_id":"%s","variant_id":"%s","selected_choice_key":"A"}
+                                """.formatted(paidQid, paidVid)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error.code").value("QUESTION_NOT_IN_SESSION"));
+    }
+
+    @Test
+    void submitAnswer_fullSession_inactiveQuestion_returns400() throws Exception {
+        // A2: full session with active pass, question.status = 'inactive'
+        Long uid = fixtures.insertUser("a2_full@example.com");
+        fixtures.insertAccessPass(uid, "active",
+                java.time.OffsetDateTime.now().minusDays(1),
+                java.time.OffsetDateTime.now().plusDays(30), 3, 0);
+        Long deadQid = fixtures.insertInactiveQuestion(topicId, "A");
+        Long deadVid = fixtures.insertVariantReturningId(deadQid, "en", "Dead?",
+                "[{\"key\":\"A\",\"text\":\"x\"},{\"key\":\"B\",\"text\":\"y\"}]", "expl");
+
+        String sessionId = startFullSessionAsUser(uid, "en");
+
+        mockMvc.perform(post("/api/v1/practice/sessions/{id}/answers", sessionId)
+                        .header("Authorization", "Bearer " + uid)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"question_id":"%s","variant_id":"%s","selected_choice_key":"A"}
+                                """.formatted(deadQid, deadVid)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error.code").value("QUESTION_NOT_IN_SESSION"));
+    }
+
+    @Test
+    void submitAnswer_completedSession_returns409() throws Exception {
+        // A3: session.status = completed
+        String sessionId = startSessionAndGetId("en");
+        mockMvc.perform(post("/api/v1/practice/sessions/{id}/complete", sessionId))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(post("/api/v1/practice/sessions/{id}/answers", sessionId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"question_id":"%s","variant_id":"%s","selected_choice_key":"B"}
+                                """.formatted(questionId, variantEnId)))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.error.code").value("CONFLICT_STATE"));
+    }
+
+    @Test
+    void submitAnswer_fullSession_paidOnlyQuestion_returns200() throws Exception {
+        // A4 control: full session + paid-only question → allowed
+        Long uid = fixtures.insertUser("a4_full@example.com");
+        fixtures.insertAccessPass(uid, "active",
+                java.time.OffsetDateTime.now().minusDays(1),
+                java.time.OffsetDateTime.now().plusDays(30), 3, 0);
+        Long paidQid = fixtures.insertPaidOnlyQuestion(topicId, "A");
+        Long paidVid = fixtures.insertVariantReturningId(paidQid, "en", "Paid only A4?",
+                "[{\"key\":\"A\",\"text\":\"x\"},{\"key\":\"B\",\"text\":\"y\"}]", "expl");
+
+        String sessionId = startFullSessionAsUser(uid, "en");
+
+        mockMvc.perform(post("/api/v1/practice/sessions/{id}/answers", sessionId)
+                        .header("Authorization", "Bearer " + uid)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"question_id":"%s","variant_id":"%s","selected_choice_key":"A"}
+                                """.formatted(paidQid, paidVid)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.is_correct").value(true));
+    }
+
     @Test
     void submitAnswer_alreadyAnswered_returns409() throws Exception {
         String sessionId = startSessionAndGetId("en");
@@ -332,6 +416,21 @@ class PracticeSessionControllerTest extends IntegrationTestBase {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {"entry_type":"free_trial","language":"%s"}
+                                """.formatted(language)))
+                .andReturn();
+        String body = result.getResponse().getContentAsString();
+        String key = "\"session_id\":\"";
+        int start = body.indexOf(key) + key.length();
+        int end   = body.indexOf("\"", start);
+        return body.substring(start, end);
+    }
+
+    private String startFullSessionAsUser(Long userId, String language) throws Exception {
+        var result = mockMvc.perform(post("/api/v1/practice/sessions")
+                        .header("Authorization", "Bearer " + userId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"entry_type":"full","language":"%s"}
                                 """.formatted(language)))
                 .andReturn();
         String body = result.getResponse().getContentAsString();

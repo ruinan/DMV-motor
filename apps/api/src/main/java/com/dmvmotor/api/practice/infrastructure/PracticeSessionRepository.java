@@ -123,6 +123,25 @@ public class PracticeSessionRepository {
                 pa.PRACTICE_SESSION_ID.eq(sessionId).and(pa.QUESTION_ID.eq(questionId)));
     }
 
+    /**
+     * Whether the question is part of this session's pool.
+     * Mirrors the filter in {@link #findNextUnansweredQuestion}: active + allow_in_practice,
+     * plus allow_in_free_trial when the session is free_trial.
+     */
+    public boolean existsInSessionPool(Long questionId, String entryType) {
+        var q = Tables.QUESTIONS;
+        var condition = q.ID.eq(questionId)
+                .and(q.STATUS.eq("active"))
+                .and(q.ALLOW_IN_PRACTICE.isTrue());
+        if ("free_trial".equals(entryType)) {
+            condition = condition.and(
+                    org.jooq.impl.DSL.field(
+                            org.jooq.impl.DSL.name("allow_in_free_trial"),
+                            Boolean.class).isTrue());
+        }
+        return dsl.fetchExists(q, condition);
+    }
+
     public void saveAttempt(Long sessionId, Long userId, Long questionId,
                              Long variantId, String selectedKey, boolean isCorrect) {
         var pa = Tables.PRACTICE_ATTEMPTS;

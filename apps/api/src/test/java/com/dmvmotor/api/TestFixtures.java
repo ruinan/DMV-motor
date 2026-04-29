@@ -94,6 +94,24 @@ public class TestFixtures {
                 """, Long.class, topicId, correctChoiceKey);
     }
 
+    /** Active question excluded from the free-trial pool (allow_in_free_trial=false). */
+    public Long insertPaidOnlyQuestion(Long topicId, String correctChoiceKey) {
+        return jdbc.queryForObject("""
+                INSERT INTO questions (primary_topic_id, correct_choice_key, status, allow_in_free_trial)
+                VALUES (?, ?, 'active', false)
+                RETURNING id
+                """, Long.class, topicId, correctChoiceKey);
+    }
+
+    /** Question with status='inactive' — should never appear in any practice pool. */
+    public Long insertInactiveQuestion(Long topicId, String correctChoiceKey) {
+        return jdbc.queryForObject("""
+                INSERT INTO questions (primary_topic_id, correct_choice_key, status, allow_in_free_trial)
+                VALUES (?, ?, 'inactive', true)
+                RETURNING id
+                """, Long.class, topicId, correctChoiceKey);
+    }
+
     public void insertEnVariant(Long questionId, String stem, String explanation) {
         insertVariant(questionId, "en", stem,
                 "[{\"key\":\"A\",\"text\":\"Option A\"},{\"key\":\"B\",\"text\":\"Option B\"},{\"key\":\"C\",\"text\":\"Option C\"}]",

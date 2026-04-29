@@ -94,9 +94,20 @@ public class PracticeService {
                                      Long variantId, String selectedKey) {
         PracticeSession session = requireSession(sessionId, requestUserId);
 
+        if (!session.isInProgress()) {
+            throw new BusinessException("CONFLICT_STATE",
+                    "Session is not in progress", HttpStatus.CONFLICT);
+        }
+
         if (sessionRepo.hasAttempt(sessionId, questionId)) {
             throw new BusinessException("QUESTION_ALREADY_SUBMITTED",
                     "Question already answered in this session", HttpStatus.CONFLICT);
+        }
+
+        if (!sessionRepo.existsInSessionPool(questionId, session.entryType())) {
+            throw new BusinessException("QUESTION_NOT_IN_SESSION",
+                    "Question is not part of this session's pool",
+                    HttpStatus.BAD_REQUEST);
         }
 
         QuestionDetail question = questionRepo

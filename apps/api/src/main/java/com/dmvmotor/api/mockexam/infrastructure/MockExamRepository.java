@@ -45,6 +45,12 @@ public class MockExamRepository {
         return dsl.fetchCount(meq, meq.MOCK_EXAM_ID.eq(mockExamId));
     }
 
+    public boolean existsInMockExam(Long mockExamId, Long questionId) {
+        var meq = Tables.MOCK_EXAM_QUESTIONS;
+        return dsl.fetchExists(meq,
+                meq.MOCK_EXAM_ID.eq(mockExamId).and(meq.QUESTION_ID.eq(questionId)));
+    }
+
     // ---------------------------------------------------------------
     // Mock Attempts
     // ---------------------------------------------------------------

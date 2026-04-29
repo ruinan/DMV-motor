@@ -163,6 +163,12 @@ public class ReviewRepository {
                         .and(rtq.IS_ANSWERED.isTrue()));
     }
 
+    public boolean existsInTask(Long taskId, Long questionId) {
+        var rtq = Tables.REVIEW_TASK_QUESTIONS;
+        return dsl.fetchExists(rtq,
+                rtq.REVIEW_TASK_ID.eq(taskId).and(rtq.QUESTION_ID.eq(questionId)));
+    }
+
     public void markQuestionAnswered(Long taskId, Long questionId, boolean isCorrect) {
         var rtq = Tables.REVIEW_TASK_QUESTIONS;
         dsl.update(rtq)

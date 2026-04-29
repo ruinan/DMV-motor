@@ -250,6 +250,73 @@ class ReviewControllerTest extends IntegrationTestBase {
     }
 
     @Test
+    void submitReviewAnswer_questionNotInTask_returns400_andDoesNotBumpProgress() throws Exception {
+        // B1: Submit a question that's not part of this task. Bug under audit: 400 returns,
+        // but markQuestionAnswered's UPDATE matches 0 rows while incrementCompletedCount still
+        // bumps the counter and saveReviewAttempt writes a bogus row. Fix must reject upfront.
+        fixtures.insertMistakeRecord(userId, questionId1, topicId, 1, "practice");
+        String taskId = getTaskId();
+
+        // A question on a different topic — guaranteed not in the same-topic task.
+        Long otherTopic = fixtures.insertTopic("OTHER_TOPIC");
+        Long otherQid   = fixtures.insertQuestion(otherTopic, "A");
+        Long otherVid   = fixtures.insertVariantReturningId(otherQid, "en", "Off-topic?",
+                "[{\"key\":\"A\",\"text\":\"x\"},{\"key\":\"B\",\"text\":\"y\"}]", "expl");
+
+        mockMvc.perform(post("/api/v1/review/tasks/{id}/answers", taskId)
+                        .header("Authorization", "Bearer " + userId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"question_id":"%s","variant_id":"%s","selected_choice_key":"A"}
+                                """.formatted(otherQid, otherVid)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error.code").value("QUESTION_NOT_IN_TASK"));
+
+        // Counter must NOT have been bumped — the legit follow-up should report 1, not 2.
+        mockMvc.perform(post("/api/v1/review/tasks/{id}/answers", taskId)
+                        .header("Authorization", "Bearer " + userId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"question_id":"%s","variant_id":"%s","selected_choice_key":"B"}
+                                """.formatted(questionId1, variantId1)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.task_progress.answered_count").value(1));
+    }
+
+    @Test
+    void submitReviewAnswer_completedTask_returns409() throws Exception {
+        // B2: After a task is marked completed, no further answers should be accepted —
+        // currently slips through because requireTask only checks ownership.
+        Long q2 = fixtures.insertQuestion(topicId, "A");
+        Long v2 = fixtures.insertVariantReturningId(q2, "en", "Second?",
+                "[{\"key\":\"A\",\"text\":\"Yes\"},{\"key\":\"B\",\"text\":\"No\"}]", "expl");
+        fixtures.insertMistakeRecord(userId, questionId1, topicId, 1, "practice");
+        fixtures.insertMistakeRecord(userId, q2,          topicId, 1, "practice");
+
+        String taskId = getTaskId();
+        // Answer q1, then complete the task while q2 remains unanswered.
+        mockMvc.perform(post("/api/v1/review/tasks/{id}/answers", taskId)
+                        .header("Authorization", "Bearer " + userId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"question_id":"%s","variant_id":"%s","selected_choice_key":"B"}
+                                """.formatted(questionId1, variantId1)));
+        mockMvc.perform(post("/api/v1/review/tasks/{id}/complete", taskId)
+                        .header("Authorization", "Bearer " + userId))
+                .andExpect(status().isOk());
+
+        // Try to submit the still-pending q2 on the completed task → should reject.
+        mockMvc.perform(post("/api/v1/review/tasks/{id}/answers", taskId)
+                        .header("Authorization", "Bearer " + userId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"question_id":"%s","variant_id":"%s","selected_choice_key":"A"}
+                                """.formatted(q2, v2)))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.error.code").value("CONFLICT_STATE"));
+    }
+
+    @Test
     void submitReviewAnswer_alreadyAnswered_returns409() throws Exception {
         fixtures.insertMistakeRecord(userId, questionId1, topicId, 1, "practice");
         String taskId = getTaskId();

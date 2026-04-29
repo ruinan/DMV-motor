@@ -80,6 +80,18 @@ public class MockExamService {
     public SaveAnswerResult saveAnswer(Long attemptId, Long userId,
                                        Long questionId, Long variantId, String selectedKey) {
         AttemptRow attempt = requireAttempt(attemptId, userId);
+
+        if (!"in_progress".equals(attempt.status())) {
+            throw new BusinessException("MOCK_ALREADY_ENDED",
+                    "Mock attempt is no longer accepting answers", HttpStatus.CONFLICT);
+        }
+
+        if (!mockExamRepo.existsInMockExam(attempt.mockExamId(), questionId)) {
+            throw new BusinessException("QUESTION_NOT_IN_MOCK_EXAM",
+                    "Question is not part of this mock exam",
+                    HttpStatus.BAD_REQUEST);
+        }
+
         boolean isNew = mockExamRepo.upsertAnswer(attemptId, questionId, variantId, selectedKey);
         int answeredCount = isNew ? attempt.answeredCount() + 1 : attempt.answeredCount();
         return new SaveAnswerResult(true, answeredCount);

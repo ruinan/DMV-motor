@@ -112,6 +112,17 @@ public class ReviewService {
         requireReviewAccess(userId);
         TaskRow task = requireTask(taskId, userId);
 
+        if ("completed".equals(task.status())) {
+            throw new BusinessException("CONFLICT_STATE",
+                    "Task is already completed", HttpStatus.CONFLICT);
+        }
+
+        if (!reviewRepo.existsInTask(taskId, questionId)) {
+            throw new BusinessException("QUESTION_NOT_IN_TASK",
+                    "Question is not part of this review task",
+                    HttpStatus.BAD_REQUEST);
+        }
+
         if (reviewRepo.hasAnswer(taskId, questionId)) {
             throw new BusinessException("QUESTION_ALREADY_SUBMITTED",
                     "Question already answered in this task", HttpStatus.CONFLICT);
