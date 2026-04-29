@@ -102,6 +102,21 @@ class SummaryControllerTest extends IntegrationTestBase {
     }
 
     @Test
+    void getReadiness_passActiveButTimeExpired_returns403() throws Exception {
+        // E4: pass row carries status='active' but expires_at is in the past.
+        // Server-side time check must treat this as no-pass for paywall purposes.
+        Long u = fixtures.insertUser("expired_active@example.com");
+        OffsetDateTime now = OffsetDateTime.now();
+        fixtures.insertAccessPass(u, "active",
+                now.minusDays(30), now.minusHours(1), 3, 0);
+
+        mockMvc.perform(get("/api/v1/readiness")
+                        .header("Authorization", "Bearer " + u))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.error.code").value("ACCESS_DENIED"));
+    }
+
+    @Test
     void getReadiness_paidNewUser_returnsNotReady() throws Exception {
         mockMvc.perform(get("/api/v1/readiness")
                         .header("Authorization", "Bearer " + paidUserId))

@@ -24,7 +24,7 @@ public class AccessService {
         }
 
         AccessPass pass = passOpt.get();
-        boolean hasActive = pass.isActive();
+        boolean hasActive = pass.isActive(OffsetDateTime.now());
         int mockRemaining = hasActive ? pass.mockRemaining() : 0;
         boolean canUseMock = hasActive && mockRemaining > 0;
 

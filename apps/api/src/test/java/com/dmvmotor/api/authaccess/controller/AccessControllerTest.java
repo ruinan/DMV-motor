@@ -90,4 +90,38 @@ class AccessControllerTest extends IntegrationTestBase {
                 .andExpect(jsonPath("$.data.has_active_pass").value(false))
                 .andExpect(jsonPath("$.data.mock_remaining").value(0));
     }
+
+    @Test
+    void getAccess_passStatusActiveButExpiresAtPast_returnsExpired() throws Exception {
+        // E1: row carries status='active' but the time window has elapsed.
+        // Without server-side clock checks (current bug), this would still grant access
+        // until a background job flips the row.
+        OffsetDateTime now = OffsetDateTime.now();
+        fixtures.insertAccessPass(userId, "active",
+                now.minusDays(30), now.minusHours(1), 3, 0);
+
+        mockMvc.perform(get("/api/v1/access")
+                        .header("Authorization", "Bearer " + userId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.state").value("expired"))
+                .andExpect(jsonPath("$.data.has_active_pass").value(false))
+                .andExpect(jsonPath("$.data.mock_remaining").value(0))
+                .andExpect(jsonPath("$.data.can_use_review").value(false))
+                .andExpect(jsonPath("$.data.can_use_mock_exam").value(false));
+    }
+
+    @Test
+    void getAccess_passStatusActiveButStartsInFuture_returnsExpired() throws Exception {
+        // E2: future-dated pass — status='active' but window hasn't opened yet.
+        OffsetDateTime now = OffsetDateTime.now();
+        fixtures.insertAccessPass(userId, "active",
+                now.plusHours(1), now.plusDays(30), 3, 0);
+
+        mockMvc.perform(get("/api/v1/access")
+                        .header("Authorization", "Bearer " + userId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.state").value("expired"))
+                .andExpect(jsonPath("$.data.has_active_pass").value(false))
+                .andExpect(jsonPath("$.data.can_use_review").value(false));
+    }
 }
