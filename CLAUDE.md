@@ -1,7 +1,7 @@
 # CLAUDE.md — DMV Motor 项目工作规范
 
 > 这个文件是 Claude 的行为规范和项目工作协议。每次对话开始时必须读取。
-> 最后更新：2026-04-25（Firebase Auth 迁移已部署生产，revision 00009-hf4，141 tests）
+> 最后更新：2026-04-28（前端 5 个核心流程已落地：Practice / Mistakes / Review / Mock / Dashboard；commit 7ee5606）
 
 ---
 
@@ -153,7 +153,7 @@ Claude 在本项目中扮演**小公司 CTO** 的角色：
 
 **项目：** California M1 笔试备考 App（DMV Motor）
 
-**当前阶段：** 后端 MVP 完成（含 Round 2 纠偏），已部署生产
+**当前阶段：** 后端 MVP 已部署生产；前端 Next.js 16 核心学习闭环已接通后端（Dashboard / Practice / Mistakes / Review / Mock）
 
 **基础设施：**
 - 后端：Java 21 + Spring Boot 3.4 + jOOQ + Flyway
@@ -181,11 +181,19 @@ Claude 在本项目中扮演**小公司 CTO** 的角色：
 - [x] **Firebase Auth 部署生产**（2026-04-25，revision `dmv-motor-api-00009-hf4`，commits ad2ac85 + 75c351f）：`terraform apply` 推 env 后两轮纠偏：`E2ETestBase.createTestUser` 套用 `TestFixtures` stamp 模式（`firebase_uid="test-<id>"`，原本 IT 没盖导致 JIT 新建 user 与断言不符）；`FirebaseConfig` 加 `@Value` + `setProjectId()` + `application-prod.yml` 默认 `${GOOGLE_CLOUD_PROJECT:dmv-motor-prod}`（Cloud Run ADC `ComputeEngineCredentials` 不带 projectId 且 `GOOGLE_CLOUD_PROJECT` env 不自动注入）。Smoke test 用真实 Firebase ID token 调 `/api/v1/me` 双调 200 + 同 user_id（id=1，幂等 ✅，email/uid 从 token 解码正确）。141 tests 全绿。
 - [x] Cloud SQL 已重新暂停（activation-policy=NEVER）省钱中
 
-**进行中 / 待做：**
-- [ ] 前端 Next.js（未开始）
-- [ ] `mvnw` wrapper（目前用本地 mvn）
+**已完成（前端 MVP 第一波）：**
+- [x] **Next.js 16 脚手架**（2026-04-26+，5 个 commit：ad83c2a → 597f060）：App Router + `[lang]/(marketing)/(app)` 分组、shadcn/ui、Tailwind、TanStack Query、`auth-context.tsx`（Firebase Web SDK + `getIdToken()` 注入）、`api-client.ts`（自动带 `Bearer <token>` + ApiError 解构 snake_case error envelope）、`messages/{en,zh}.json` i18n。⚠️ **Next.js 16 与训练数据有差异**：写代码前查阅 `node_modules/next/dist/docs/`（见 `apps/web/AGENTS.md`）
+- [x] **Practice / Mistakes / Review / Mock 流程接通后端**（commits 40c903d / 619dc4a / 8397ed5 / 597f060）：登录 → 选 topic → 答题 → 看错题 → 走复习包 → 模考全链路可用；语言切换实时生效
+- [x] **Lint/Build 基线**（2026-04-28，commit 7ee5606）：React 19 `react-hooks/set-state-in-effect` 规则下，effect 内部 setState 改用「render 期间用 tracked key 比较 + 一次性 setState」官方推荐 pattern；141 后端 tests + `npm run lint` + `npm run build`（19 静态页 + 2 动态路由）全绿
 
-**下一阶段：** 前端 Next.js
+**进行中 / 待做：**
+- [ ] **Summary / Readiness 详情页**（前端缺）：后端 `/api/v1/summary` `/api/v1/readiness` 已就绪，dashboard 只用了 `use-summary` 简单卡片，需要独立详情页（免费/付费分层 + readiness gates 可视化）
+- [ ] 端到端 dev server 走查（真实 Firebase 登录 → 5 个核心流程）
+- [ ] `mvnw` wrapper（目前用本地 mvn）
+- [ ] AI / Reminder / Memory export 增强模块
+- [ ] Confusion point mastery 闸门（等 schema 扩展，`TODO(FUTURE_CONFUSION_SCHEMA)`）
+
+**下一阶段：** Summary / Readiness 详情页 → 端到端验收 → 用户验收测试
 
 **未解决的决策点：** 无
 
