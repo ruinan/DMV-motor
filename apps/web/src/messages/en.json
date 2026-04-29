@@ -77,6 +77,22 @@
     "accessState": "Access state",
     "loading": "Loading..."
   },
+  "mistakes": {
+    "title": "Active mistakes",
+    "subtitle": "Questions you've answered incorrectly. They drop off automatically once you reach mastery in a topic.",
+    "empty": "No active mistakes — keep practising to surface weak areas.",
+    "wrongCount": "Wrong {count} times",
+    "wrongCountOne": "Wrong once",
+    "lastWrong": "Last wrong",
+    "fromPractice": "Practice",
+    "fromReview": "Review",
+    "fromMock": "Mock exam",
+    "page": "Page",
+    "previous": "Previous",
+    "next": "Next",
+    "loading": "Loading…",
+    "errorGeneric": "Could not load mistakes."
+  },
   "practice": {
     "title": "Practice",
     "subtitle": "Free-trial questions are open to everyone. Sign in for full coverage.",
