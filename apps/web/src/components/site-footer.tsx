@@ -1,11 +1,10 @@
-import type { Dictionary, Locale } from "@/lib/dictionaries";
+import type { Dictionary } from "@/lib/dictionaries";
 
 type Props = {
   t: Dictionary["footer"];
-  lang: Locale;
 };
 
-export function SiteFooter({ t, lang: _lang }: Props) {
+export function SiteFooter({ t }: Props) {
   // about/privacy/terms hrefs are placeholders — pages don't exist yet.
   // Switch to /<lang>/about etc. once those routes are added.
   return (

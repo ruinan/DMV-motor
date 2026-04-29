@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { CheckCircle2, XCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -72,12 +72,16 @@ export function ReviewTaskRunner({ t, lang, taskId }: Props) {
   const [completed, setCompleted] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
 
-  // Reset transient state when the loaded task or current question changes
-  useEffect(() => {
+  // Reset transient state when the task or current question changes.
+  // React 19 pattern: adjust state during render by comparing against a tracked key.
+  const questionKey = `${taskId}:${index}`;
+  const [trackedKey, setTrackedKey] = useState(questionKey);
+  if (trackedKey !== questionKey) {
+    setTrackedKey(questionKey);
     setPicked(null);
     setFeedback(null);
     setSubmitError(null);
-  }, [index, taskId]);
+  }
 
   if (!user) return null;
 
