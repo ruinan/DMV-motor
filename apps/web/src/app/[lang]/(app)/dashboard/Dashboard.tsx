@@ -244,7 +244,7 @@ function NextActionCard({
     switch (action.type) {
       case "review":
         return { href: `/${lang}/review`, button: t.dashboard.ctaButton };
-      case "mock":
+      case "mock_exam":
         return { href: `/${lang}/mock`, button: t.dashboard.ctaMockButton };
       case "practice":
       default:

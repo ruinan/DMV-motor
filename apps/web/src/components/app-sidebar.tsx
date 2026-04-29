@@ -8,6 +8,7 @@ import {
   Bookmark,
   RotateCw,
   Timer,
+  TrendingUp,
   User,
   type LucideIcon,
 } from "lucide-react";
@@ -36,6 +37,7 @@ export function AppSidebar({ t, lang }: Props) {
     { href: `/${lang}/mistakes`, label: t.nav.mistakes, icon: Bookmark },
     { href: `/${lang}/review`, label: t.nav.review, icon: RotateCw },
     { href: `/${lang}/mock`, label: t.nav.mockExam, icon: Timer },
+    { href: `/${lang}/progress`, label: t.nav.progress, icon: TrendingUp },
     { href: `/${lang}/me`, label: t.nav.account, icon: User },
   ];
 

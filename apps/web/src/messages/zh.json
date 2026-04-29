@@ -39,6 +39,7 @@
     "mistakes": "错题",
     "review": "复习",
     "mockExam": "模拟考试",
+    "progress": "进度",
     "account": "账户",
     "signOut": "退出登录"
   },
@@ -161,6 +162,50 @@
     "next": "下一页",
     "loading": "加载中…",
     "errorGeneric": "无法加载错题列表。"
+  },
+  "progress": {
+    "title": "学习进度",
+    "subtitle": "你离通过考试还有多远 — 按真正影响通过的维度拆开看。",
+    "loading": "加载中…",
+    "errorGeneric": "无法加载进度数据。",
+    "completionTitle": "完成度",
+    "completionHint": "整个题库覆盖练习的占比。",
+    "readinessTitle": "就绪度",
+    "readinessHint": "所有闸门通过且 ≥ 85% 时视为可上考场。",
+    "readinessLockedTitle": "解锁就绪度评分",
+    "readinessLockedBody": "购买考试通行证后可看到详细的通过门槛分析与下一步建议。",
+    "readyBadge": "可上考场",
+    "notReadyBadge": "继续努力",
+    "gatesTitle": "通过门槛",
+    "gatesSubtitle": "四个门槛全部通过，才算真正可上考场。",
+    "gatePassed": "已通过",
+    "gateOpen": "未通过",
+    "gates": {
+      "MOCK_SCORE_NOT_STABLE": {
+        "label": "模拟考成绩稳定",
+        "body": "至少完成 2 次模拟考，平均分 ≥ 85%。"
+      },
+      "KEY_COVERAGE_INCOMPLETE": {
+        "label": "关键知识点覆盖",
+        "body": "关键知识点必考题覆盖 ≥ 90%。"
+      },
+      "HIGH_RISK_REVIEW_LOW": {
+        "label": "高风险复习完成",
+        "body": "复习包任务完成 ≥ 80%。"
+      },
+      "PERSISTENT_WEAK_POINT": {
+        "label": "无顽固薄弱点",
+        "body": "把反复错在同一知识点的题彻底搞清。"
+      }
+    },
+    "weakTopicsTitle": "需要强化的知识点",
+    "noWeakTopics": "尚未识别出薄弱知识点 — 多练习以浮现可能的盲点。",
+    "practiceTopic": "去练习",
+    "nextActionTitle": "下一步该做什么",
+    "noNextAction": "都搞定啦！",
+    "ctaReview": "去复习包",
+    "ctaMock": "去考模拟考",
+    "ctaPractice": "去练习"
   },
   "practice": {
     "title": "练习",

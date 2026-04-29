@@ -3,10 +3,11 @@ import { apiFetch } from "@/lib/api-client";
 import { useAuth } from "@/lib/auth-context";
 
 export type SummaryResponse = {
+  access_state: "free_trial" | "active" | "expired" | string;
   completion_score: number;
   weak_topics: { topic_id: string; label: string }[];
   next_action: {
-    type: "review" | "mock" | "practice" | "none" | string;
+    type: "review" | "mock_exam" | "practice" | "none" | string;
     label: string;
   } | null;
   // Paid-only — undefined for free-trial users

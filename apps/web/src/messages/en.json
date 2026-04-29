@@ -39,6 +39,7 @@
     "mistakes": "Mistakes",
     "review": "Review",
     "mockExam": "Mock Exam",
+    "progress": "Progress",
     "account": "Account",
     "signOut": "Sign out"
   },
@@ -161,6 +162,50 @@
     "next": "Next",
     "loading": "Loading…",
     "errorGeneric": "Could not load mistakes."
+  },
+  "progress": {
+    "title": "Progress",
+    "subtitle": "How close you are to passing — broken down by what counts.",
+    "loading": "Loading…",
+    "errorGeneric": "Could not load progress.",
+    "completionTitle": "Completion",
+    "completionHint": "How much of the catalog you've engaged with.",
+    "readinessTitle": "Readiness",
+    "readinessHint": "Pass-ready when score ≥ 85% with all gates clear.",
+    "readinessLockedTitle": "Unlock readiness scoring",
+    "readinessLockedBody": "Get an access pass to see how close you are to passing the real exam, with detailed gates and recommendations.",
+    "readyBadge": "Pass-ready",
+    "notReadyBadge": "Keep going",
+    "gatesTitle": "Readiness gates",
+    "gatesSubtitle": "All four must clear before you're pass-ready.",
+    "gatePassed": "Cleared",
+    "gateOpen": "Not yet",
+    "gates": {
+      "MOCK_SCORE_NOT_STABLE": {
+        "label": "Stable mock scores",
+        "body": "Take at least 2 mock exams with an average score ≥ 85%."
+      },
+      "KEY_COVERAGE_INCOMPLETE": {
+        "label": "Key topic coverage",
+        "body": "Cover ≥ 90% of must-know questions across key topics."
+      },
+      "HIGH_RISK_REVIEW_LOW": {
+        "label": "High-risk review",
+        "body": "Complete ≥ 80% of your review pack tasks."
+      },
+      "PERSISTENT_WEAK_POINT": {
+        "label": "No persistent weak points",
+        "body": "Resolve any topic where you've missed the same idea repeatedly."
+      }
+    },
+    "weakTopicsTitle": "Topics needing review",
+    "noWeakTopics": "No weak topics detected — keep practising to surface any gaps.",
+    "practiceTopic": "Practice",
+    "nextActionTitle": "What to do next",
+    "noNextAction": "You're all caught up.",
+    "ctaReview": "Open review pack",
+    "ctaMock": "Take a mock exam",
+    "ctaPractice": "Start practice"
   },
   "practice": {
     "title": "Practice",
