@@ -1,5 +1,5 @@
 import { getApps, initializeApp, type FirebaseApp } from "firebase/app";
-import { getAuth, type Auth } from "firebase/auth";
+import { connectAuthEmulator, getAuth, type Auth } from "firebase/auth";
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -20,3 +20,16 @@ function getFirebaseApp(): FirebaseApp {
 
 export const firebaseApp = getFirebaseApp();
 export const firebaseAuth: Auth = getAuth(firebaseApp);
+
+// E2E: when NEXT_PUBLIC_USE_FIREBASE_EMULATOR=true, point the SDK at the local
+// Auth emulator instead of prod Firebase. emulatorConfig guard makes the call
+// idempotent under HMR (calling connectAuthEmulator twice throws).
+if (
+  typeof window !== "undefined" &&
+  process.env.NEXT_PUBLIC_USE_FIREBASE_EMULATOR === "true" &&
+  !firebaseAuth.emulatorConfig
+) {
+  connectAuthEmulator(firebaseAuth, "http://127.0.0.1:9099", {
+    disableWarnings: true,
+  });
+}

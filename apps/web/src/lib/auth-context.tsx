@@ -9,7 +9,9 @@ import {
   type ReactNode,
 } from "react";
 import {
+  browserLocalPersistence,
   onAuthStateChanged,
+  setPersistence,
   signInWithEmailAndPassword,
   signOut as firebaseSignOut,
   type User,
@@ -30,6 +32,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // Force IndexedDB/localStorage persistence so a hard reload rehydrates
+    // the user. The SDK already defaults to LOCAL on web, but in restrictive
+    // environments (privacy modes, blocked storage) it silently falls back
+    // to in-memory — this asserts the contract instead of failing silently.
+    setPersistence(firebaseAuth, browserLocalPersistence).catch(() => {
+      // Storage unavailable (e.g. partitioned cookies + no IDB). The
+      // listener below will still fire, just without rehydrated state.
+    });
     const unsub = onAuthStateChanged(firebaseAuth, (u) => {
       setUser(u);
       setLoading(false);
