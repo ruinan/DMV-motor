@@ -34,8 +34,11 @@
   },
   "nav": {
     "appBrand": "M1 Prep",
-    "dashboard": "Dashboard",
+    "study": "Study",
     "practice": "Practice",
+    "exam": "Exam",
+    "settings": "Settings",
+    "dashboard": "Dashboard",
     "mistakes": "Mistakes",
     "review": "Review",
     "mockExam": "Mock Exam",

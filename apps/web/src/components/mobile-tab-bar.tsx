@@ -3,11 +3,10 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
-  LayoutDashboard,
+  BookOpen,
   ClipboardList,
-  Bookmark,
   Timer,
-  User,
+  Settings,
   type LucideIcon,
 } from "lucide-react";
 import type { Dictionary, Locale } from "@/lib/dictionaries";
@@ -26,14 +25,13 @@ type Props = {
 export function MobileTabBar({ t, lang }: Props) {
   const pathname = usePathname();
 
-  // 5 tabs — Review pushed to sidebar/dashboard CTA on mobile to keep
-  // bottom bar uncluttered. Mistakes is more frequent + high-stakes.
+  // Mirror the 4-item desktop sidebar exactly so the IA stays consistent
+  // across breakpoints.
   const tabs: Tab[] = [
-    { href: `/${lang}/dashboard`, label: t.nav.dashboard, icon: LayoutDashboard },
+    { href: `/${lang}/dashboard`, label: t.nav.study, icon: BookOpen },
     { href: `/${lang}/practice`, label: t.nav.practice, icon: ClipboardList },
-    { href: `/${lang}/mistakes`, label: t.nav.mistakes, icon: Bookmark },
-    { href: `/${lang}/mock`, label: t.nav.mockExam, icon: Timer },
-    { href: `/${lang}/me`, label: t.nav.account, icon: User },
+    { href: `/${lang}/mock`, label: t.nav.exam, icon: Timer },
+    { href: `/${lang}/me`, label: t.nav.settings, icon: Settings },
   ];
 
   return (

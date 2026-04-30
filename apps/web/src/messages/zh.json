@@ -34,8 +34,11 @@
   },
   "nav": {
     "appBrand": "M1 备考",
-    "dashboard": "仪表盘",
+    "study": "学习",
     "practice": "练习",
+    "exam": "考试",
+    "settings": "设置",
+    "dashboard": "仪表盘",
     "mistakes": "错题",
     "review": "复习",
     "mockExam": "模拟考试",

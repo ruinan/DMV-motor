@@ -3,13 +3,10 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
-  LayoutDashboard,
+  BookOpen,
   ClipboardList,
-  Bookmark,
-  RotateCw,
   Timer,
-  TrendingUp,
-  User,
+  Settings,
   type LucideIcon,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
@@ -31,14 +28,14 @@ export function AppSidebar({ t, lang }: Props) {
   const pathname = usePathname();
   const { user, signOut } = useAuth();
 
+  // 4-item IA: Study (data overview), Practice (drills + mistakes + review),
+  // Exam (mock), Settings (account). Sub-pages like /mistakes /review /progress
+  // remain reachable from their parent context, just not in the rail.
   const items: NavItem[] = [
-    { href: `/${lang}/dashboard`, label: t.nav.dashboard, icon: LayoutDashboard },
+    { href: `/${lang}/dashboard`, label: t.nav.study, icon: BookOpen },
     { href: `/${lang}/practice`, label: t.nav.practice, icon: ClipboardList },
-    { href: `/${lang}/mistakes`, label: t.nav.mistakes, icon: Bookmark },
-    { href: `/${lang}/review`, label: t.nav.review, icon: RotateCw },
-    { href: `/${lang}/mock`, label: t.nav.mockExam, icon: Timer },
-    { href: `/${lang}/progress`, label: t.nav.progress, icon: TrendingUp },
-    { href: `/${lang}/me`, label: t.nav.account, icon: User },
+    { href: `/${lang}/mock`, label: t.nav.exam, icon: Timer },
+    { href: `/${lang}/me`, label: t.nav.settings, icon: Settings },
   ];
 
   return (
