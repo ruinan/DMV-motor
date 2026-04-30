@@ -20,38 +20,46 @@
  * ========================================================================= */
 
 :root {
-  --background: oklch(0.99 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.45 0.12 245);
-  --primary-foreground: oklch(0.99 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.95 0.02 245);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.45 0.12 245);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --radius: 0.625rem;
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
+  /* Mode A — Modern shell. Hex values come straight from the brand spec
+     (docs: DMV Motor Design System & Theme). Don't drift to oklch unless
+     you're updating the spec at the same time. */
+  --background: #fafafa;
+  --foreground: #1e293b;
+  --card: #ffffff;
+  --card-foreground: #1e293b;
+  --popover: #ffffff;
+  --popover-foreground: #1e293b;
+  --primary: #1b5e9b;
+  --primary-foreground: #ffffff;
+  --secondary: #f1f5f9;
+  --secondary-foreground: #1e293b;
+  --muted: #f1f5f9;
+  --muted-foreground: #64748b;
+  --accent: #e2eaf3;
+  --accent-foreground: #1b5e9b;
+  --destructive: #dc2626;
+  --destructive-foreground: #ffffff;
+  --success: #16a34a;
+  --success-foreground: #ffffff;
+  --warning: #f59e0b;
+  --warning-foreground: #1e293b;
+  --border: #e2e8f0;
+  --input: #e2e8f0;
+  --ring: #1b5e9b;
+  --chart-1: #1b5e9b;
+  --chart-2: #16a34a;
+  --chart-3: #f59e0b;
+  --chart-4: #64748b;
+  --chart-5: #1e293b;
+  --radius: 0.75rem;
+  --sidebar: #ffffff;
+  --sidebar-foreground: #1e293b;
+  --sidebar-primary: #1b5e9b;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #f1f5f9;
+  --sidebar-accent-foreground: #1b5e9b;
+  --sidebar-border: #e2e8f0;
+  --sidebar-ring: #1b5e9b;
 }
 
 .dark {
@@ -89,11 +97,14 @@
 }
 
 .dmv-retro {
+  /* Mode B — Native HTML feel for high-stakes answering surfaces.
+     Per spec: Arial/Helvetica system default (NOT mono), navy accent
+     (#003F7F), pure white background, pure black text, no shadows. */
   --background: #ffffff;
   --foreground: #000000;
   --card: #ffffff;
   --card-foreground: #000000;
-  --primary: oklch(0.32 0.13 256);
+  --primary: #003f7f;
   --primary-foreground: #ffffff;
   --secondary: #ffffff;
   --secondary-foreground: #000000;
@@ -101,9 +112,15 @@
   --muted-foreground: #000000;
   --accent: #ffffff;
   --accent-foreground: #000000;
-  --border: #000000;
+  --destructive: #dc2626;
+  --destructive-foreground: #ffffff;
+  --success: #16a34a;
+  --success-foreground: #ffffff;
+  --warning: #f59e0b;
+  --warning-foreground: #000000;
+  --border: #003f7f;
   --input: #000000;
-  --ring: oklch(0.32 0.13 256);
+  --ring: #003f7f;
   --radius: 0rem;
-  font-family: var(--font-mono), "Courier New", Courier, monospace;
+  font-family: Arial, Helvetica, sans-serif;
 }
