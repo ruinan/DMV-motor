@@ -1,8 +1,9 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Bike, Eye, EyeOff, Shield } from "lucide-react";
+import { ArrowLeft, Bike, Eye, EyeOff, Shield } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import type { Dictionary, Locale } from "@/lib/dictionaries";
 
@@ -74,7 +75,8 @@ export function LoginForm({ t, lang }: Props) {
         : t.submitCreate;
 
   return (
-    <main className="w-full max-w-[420px] rounded-xl border border-border/40 bg-card p-6 shadow-sm sm:p-8">
+    <div className="flex w-full max-w-[420px] flex-col gap-4">
+    <main className="w-full rounded-xl border border-border/40 bg-card p-6 shadow-sm sm:p-8">
       {/* Brand */}
       <div className="mb-8 flex flex-col items-center text-center">
         <div className="mb-3 flex size-12 items-center justify-center rounded-full bg-primary/10 text-primary">
@@ -207,6 +209,16 @@ export function LoginForm({ t, lang }: Props) {
         <span>{t.securedBy}</span>
       </div>
     </main>
+
+      {/* Back to landing */}
+      <Link
+        href={`/${lang}`}
+        className="inline-flex items-center justify-center gap-1.5 self-center text-sm text-muted-foreground transition-colors hover:text-foreground"
+      >
+        <ArrowLeft className="size-4" />
+        <span>{t.backToLanding}</span>
+      </Link>
+    </div>
   );
 }
 

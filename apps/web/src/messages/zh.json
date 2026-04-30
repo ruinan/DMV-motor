@@ -86,6 +86,7 @@
     "resetError": "重置邮件发送失败。",
     "resetNeedEmail": "请先填写上方的邮箱。",
     "securedBy": "由 Firebase Authentication 保护",
+    "backToLanding": "返回首页",
     "signInTitle": "登录 DMV Motor"
   },
   "me": {
