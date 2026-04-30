@@ -19,17 +19,22 @@ export default async function AppLayout({
   if (!hasLocale(lang)) notFound();
   const t = await getDictionary(lang);
 
+  // Wrap the *entire* shell in RequireAuth so unauthenticated visitors
+  // don't see sidebar + nav skeleton flash before the redirect. The guard
+  // owns its own loading + stuck-fallback UI.
   return (
-    <div className="min-h-screen bg-background">
-      <AppSidebar t={t} lang={lang} />
-      <MobileAppBar t={t} lang={lang} />
-      {/* Reserve space for the fixed sidebar (md+) and bottom tab bar (mobile) */}
-      <main className="md:pl-64">
-        <div className="mx-auto w-full max-w-7xl px-4 pb-24 pt-6 md:px-8 md:pb-12 md:pt-8">
-          <RequireAuth lang={lang}>{children}</RequireAuth>
-        </div>
-      </main>
-      <MobileTabBar t={t} lang={lang} />
-    </div>
+    <RequireAuth lang={lang} t={t.auth}>
+      <div className="min-h-screen bg-background">
+        <AppSidebar t={t} lang={lang} />
+        <MobileAppBar t={t} lang={lang} />
+        {/* Reserve space for the fixed sidebar (md+) and bottom tab bar (mobile) */}
+        <main className="md:pl-64">
+          <div className="mx-auto w-full max-w-7xl px-4 pb-24 pt-6 md:px-8 md:pb-12 md:pt-8">
+            {children}
+          </div>
+        </main>
+        <MobileTabBar t={t} lang={lang} />
+      </div>
+    </RequireAuth>
   );
 }

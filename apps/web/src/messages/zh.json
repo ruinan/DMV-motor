@@ -86,8 +86,13 @@
     "resetError": "重置邮件发送失败。",
     "resetNeedEmail": "请先填写上方的邮箱。",
     "securedBy": "由 Firebase Authentication 保护",
-    "backToLanding": "返回首页",
-    "signInTitle": "登录 DMV Motor"
+    "backToLanding": "回到主页",
+    "signInTitle": "登录 DMV Motor",
+    "verifying": "正在验证登录状态…",
+    "stuckTitle": "好像卡住了",
+    "stuckBody": "无法确认你的登录状态。请刷新重试，或重新登录。",
+    "refresh": "刷新",
+    "goToSignIn": "去登录"
   },
   "me": {
     "title": "我的账户",

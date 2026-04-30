@@ -86,8 +86,13 @@
     "resetError": "Could not send reset email.",
     "resetNeedEmail": "Enter your email above first.",
     "securedBy": "Secured by Firebase Authentication",
-    "backToLanding": "Back to landing page",
-    "signInTitle": "Sign in to DMV Motor"
+    "backToLanding": "Back to home",
+    "signInTitle": "Sign in to DMV Motor",
+    "verifying": "Verifying your session…",
+    "stuckTitle": "Taking longer than expected",
+    "stuckBody": "We couldn't confirm your sign-in. Refresh to retry, or go to sign in again.",
+    "refresh": "Refresh",
+    "goToSignIn": "Go to sign in"
   },
   "me": {
     "title": "Your account",
