@@ -32,7 +32,7 @@ export default async function Home({ params }: PageProps<"/[lang]">) {
         </Link>
       </section>
 
-      <HeroImage src="/hero.jpg" alt={t.home.heroImageAlt} />
+      <HeroImage src="/images/hero-coast-rider.png" alt={t.home.heroImageAlt} />
 
       {/* Features grid */}
       <section className="grid w-full max-w-5xl grid-cols-1 gap-6 md:grid-cols-3">

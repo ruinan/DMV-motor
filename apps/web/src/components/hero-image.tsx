@@ -15,8 +15,8 @@ type Props = {
  *   placeholder while the image streams in, and the permanent fallback if
  *   the asset is missing or fails to load).
  * - The <Image> renders on top, fades in on load. If load errors (e.g. the
- *   /public/hero.jpg has not been uploaded yet) we mount-out the <Image>
- *   so the gradient stays clean — no broken-image icon.
+ *   asset is missing from /public) we mount-out the <Image> so the gradient
+ *   stays clean — no broken-image icon.
  * - next/image handles lazy loading + responsive srcset by default;
  *   we keep priority off because this image sits below the hero copy
  *   and shouldn't compete with the LCP text.
