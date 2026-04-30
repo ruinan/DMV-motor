@@ -1,19 +1,36 @@
 "use client";
 
 import Link from "next/link";
+import { useQuery } from "@tanstack/react-query";
 import {
-  TrendingUp,
-  BadgeCheck,
-  AlertCircle,
   ArrowRight,
-  PlayCircle,
+  CheckCircle2,
+  RefreshCw,
+  Sparkles,
+  Target,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
-import { useMe } from "@/lib/hooks/use-me";
-import { useSummary, type SummaryResponse } from "@/lib/hooks/use-summary";
-import { useMistakesCount } from "@/lib/hooks/use-mistakes-count";
-import { ReadinessRing } from "@/components/readiness-ring";
+import { useTopicNameMap } from "@/lib/hooks/use-topics";
+import { apiFetch, ApiError } from "@/lib/api-client";
 import type { Dictionary, Locale } from "@/lib/dictionaries";
+
+type ReviewTaskSummary = {
+  review_task_id: string;
+  topic_id: string;
+  type: "key_topic" | "persistent" | "mixed" | string;
+  status: "pending" | "in_progress" | "completed" | string;
+  priority: "high" | "medium" | "low" | string;
+  target_question_count: number;
+  completed_question_count: number;
+};
+
+type ReviewPack = {
+  review_pack_id: string;
+  status: string;
+  target_question_count: number;
+  completed_question_count: number;
+  tasks: ReviewTaskSummary[];
+};
 
 type Props = {
   t: Dictionary;
@@ -22,247 +39,266 @@ type Props = {
 
 export function Dashboard({ t, lang }: Props) {
   const { user } = useAuth();
-  const me = useMe();
-  const summary = useSummary();
-  const mistakes = useMistakesCount();
+  const topicMap = useTopicNameMap(lang);
 
-  const isPaid = me.data?.access.has_active_pass ?? false;
+  const { data, isLoading, error } = useQuery({
+    queryKey: ["review-pack"],
+    queryFn: () => apiFetch<ReviewPack>("/api/v1/review/pack"),
+    enabled: !!user,
+    staleTime: 30_000,
+    retry: (count, err) =>
+      err instanceof ApiError && err.code === "ACCESS_DENIED" ? false : count < 2,
+  });
+
+  const noPass = error instanceof ApiError && error.code === "ACCESS_DENIED";
+
+  if (noPass) return <NoPassFallback t={t} lang={lang} />;
+
+  if (isLoading) {
+    return (
+      <div className="flex flex-col gap-6">
+        <Header t={t} />
+        <p className="text-sm text-muted-foreground">{t.dashboard.loading}</p>
+      </div>
+    );
+  }
+
+  if (error || !data) {
+    return (
+      <div className="flex flex-col gap-6">
+        <Header t={t} />
+        <div className="rounded-md border border-destructive/40 bg-destructive/10 p-4 text-sm text-destructive">
+          {t.dashboard.errorGeneric}
+        </div>
+      </div>
+    );
+  }
+
+  const activeTasks = data.tasks.filter((task) => task.status !== "completed");
+  const completedTasks = data.tasks.filter((task) => task.status === "completed");
+  const pct =
+    data.target_question_count > 0
+      ? Math.round(
+          (data.completed_question_count / data.target_question_count) * 100,
+        )
+      : 0;
 
   return (
     <div className="flex flex-col gap-8">
-      {/* Header */}
-      <header>
-        <h1 className="text-3xl font-bold tracking-tight text-foreground">
-          {t.dashboard.welcomeBack}
-        </h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          {user?.email ?? me.data?.email ?? ""}
-        </p>
-      </header>
+      <Header t={t} />
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-        {/* Left column (2/3 on lg+) */}
-        <div className="flex flex-col gap-6 lg:col-span-2">
-          <ReadinessHero t={t} summary={summary.data} loading={summary.isLoading} isPaid={isPaid} />
-          <MetricRow
-            t={t}
-            lang={lang}
-            completion={summary.data?.completion_score}
-            completionLoading={summary.isLoading}
-            mockRemaining={me.data?.access.mock_remaining}
-            mockTotal={5} // pass-bundle quota; placeholder until /me exposes total
-            mockLoading={me.isLoading}
-            mistakesCount={mistakes.data}
-            mistakesLoading={mistakes.isLoading}
+      {/* Progress bar */}
+      <section>
+        <div className="mb-2 flex items-center justify-between text-sm">
+          <span className="font-semibold text-primary">
+            {t.dashboard.questionsDone
+              .replace("{done}", String(data.completed_question_count))
+              .replace("{total}", String(data.target_question_count))}
+          </span>
+          <span className="text-muted-foreground tabular-nums">{pct}%</span>
+        </div>
+        <div className="h-3 w-full overflow-hidden rounded-full bg-muted">
+          <div
+            className="h-full rounded-full bg-primary transition-all duration-700 ease-out"
+            style={{ width: `${pct}%` }}
           />
         </div>
+      </section>
 
-        {/* Right column (1/3 on lg+) */}
-        <div className="flex flex-col gap-6">
-          <NextActionCard
-            t={t}
-            lang={lang}
-            action={summary.data?.next_action ?? null}
-          />
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Readiness hero — ring + weak-topic chips
-// ---------------------------------------------------------------------------
-function ReadinessHero({
-  t,
-  summary,
-  loading,
-  isPaid,
-}: {
-  t: Dictionary;
-  summary: SummaryResponse | undefined;
-  loading: boolean;
-  isPaid: boolean;
-}) {
-  const score = isPaid ? (summary?.readiness_score ?? null) : null;
-  const weakTopics = summary?.weak_topics ?? [];
-
-  return (
-    <section className="flex flex-col items-center gap-6 rounded-xl border border-border/30 bg-card p-6 shadow-sm md:flex-row md:p-8">
-      <ReadinessRing
-        percent={loading ? null : score}
-        label={t.dashboard.readinessTitle.split(" ")[0]}
-        lockedLabel={isPaid ? "—" : t.dashboard.readinessLocked}
-      />
-      <div className="flex-1 text-center md:text-left">
-        <h2 className="text-2xl font-semibold text-foreground">
-          {t.dashboard.readinessTitle}
-        </h2>
-        <p className="mt-1 text-base text-muted-foreground">
-          {isPaid ? t.dashboard.readinessHint : t.dashboard.readinessLocked}
-        </p>
-
-        <div className="mt-5">
-          <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-            {t.dashboard.needsReview}
+      {/* Active tasks grid */}
+      {activeTasks.length === 0 ? (
+        <section className="rounded-xl border border-dashed border-border bg-card p-10 text-center">
+          <p className="text-sm text-muted-foreground">
+            {t.dashboard.noActiveTasks}
           </p>
-          {weakTopics.length === 0 ? (
-            <p className="text-sm text-muted-foreground">
-              {loading ? "…" : t.dashboard.noWeakTopics}
-            </p>
-          ) : (
-            <div className="flex flex-wrap justify-center gap-2 md:justify-start">
-              {weakTopics.map((topic) => (
-                <span
-                  key={topic.topic_id}
-                  className="rounded-full bg-primary/10 px-3 py-1 text-sm text-primary"
-                >
-                  {topic.label}
-                </span>
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
-    </section>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Metric row — completion / mock quota / active mistakes
-// ---------------------------------------------------------------------------
-function MetricRow({
-  t,
-  lang,
-  completion,
-  completionLoading,
-  mockRemaining,
-  mockTotal,
-  mockLoading,
-  mistakesCount,
-  mistakesLoading,
-}: {
-  t: Dictionary;
-  lang: Locale;
-  completion: number | undefined;
-  completionLoading: boolean;
-  mockRemaining: number | undefined;
-  mockTotal: number;
-  mockLoading: boolean;
-  mistakesCount: number | undefined;
-  mistakesLoading: boolean;
-}) {
-  return (
-    <section className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-      {/* Completion */}
-      <div className="flex flex-col rounded-xl border border-border/30 bg-card p-5 shadow-sm">
-        <div className="mb-3 flex items-center justify-between">
-          <span className="text-sm text-muted-foreground">
-            {t.dashboard.completion}
-          </span>
-          <TrendingUp className="size-4 text-secondary-foreground/60" />
-        </div>
-        <div className="mt-auto">
-          <span className="text-2xl font-semibold tabular-nums text-foreground">
-            {completionLoading ? "…" : `${completion ?? 0}%`}
-          </span>
-          <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-muted">
-            <div
-              className="h-full rounded-full bg-primary transition-all duration-700"
-              style={{ width: `${completion ?? 0}%` }}
+        </section>
+      ) : (
+        <section className="grid grid-cols-1 gap-6 md:grid-cols-2">
+          {activeTasks.map((task) => (
+            <ActiveTaskCard
+              key={task.review_task_id}
+              t={t}
+              lang={lang}
+              task={task}
+              topicName={
+                topicMap.get(task.topic_id) ?? `Topic ${task.topic_id}`
+              }
             />
+          ))}
+        </section>
+      )}
+
+      {/* Completed today */}
+      {completedTasks.length > 0 && (
+        <section>
+          <h2 className="mb-4 text-xl font-semibold text-foreground">
+            {t.dashboard.completedTodayTitle}
+          </h2>
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            {completedTasks.map((task) => (
+              <CompletedTaskCard
+                key={task.review_task_id}
+                t={t}
+                lang={lang}
+                task={task}
+                topicName={
+                  topicMap.get(task.topic_id) ?? `Topic ${task.topic_id}`
+                }
+              />
+            ))}
           </div>
-        </div>
-      </div>
-
-      {/* Mock attempts remaining */}
-      <div className="flex flex-col rounded-xl border border-border/30 bg-card p-5 shadow-sm">
-        <div className="mb-3 flex items-center justify-between">
-          <span className="text-sm text-muted-foreground">
-            {t.dashboard.mockPassed}
-          </span>
-          <BadgeCheck className="size-4 text-secondary-foreground/60" />
-        </div>
-        <div className="mt-auto">
-          <span className="text-2xl font-semibold tabular-nums text-foreground">
-            {mockLoading ? "…" : (mockRemaining ?? 0)}{" "}
-            <span className="text-sm font-normal text-muted-foreground">
-              {t.dashboard.of} {mockTotal}
-            </span>
-          </span>
-        </div>
-      </div>
-
-      {/* Active mistakes */}
-      <Link
-        href={`/${lang}/mistakes`}
-        className="group flex flex-col rounded-xl border border-border/30 bg-card p-5 shadow-sm transition-colors hover:border-primary/30"
-      >
-        <div className="mb-3 flex items-center justify-between">
-          <span className="text-sm text-muted-foreground">
-            {t.dashboard.activeMistakes}
-          </span>
-          <AlertCircle className="size-4 text-destructive" />
-        </div>
-        <div className="mt-auto flex items-end justify-between">
-          <span className="text-2xl font-semibold tabular-nums text-foreground">
-            {mistakesLoading ? "…" : (mistakesCount ?? 0)}
-          </span>
-          <span className="flex items-center gap-1 text-sm font-medium text-primary group-hover:underline">
-            {t.dashboard.review}
-            <ArrowRight className="size-3.5" />
-          </span>
-        </div>
-      </Link>
-    </section>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Next action CTA — driven by /summary's next_action.type
-// ---------------------------------------------------------------------------
-function NextActionCard({
-  t,
-  lang,
-  action,
-}: {
-  t: Dictionary;
-  lang: Locale;
-  action: SummaryResponse["next_action"];
-}) {
-  const fallback = (
-    <div className="flex flex-col items-center rounded-xl bg-primary p-6 text-center text-primary-foreground shadow-sm">
-      <PlayCircle className="mb-3 size-10 opacity-90" />
-      <h3 className="text-xl font-semibold">{t.dashboard.ctaTitle}</h3>
-      <p className="mt-1 text-sm opacity-90">{t.dashboard.noNextAction}</p>
+        </section>
+      )}
     </div>
   );
+}
 
-  if (!action || action.type === "none") return fallback;
+function Header({ t }: { t: Dictionary }) {
+  return (
+    <header>
+      <h1 className="text-3xl font-bold tracking-tight text-foreground">
+        {t.dashboard.packTitle}
+      </h1>
+      <p className="mt-1 text-base text-muted-foreground">
+        {t.dashboard.packSubtitle}
+      </p>
+    </header>
+  );
+}
 
-  const { href, button } = (() => {
-    switch (action.type) {
-      case "review":
-        return { href: `/${lang}/review`, button: t.dashboard.ctaButton };
-      case "mock_exam":
-        return { href: `/${lang}/mock`, button: t.dashboard.ctaMockButton };
-      case "practice":
-      default:
-        return { href: `/${lang}/practice`, button: t.dashboard.ctaPracticeButton };
-    }
-  })();
+function ActiveTaskCard({
+  t,
+  lang,
+  task,
+  topicName,
+}: {
+  t: Dictionary;
+  lang: Locale;
+  task: ReviewTaskSummary;
+  topicName: string;
+}) {
+  const isInProgress = task.status === "in_progress";
+  const ctaLabel = isInProgress ? t.dashboard.ctaResume : t.dashboard.ctaStart;
+  const CtaIcon = isInProgress ? RefreshCw : ArrowRight;
+
+  const typeLabel =
+    task.type === "key_topic"
+      ? t.dashboard.weakSpotDrill
+      : task.type === "persistent"
+        ? t.dashboard.sameTopicRetry
+        : t.dashboard.mixedPractice;
+
+  const TypeIcon = task.type === "persistent" ? RefreshCw : Target;
+
+  const priorityLabel =
+    task.priority === "high"
+      ? t.dashboard.highPriority
+      : task.priority === "low"
+        ? t.dashboard.lowPriority
+        : t.dashboard.mediumPriority;
+
+  const priorityClass =
+    task.priority === "high"
+      ? "bg-destructive/10 text-destructive"
+      : task.priority === "low"
+        ? "bg-muted text-muted-foreground"
+        : "bg-warning/15 text-warning-foreground";
 
   return (
-    <div className="flex flex-col items-center rounded-xl bg-primary p-6 text-center text-primary-foreground shadow-sm">
-      <PlayCircle className="mb-3 size-10 opacity-90" />
-      <h3 className="text-xl font-semibold">{t.dashboard.ctaTitle}</h3>
-      <p className="mt-1 mb-5 text-sm opacity-90">{action.label}</p>
+    <article className="flex flex-col rounded-xl border border-border/40 bg-card p-6 shadow-sm transition-shadow hover:shadow-md">
+      {/* Header row: topic + type label / priority badge */}
+      <div className="mb-5 flex items-start justify-between gap-3">
+        <div className="flex flex-col gap-1.5">
+          <span className="inline-flex w-fit items-center rounded-full bg-primary/10 px-3 py-1 text-sm font-semibold text-primary">
+            {topicName}
+          </span>
+          <span className="inline-flex items-center gap-1.5 text-sm text-muted-foreground">
+            <TypeIcon className="size-3.5" />
+            {typeLabel}
+          </span>
+        </div>
+        <span
+          className={`shrink-0 rounded-full px-3 py-1 text-xs font-bold ${priorityClass}`}
+        >
+          {priorityLabel}
+        </span>
+      </div>
+
+      {/* Footer: task progress + CTA */}
+      <div className="mt-auto border-t border-border pt-4">
+        <div className="mb-3 flex items-center justify-between text-sm">
+          <span className="text-muted-foreground">{t.review.taskProgress}</span>
+          <span className="font-semibold text-foreground tabular-nums">
+            {task.completed_question_count}/{task.target_question_count}
+          </span>
+        </div>
+        <Link
+          href={`/${lang}/review/${task.review_task_id}`}
+          className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-primary text-base font-semibold text-primary-foreground shadow-sm transition-shadow hover:shadow-md active:scale-[0.98]"
+        >
+          {ctaLabel}
+          <CtaIcon className="size-4" />
+        </Link>
+      </div>
+    </article>
+  );
+}
+
+function CompletedTaskCard({
+  t,
+  lang,
+  task,
+  topicName,
+}: {
+  t: Dictionary;
+  lang: Locale;
+  task: ReviewTaskSummary;
+  topicName: string;
+}) {
+  return (
+    <article className="flex items-center justify-between gap-4 rounded-xl border border-border/30 bg-muted/30 p-5">
+      <div className="flex min-w-0 items-center gap-3">
+        <CheckCircle2 className="size-5 shrink-0 text-success" />
+        <div className="min-w-0">
+          <p className="truncate text-base font-semibold text-foreground">
+            {topicName}
+          </p>
+          <p className="text-sm text-muted-foreground tabular-nums">
+            {task.completed_question_count}/{task.target_question_count}{" "}
+            {t.review.statusCompleted.toLowerCase()}
+          </p>
+        </div>
+      </div>
       <Link
-        href={href}
-        className="inline-flex w-full items-center justify-center rounded-md bg-primary-foreground px-4 py-2.5 text-sm font-semibold text-primary transition-opacity hover:opacity-90"
+        href={`/${lang}/review/${task.review_task_id}`}
+        className="inline-flex h-11 shrink-0 items-center justify-center rounded-xl border border-border bg-card px-4 text-sm font-medium text-foreground transition-colors hover:bg-background"
       >
-        {button}
+        {t.review.reviewTask}
       </Link>
+    </article>
+  );
+}
+
+function NoPassFallback({ t, lang }: { t: Dictionary; lang: Locale }) {
+  return (
+    <div className="flex flex-col gap-8">
+      <Header t={t} />
+      <section className="flex flex-col items-center rounded-xl border border-border/40 bg-card p-10 text-center shadow-sm">
+        <Sparkles className="mb-4 size-10 text-primary" />
+        <h2 className="text-2xl font-semibold text-foreground">
+          {t.dashboard.noPassTitle}
+        </h2>
+        <p className="mt-2 max-w-md text-sm text-muted-foreground">
+          {t.dashboard.noPassBody}
+        </p>
+        <Link
+          href={`/${lang}/practice`}
+          className="mt-6 inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-primary px-6 text-base font-semibold text-primary-foreground shadow-sm transition-shadow hover:shadow-md"
+        >
+          {t.dashboard.noPassCta}
+          <ArrowRight className="size-4" />
+        </Link>
+      </section>
     </div>
   );
 }
