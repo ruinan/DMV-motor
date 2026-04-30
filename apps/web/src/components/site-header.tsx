@@ -9,7 +9,7 @@ type Props = {
 
 export function SiteHeader({ t, lang }: Props) {
   return (
-    <header className="sticky top-0 z-40 w-full border-b border-border/40 bg-background/80 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+    <header className="sticky top-0 z-40 w-full bg-card shadow-sm">
       <div className="mx-auto flex h-16 w-full max-w-7xl items-center justify-between px-6">
         <Link
           href={`/${lang}`}

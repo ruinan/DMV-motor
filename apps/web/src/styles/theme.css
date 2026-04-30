@@ -22,8 +22,11 @@
 :root {
   /* Mode A — Modern shell. Hex values come straight from the brand spec
      (docs: DMV Motor Design System & Theme). Don't drift to oklch unless
-     you're updating the spec at the same time. */
-  --background: #fafafa;
+     you're updating the spec at the same time.
+     Background uses the landing-page mockup's subtle highway-sign tint
+     (#f8f9ff) instead of pure #FAFAFA so white surfaces (header, cards,
+     sidebar) layer with visible separation. */
+  --background: #f8f9ff;
   --foreground: #1e293b;
   --card: #ffffff;
   --card-foreground: #1e293b;
