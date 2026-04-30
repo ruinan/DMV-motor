@@ -8,7 +8,9 @@ async function signIn(page: Page) {
   await page.goto("/en/login");
   await page.locator("#email").fill(EMAIL);
   await page.locator("#password").fill(PASSWORD);
-  await page.getByRole("button", { name: /sign in|登录/i }).click();
+  // Submit button is type=submit; the "Sign in" tab is type=button. Match
+  // by attribute to avoid ambiguity now that the form has tabs.
+  await page.locator('button[type="submit"]').click();
   await expect(page).toHaveURL(/\/en\/me$/);
 }
 

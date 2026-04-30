@@ -4,9 +4,10 @@ import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
 
 /**
- * Marketing surface layout — used by the public landing page and login.
- * Wraps children in the same SiteHeader + SiteFooter chrome so brand
- * navigation feels consistent across the unauthenticated funnel.
+ * Marketing surface layout — wraps the public landing page in the brand
+ * chrome (SiteHeader + SiteFooter). /login lives in the (auth) group with
+ * its own minimal layout so the auth card isn't sandwiched in marketing
+ * navigation.
  */
 export default async function MarketingLayout({
   children,

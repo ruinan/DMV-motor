@@ -10,7 +10,9 @@ import {
 } from "react";
 import {
   browserLocalPersistence,
+  createUserWithEmailAndPassword,
   onAuthStateChanged,
+  sendPasswordResetEmail,
   setPersistence,
   signInWithEmailAndPassword,
   signOut as firebaseSignOut,
@@ -22,6 +24,8 @@ type AuthState = {
   user: User | null;
   loading: boolean;
   signIn: (email: string, password: string) => Promise<void>;
+  signUp: (email: string, password: string) => Promise<void>;
+  resetPassword: (email: string) => Promise<void>;
   signOut: () => Promise<void>;
 };
 
@@ -53,6 +57,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       loading,
       signIn: async (email, password) => {
         await signInWithEmailAndPassword(firebaseAuth, email, password);
+      },
+      signUp: async (email, password) => {
+        // Backend's UserProvisioner JIT-creates the users row on first
+        // /api/v1/me call after Firebase issues a token, so the client
+        // doesn't need to coordinate row creation here.
+        await createUserWithEmailAndPassword(firebaseAuth, email, password);
+      },
+      resetPassword: async (email) => {
+        await sendPasswordResetEmail(firebaseAuth, email);
       },
       signOut: async () => {
         await firebaseSignOut(firebaseAuth);

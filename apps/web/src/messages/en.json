@@ -66,12 +66,27 @@
     "noWeakTopics": "No weak topics detected yet."
   },
   "auth": {
-    "signInTitle": "Sign in to DMV Motor",
+    "appTagline": "California M1 Prep",
+    "tabSignIn": "Sign in",
+    "tabCreate": "Create account",
     "email": "Email",
+    "emailPlaceholder": "name@example.com",
     "password": "Password",
+    "passwordPlaceholder": "••••••••",
+    "showPassword": "Show password",
+    "hidePassword": "Hide password",
+    "forgotPassword": "Forgot password?",
     "submit": "Sign in",
+    "submitCreate": "Create account",
     "loading": "Signing in...",
-    "error": "Sign-in failed. Please try again."
+    "loadingCreate": "Creating account...",
+    "error": "Sign-in failed. Please try again.",
+    "errorCreate": "Could not create account. Try a different email or stronger password.",
+    "resetSent": "Check your inbox for a reset link.",
+    "resetError": "Could not send reset email.",
+    "resetNeedEmail": "Enter your email above first.",
+    "securedBy": "Secured by Firebase Authentication",
+    "signInTitle": "Sign in to DMV Motor"
   },
   "me": {
     "title": "Your account",

@@ -66,12 +66,27 @@
     "noWeakTopics": "暂未识别出薄弱知识点。"
   },
   "auth": {
-    "signInTitle": "登录 DMV Motor",
+    "appTagline": "加州 M1 备考",
+    "tabSignIn": "登录",
+    "tabCreate": "注册账号",
     "email": "邮箱",
+    "emailPlaceholder": "name@example.com",
     "password": "密码",
+    "passwordPlaceholder": "••••••••",
+    "showPassword": "显示密码",
+    "hidePassword": "隐藏密码",
+    "forgotPassword": "忘记密码？",
     "submit": "登录",
+    "submitCreate": "注册账号",
     "loading": "登录中...",
-    "error": "登录失败，请重试。"
+    "loadingCreate": "正在创建账号...",
+    "error": "登录失败，请重试。",
+    "errorCreate": "无法创建账号，请换个邮箱或更强的密码。",
+    "resetSent": "重置链接已发到你的邮箱，请查收。",
+    "resetError": "重置邮件发送失败。",
+    "resetNeedEmail": "请先填写上方的邮箱。",
+    "securedBy": "由 Firebase Authentication 保护",
+    "signInTitle": "登录 DMV Motor"
   },
   "me": {
     "title": "我的账户",
