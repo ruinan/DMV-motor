@@ -90,4 +90,16 @@ public abstract class E2ETestBase {
     protected Response get(RequestSpecification spec, String path) {
         return spec.get(path);
     }
+
+    /**
+     * Test-only DB lookup of a question's correct answer key. Use this from IT
+     * helpers that need to "intentionally answer wrong" — the public
+     * {@code GET /api/v1/questions/{id}} endpoint never returns the answer
+     * (security contract), so reaching into the DB is the documented path.
+     */
+    protected String lookupCorrectChoiceKey(String questionId) {
+        return jdbc.queryForObject(
+                "SELECT correct_choice_key FROM questions WHERE id = ?",
+                String.class, Long.parseLong(questionId));
+    }
 }

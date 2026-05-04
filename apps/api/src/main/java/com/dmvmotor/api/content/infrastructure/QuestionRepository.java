@@ -23,14 +23,38 @@ public class QuestionRepository {
         this.objectMapper = objectMapper;
     }
 
+    /**
+     * Internal primitive used by Practice / Review / Mock once the caller has
+     * verified that the question is in the user's authorized pool.
+     * Filters {@code questions.status='active' AND question_variants.status='active'}
+     * as defense-in-depth so inactive content can never escape via these flows.
+     */
     public Optional<QuestionDetail> findByIdAndLanguage(Long questionId, String language) {
+        return load(questionId, language, /* freeTrialOnly */ false);
+    }
+
+    /**
+     * Public-facing read for the locked-down {@code GET /api/v1/questions/{id}}.
+     * Adds {@code allow_in_free_trial=true} on top of the active filter, so
+     * anonymous / free-trial / expired callers can only enumerate the
+     * documented free-trial pool — never the paid bank.
+     */
+    public Optional<QuestionDetail> findFreeTrialActiveByIdAndLanguage(Long questionId, String language) {
+        return load(questionId, language, /* freeTrialOnly */ true);
+    }
+
+    private Optional<QuestionDetail> load(Long questionId, String language, boolean freeTrialOnly) {
         var q = Tables.QUESTIONS;
         var qv = Tables.QUESTION_VARIANTS;
 
-        Record record = dsl.select()
+        var step = dsl.select()
                 .from(q)
                 .join(qv).on(qv.QUESTION_ID.eq(q.ID).and(qv.LANGUAGE_CODE.eq(language)))
                 .where(q.ID.eq(questionId))
+                .and(q.STATUS.eq("active"))
+                .and(qv.STATUS.eq("active"));
+
+        Record record = (freeTrialOnly ? step.and(q.ALLOW_IN_FREE_TRIAL.isTrue()) : step)
                 .fetchOne();
 
         if (record == null) return Optional.empty();

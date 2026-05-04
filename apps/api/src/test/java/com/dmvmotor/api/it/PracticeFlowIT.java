@@ -112,12 +112,11 @@ class PracticeFlowIT extends E2ETestBase {
         String questionId = extractNestedField(sessionBody, "next_question", "question_id");
         String variantId  = extractNestedField(sessionBody, "next_question", "variant_id");
 
-        // Fetch the correct answer so we can intentionally answer WRONG
-        String questionBody = given().accept("application/json")
-                .queryParam("language", "en")
-                .get("/api/v1/questions/" + questionId)
-                .then().extract().asString();
-        String correctKey = extractField(questionBody, "correct_choice_key");
+        // Fetch the correct answer from the DB so we can intentionally answer
+        // WRONG. The public /questions/{id} endpoint deliberately never
+        // returns correct_choice_key (security contract — answers flow only
+        // through gameplay submit responses), so IT helpers reach into the DB.
+        String correctKey = lookupCorrectChoiceKey(questionId);
         String wrongKey   = "A".equals(correctKey) ? "B" : "A";
 
         // 2. Submit wrong answer
