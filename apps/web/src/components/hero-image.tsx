@@ -17,9 +17,9 @@ type Props = {
  * - The <Image> renders on top, fades in on load. If load errors (e.g. the
  *   asset is missing from /public) we mount-out the <Image> so the gradient
  *   stays clean — no broken-image icon.
- * - next/image handles lazy loading + responsive srcset by default;
- *   we keep priority off because this image sits below the hero copy
- *   and shouldn't compete with the LCP text.
+ * - `priority` is set because Next measures this asset as the LCP on the
+ *   marketing page; without it, dev mode logs a console warning advising
+ *   the same. Preloading also wins back ~100ms on first paint.
  */
 export function HeroImage({ src, alt }: Props) {
   const [loaded, setLoaded] = useState(false);
@@ -32,6 +32,7 @@ export function HeroImage({ src, alt }: Props) {
           src={src}
           alt={alt}
           fill
+          priority
           sizes="(max-width: 1280px) 100vw, 1280px"
           className={`object-cover transition-opacity duration-700 ${
             loaded ? "opacity-100" : "opacity-0"
