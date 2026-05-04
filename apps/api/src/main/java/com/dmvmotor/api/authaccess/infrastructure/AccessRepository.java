@@ -4,8 +4,10 @@ import com.dmvmotor.api.authaccess.domain.AccessPass;
 import com.dmvmotor.api.infrastructure.jooq.generated.Tables;
 import org.jooq.DSLContext;
 import org.jooq.Record;
+import org.jooq.impl.DSL;
 import org.springframework.stereotype.Repository;
 
+import java.time.OffsetDateTime;
 import java.util.Optional;
 
 @Repository
@@ -18,32 +20,57 @@ public class AccessRepository {
     }
 
     /**
-     * Returns the most relevant pass for the user: active first, then most recent by created_at.
+     * Returns the pass that should drive the user's current access state.
+     *
+     * Selection priority (to avoid the bug where a future or
+     * expired-but-still-status-active row could mask a currently-valid one):
+     *   1. status='active' AND now ∈ [starts_at, expires_at) — currently in
+     *      window. Tiebreak: latest expires_at, then latest created_at.
+     *   2. fall back to the user's most recent pass overall, ordered by
+     *      expires_at DESC then created_at DESC, so the UI can still say
+     *      "expired on X" for a recently-lapsed pass.
+     *
      * Returns empty for anonymous (userId null) or users with no passes.
      */
-    public Optional<AccessPass> findLatestPassByUserId(Long userId) {
+    public Optional<AccessPass> findRelevantPassByUserId(Long userId, OffsetDateTime now) {
         if (userId == null) return Optional.empty();
 
         var ap = Tables.ACCESS_PASSES;
         Record r = dsl.selectFrom(ap)
                 .where(ap.USER_ID.eq(userId))
                 .orderBy(
+                        // Tier 1: currently in window — priority 0 (best),
+                        // everything else priority 1.
+                        DSL.case_()
+                                .when(ap.STATUS.eq("active")
+                                                .and(ap.STARTS_AT.le(now))
+                                                .and(ap.EXPIRES_AT.gt(now)),
+                                        0)
+                                .otherwise(1)
+                                .asc(),
+                        // Tier 2: prefer rows still flagged status='active'.
                         ap.STATUS.eq("active").desc(),
-                        ap.CREATED_AT.desc()
-                )
+                        // Tier 3: longest-running window first (latest expires_at).
+                        ap.EXPIRES_AT.desc().nullsLast(),
+                        // Tiebreak: most-recent insert.
+                        ap.CREATED_AT.desc())
                 .limit(1)
                 .fetchOne();
 
         if (r == null) return Optional.empty();
 
-        return Optional.of(new AccessPass(
+        return Optional.of(toDomain(r));
+    }
+
+    private AccessPass toDomain(Record r) {
+        var ap = Tables.ACCESS_PASSES;
+        return new AccessPass(
                 r.get(ap.ID),
                 r.get(ap.USER_ID),
                 r.get(ap.STATUS),
                 r.get(ap.STARTS_AT),
                 r.get(ap.EXPIRES_AT),
                 r.get(ap.MOCK_EXAM_TOTAL_COUNT),
-                r.get(ap.MOCK_EXAM_USED_COUNT)
-        ));
+                r.get(ap.MOCK_EXAM_USED_COUNT));
     }
 }

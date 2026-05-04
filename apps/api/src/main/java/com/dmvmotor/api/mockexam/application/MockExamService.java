@@ -62,7 +62,9 @@ public class MockExamService {
 
         int cycle = userRepo.findById(userId).map(u -> u.resetCount()).orElse(0);
         Long attemptId = mockExamRepo.createAttempt(userId, mockExamId, language, cycle);
-        mockExamRepo.consumeMockQuota(userId);
+        // canUseMockExam=true ⇒ activePassId is non-null, so quota decrement
+        // targets the specific row that's currently in window.
+        mockExamRepo.consumeMockQuotaForPass(info.activePassId());
 
         List<Long> questionIds = mockExamRepo.findQuestionIdsByMockExamId(mockExamId);
         List<QuestionDetail> questions = questionIds.stream()

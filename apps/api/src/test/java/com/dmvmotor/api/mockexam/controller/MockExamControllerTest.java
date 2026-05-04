@@ -148,6 +148,36 @@ class MockExamControllerTest extends IntegrationTestBase {
                 .andExpect(jsonPath("$.data.questions[0].stem").isString());
     }
 
+    @Test
+    void startMockAttempt_userWithMultiplePasses_decrementsOnlyCurrentlyActive()
+            throws Exception {
+        // Sec audit #3b: the buggy consumeMockQuota updated EVERY pass with
+        // status='active' for the user, so a user with one current pass + one
+        // old expired-but-still-status-active pass would burn quota on both.
+        // Fixed query targets the specific currently-in-window pass id.
+        OffsetDateTime now = OffsetDateTime.now();
+        Long oldExpiredPassId = fixtures.insertAccessPass(userId, "active",
+                now.minusDays(60), now.minusDays(30), 5, 0);
+        Long currentPassId = fixtures.insertAccessPass(userId, "active",
+                now.minusDays(1), now.plusDays(30), 5, 0);
+
+        mockMvc.perform(post("/api/v1/mock-exams/attempts")
+                        .header("Authorization", "Bearer " + userId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"language":"en"}
+                                """))
+                .andExpect(status().isCreated());
+
+        // Only the currently-active pass should have its quota incremented.
+        org.junit.jupiter.api.Assertions.assertEquals(
+                1, fixtures.getAccessPassMockUsed(currentPassId),
+                "current pass should have one quota consumed");
+        org.junit.jupiter.api.Assertions.assertEquals(
+                0, fixtures.getAccessPassMockUsed(oldExpiredPassId),
+                "expired pass must not have its quota touched");
+    }
+
     // ---------------------------------------------------------------
     // POST /api/v1/mock-exams/attempts/{id}/answers
     // ---------------------------------------------------------------

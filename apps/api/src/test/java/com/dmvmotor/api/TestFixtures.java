@@ -305,4 +305,11 @@ public class TestFixtures {
                 WHERE id = ?
                 """, passId);
     }
+
+    /** Read mock_exam_used_count for assertions about quota decrement. */
+    public Integer getAccessPassMockUsed(Long passId) {
+        return jdbc.queryForObject(
+                "SELECT mock_exam_used_count FROM access_passes WHERE id = ?",
+                Integer.class, passId);
+    }
 }

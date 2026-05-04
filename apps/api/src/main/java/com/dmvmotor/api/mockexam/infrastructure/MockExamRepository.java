@@ -159,11 +159,18 @@ public class MockExamRepository {
     // Access Pass quota management
     // ---------------------------------------------------------------
 
-    public void consumeMockQuota(Long userId) {
+    /**
+     * Decrements quota on a specific pass row. Caller (MockExamService) must
+     * resolve the currently-active pass id before calling — the previous
+     * implementation matched on {@code user_id + status='active'} which
+     * incremented every active row, double-counting if a user happened to
+     * own more than one active pass.
+     */
+    public void consumeMockQuotaForPass(Long passId) {
         var ap = Tables.ACCESS_PASSES;
         dsl.update(ap)
                 .set(ap.MOCK_EXAM_USED_COUNT, ap.MOCK_EXAM_USED_COUNT.add(1))
-                .where(ap.USER_ID.eq(userId).and(ap.STATUS.eq("active")))
+                .where(ap.ID.eq(passId))
                 .execute();
     }
 

@@ -124,4 +124,68 @@ class AccessControllerTest extends IntegrationTestBase {
                 .andExpect(jsonPath("$.data.has_active_pass").value(false))
                 .andExpect(jsonPath("$.data.can_use_review").value(false));
     }
+
+    // ---------------------------------------------------------------
+    // Multi-pass selection (sec audit #3a). The buggy repo prefers the
+    // newest-created pass after the status='active' tie, so a future or
+    // expired-but-still-active pass could mask a currently-valid one.
+    // ---------------------------------------------------------------
+
+    @Test
+    void getAccess_currentPassPlusFuturePass_picksCurrentNotFuture() throws Exception {
+        OffsetDateTime now = OffsetDateTime.now();
+        // Insert current pass FIRST so it has the older created_at — the
+        // buggy ORDER BY (status DESC, created_at DESC) would pick the
+        // newer future pass and report state=expired.
+        fixtures.insertAccessPass(userId, "active",
+                now.minusDays(5), now.plusDays(25), 3, 0);
+        fixtures.insertAccessPass(userId, "active",
+                now.plusDays(30), now.plusDays(60), 3, 0);
+
+        mockMvc.perform(get("/api/v1/access")
+                        .header("Authorization", "Bearer " + userId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.state").value("active"))
+                .andExpect(jsonPath("$.data.has_active_pass").value(true))
+                .andExpect(jsonPath("$.data.mock_remaining").value(3));
+    }
+
+    @Test
+    void getAccess_currentPassPlusExpiredPass_picksCurrentNotExpired() throws Exception {
+        OffsetDateTime now = OffsetDateTime.now();
+        // Old expired-but-still-status-active pass inserted SECOND so its
+        // created_at is newer. Buggy query picks it → state=expired.
+        // Fixed query prefers in-window → state=active.
+        fixtures.insertAccessPass(userId, "active",
+                now.minusDays(5), now.plusDays(25), 5, 1);
+        fixtures.insertAccessPass(userId, "active",
+                now.minusDays(60), now.minusDays(30), 5, 0);
+
+        mockMvc.perform(get("/api/v1/access")
+                        .header("Authorization", "Bearer " + userId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.state").value("active"))
+                .andExpect(jsonPath("$.data.has_active_pass").value(true))
+                .andExpect(jsonPath("$.data.mock_remaining").value(4));
+    }
+
+    @Test
+    void getAccess_twoOverlappingActivePasses_picksLongerExpiring() throws Exception {
+        OffsetDateTime now = OffsetDateTime.now();
+        // Both currently in-window. The longer-expiring pass is inserted
+        // FIRST so its created_at is older — the buggy `created_at DESC`
+        // tier would pick the shorter-expiring one. Fixed query orders by
+        // expires_at DESC within the in-window tier and picks the longer.
+        fixtures.insertAccessPass(userId, "active",
+                now.minusDays(1), now.plusDays(60), 3, 0);
+        fixtures.insertAccessPass(userId, "active",
+                now.minusDays(1), now.plusDays(7), 5, 1);
+
+        mockMvc.perform(get("/api/v1/access")
+                        .header("Authorization", "Bearer " + userId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.state").value("active"))
+                // mock_remaining=3 confirms the longer-expiring pass was picked.
+                .andExpect(jsonPath("$.data.mock_remaining").value(3));
+    }
 }
