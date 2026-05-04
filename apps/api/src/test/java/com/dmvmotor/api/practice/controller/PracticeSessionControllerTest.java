@@ -414,6 +414,82 @@ class PracticeSessionControllerTest extends IntegrationTestBase {
     }
 
     // ---------------------------------------------------------------
+    // entry_type=full continuation gate — pass expiring mid-session must
+    // block all subsequent ops (sec audit #2). Without this the pass check
+    // ran only at session creation and an expired user could keep going.
+    // ---------------------------------------------------------------
+
+    @Test
+    void nextQuestion_fullSession_passExpiredMidSession_returns403() throws Exception {
+        Long uid = fixtures.insertUser("expire_next@example.com");
+        Long passId = fixtures.insertAccessPass(uid, "active",
+                java.time.OffsetDateTime.now().minusDays(1),
+                java.time.OffsetDateTime.now().plusDays(30), 3, 0);
+        String sessionId = startFullSessionAsUser(uid, "en");
+
+        fixtures.expireAccessPass(passId);
+
+        mockMvc.perform(get("/api/v1/practice/sessions/{id}/next-question", sessionId)
+                        .header("Authorization", "Bearer " + uid))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.error.code").value("ACCESS_DENIED"));
+    }
+
+    @Test
+    void submitAnswer_fullSession_passExpiredMidSession_returns403() throws Exception {
+        Long uid = fixtures.insertUser("expire_submit@example.com");
+        Long passId = fixtures.insertAccessPass(uid, "active",
+                java.time.OffsetDateTime.now().minusDays(1),
+                java.time.OffsetDateTime.now().plusDays(30), 3, 0);
+        String sessionId = startFullSessionAsUser(uid, "en");
+
+        fixtures.expireAccessPass(passId);
+
+        mockMvc.perform(post("/api/v1/practice/sessions/{id}/answers", sessionId)
+                        .header("Authorization", "Bearer " + uid)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"question_id":"%s","variant_id":"%s","selected_choice_key":"B"}
+                                """.formatted(questionId, variantEnId)))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.error.code").value("ACCESS_DENIED"));
+    }
+
+    @Test
+    void completeSession_fullSession_passExpiredMidSession_returns403() throws Exception {
+        Long uid = fixtures.insertUser("expire_complete@example.com");
+        Long passId = fixtures.insertAccessPass(uid, "active",
+                java.time.OffsetDateTime.now().minusDays(1),
+                java.time.OffsetDateTime.now().plusDays(30), 3, 0);
+        String sessionId = startFullSessionAsUser(uid, "en");
+
+        fixtures.expireAccessPass(passId);
+
+        mockMvc.perform(post("/api/v1/practice/sessions/{id}/complete", sessionId)
+                        .header("Authorization", "Bearer " + uid))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.error.code").value("ACCESS_DENIED"));
+    }
+
+    @Test
+    void nextQuestion_freeTrialSession_unaffectedByExpiredPass() throws Exception {
+        // Regression: the new continuation gate must apply only to entry_type=full.
+        // Free-trial sessions (anonymous or owned) keep working without a pass.
+        Long uid = fixtures.insertUser("free_unaffected@example.com");
+        String sessionId = startSessionAsUser(uid, "en");
+
+        // Even granting+expiring a pass shouldn't influence a free_trial session.
+        Long passId = fixtures.insertAccessPass(uid, "active",
+                java.time.OffsetDateTime.now().minusDays(1),
+                java.time.OffsetDateTime.now().plusDays(30), 3, 0);
+        fixtures.expireAccessPass(passId);
+
+        mockMvc.perform(get("/api/v1/practice/sessions/{id}/next-question", sessionId)
+                        .header("Authorization", "Bearer " + uid))
+                .andExpect(status().isOk());
+    }
+
+    // ---------------------------------------------------------------
     // Ownership / FORBIDDEN tests
     // ---------------------------------------------------------------
 

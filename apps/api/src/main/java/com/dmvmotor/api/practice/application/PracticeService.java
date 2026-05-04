@@ -152,6 +152,18 @@ public class PracticeService {
             throw new BusinessException("FORBIDDEN",
                     "Session belongs to a different user", HttpStatus.FORBIDDEN);
         }
+        // entry_type=full requires an active access pass for the entire
+        // lifetime of the session, not just at creation. There's no
+        // background job flipping expired rows to status='expired', so a
+        // pass whose window elapsed mid-session must be re-checked here
+        // to keep paid content paywalled.
+        if ("full".equals(session.entryType()) && session.userId() != null) {
+            if (!accessService.getAccess(session.userId()).hasActivePass()) {
+                throw new BusinessException("ACCESS_DENIED",
+                        "Active access pass required for full practice",
+                        HttpStatus.FORBIDDEN);
+            }
+        }
         return session;
     }
 

@@ -296,4 +296,13 @@ public class TestFixtures {
                 RETURNING id
                 """, Long.class, userId, status, startsAt, expiresAt, mockTotal, mockUsed);
     }
+
+    /** Force an existing pass to be time-expired by pulling expires_at into the past. */
+    public void expireAccessPass(Long passId) {
+        jdbc.update("""
+                UPDATE access_passes
+                SET expires_at = CURRENT_TIMESTAMP - INTERVAL '1 day'
+                WHERE id = ?
+                """, passId);
+    }
 }
