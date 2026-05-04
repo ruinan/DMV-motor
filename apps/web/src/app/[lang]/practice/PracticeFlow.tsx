@@ -2,11 +2,12 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { CheckCircle2, XCircle } from "lucide-react";
+import { CheckCircle2, History, XCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { apiFetch, ApiError } from "@/lib/api-client";
 import { useMe } from "@/lib/hooks/use-me";
 import type { Dictionary, Locale } from "@/lib/dictionaries";
+import { AttemptHistory } from "./AttemptHistory";
 
 type Choice = { key: string; text: string };
 
@@ -60,7 +61,7 @@ type Phase =
       result: AnswerResponse;
       totalCount: number;
     }
-  | { kind: "completed" }
+  | { kind: "completed"; sessionId: string }
   | { kind: "error"; message: string };
 
 type Props = {
@@ -71,6 +72,17 @@ type Props = {
 export function PracticeFlow({ t, lang }: Props) {
   const me = useMe();
   const [phase, setPhase] = useState<Phase>({ kind: "idle" });
+  const [historyOpen, setHistoryOpen] = useState(false);
+
+  // Resolve the session id whenever the phase carries one — used by the
+  // history toggle / view. Only "answering" / "feedback" / "completed"
+  // phases hold a session id.
+  const activeSessionId =
+    phase.kind === "answering" ||
+    phase.kind === "feedback" ||
+    phase.kind === "completed"
+      ? phase.sessionId
+      : null;
 
   const isLoggedIn = !!me.data;
   const hasPass = me.data?.access.has_active_pass ?? false;
@@ -172,7 +184,7 @@ export function PracticeFlow({ t, lang }: Props) {
     } catch {
       // Even if complete fails, the user has effectively finished the pool.
     }
-    setPhase({ kind: "completed" });
+    setPhase({ kind: "completed", sessionId });
   }
 
   async function finish() {
@@ -183,6 +195,22 @@ export function PracticeFlow({ t, lang }: Props) {
   // -------------------------------------------------------------------------
   // Render
   // -------------------------------------------------------------------------
+
+  // History overlay — shown over any phase that has a session id. We don't
+  // unmount the phase state, so closing returns the user to where they
+  // were (mid-question pick is preserved).
+  if (historyOpen && activeSessionId) {
+    return (
+      <Container>
+        <AttemptHistory
+          sessionId={activeSessionId}
+          lang={lang}
+          t={t}
+          onBack={() => setHistoryOpen(false)}
+        />
+      </Container>
+    );
+  }
 
   if (phase.kind === "idle") {
     return (
@@ -233,10 +261,14 @@ export function PracticeFlow({ t, lang }: Props) {
           <CheckCircle2 className="mx-auto mb-3 size-12 text-primary" />
           <h2 className="text-2xl font-semibold">{t.completedTitle}</h2>
           <p className="mt-2 text-muted-foreground">{t.completedBody}</p>
-          <div className="mt-6 flex justify-center gap-3">
+          <div className="mt-6 flex flex-wrap justify-center gap-3">
+            <Button onClick={() => setHistoryOpen(true)} size="lg">
+              <History className="size-4" />
+              {t.reviewHistoryFromCompleted}
+            </Button>
             <Link
               href={isLoggedIn ? `/${lang}/dashboard` : `/${lang}`}
-              className="rounded-md border border-border bg-background px-4 py-2 text-sm font-medium hover:bg-muted"
+              className="inline-flex items-center justify-center rounded-md border border-border bg-background px-4 py-2 text-sm font-medium hover:bg-muted"
             >
               {isLoggedIn ? t.backToDashboard : t.backHome}
             </Link>
@@ -261,11 +293,27 @@ export function PracticeFlow({ t, lang }: Props) {
 
   return (
     <Container>
-      <ProgressBar
-        t={t}
-        answered={answeredCount}
-        total={totalCount}
-      />
+      <div className="flex items-end justify-between gap-3">
+        <div className="flex-1">
+          <ProgressBar
+            t={t}
+            answered={answeredCount}
+            total={totalCount}
+          />
+        </div>
+        {answeredCount > 0 && (
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={() => setHistoryOpen(true)}
+            className="text-muted-foreground hover:text-foreground"
+          >
+            <History className="size-4" />
+            {t.reviewHistory}
+          </Button>
+        )}
+      </div>
 
       <div className="rounded-xl border bg-card p-6 shadow-sm md:p-8">
         <p className="text-base leading-relaxed sm:text-lg">{question.stem}</p>

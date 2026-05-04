@@ -143,6 +143,21 @@ public class PracticeService {
         return new CompletedSession(sessionId, "completed");
     }
 
+    /**
+     * Read-only history of submitted answers in the session. Round 4 #2:
+     * users wanted to revisit past questions to see why an answer was wrong;
+     * the next-question pool excludes already-answered ones, so we surface
+     * them via this dedicated endpoint instead of letting the user re-pick
+     * (which would hit hasAttempt → 409). The display language is independent
+     * of the session's original language so a user can flip to translation.
+     */
+    public java.util.List<com.dmvmotor.api.practice.infrastructure.PracticeSessionRepository.AttemptDetail>
+    listAttempts(Long sessionId, Long requestUserId, String language) {
+        PracticeSession session = requireSession(sessionId, requestUserId);
+        String lang = (language == null || language.isBlank()) ? session.languageCode() : language;
+        return sessionRepo.findAttemptsBySessionId(session.id(), lang);
+    }
+
     private PracticeSession requireSession(Long sessionId, Long requestUserId) {
         PracticeSession session = sessionRepo.findById(sessionId)
                 .orElseThrow(() -> new ResourceNotFoundException(

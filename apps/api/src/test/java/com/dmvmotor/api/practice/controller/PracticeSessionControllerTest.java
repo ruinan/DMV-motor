@@ -367,6 +367,107 @@ class PracticeSessionControllerTest extends IntegrationTestBase {
     }
 
     // ---------------------------------------------------------------
+    // GET /api/v1/practice/sessions/{id}/attempts — review history
+    // (Round 4 #2). Read-only list of past attempts in submission order.
+    // No write side-effects; safe for in-progress and completed sessions.
+    // ---------------------------------------------------------------
+
+    @Test
+    void getAttempts_unstartedSession_returnsEmptyList() throws Exception {
+        String sessionId = startSessionAndGetId("en");
+        mockMvc.perform(get("/api/v1/practice/sessions/{id}/attempts", sessionId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.items", hasSize(0)));
+    }
+
+    @Test
+    void getAttempts_anonymous_afterTwoAnswers_returnsBothChronologically() throws Exception {
+        Long t2 = fixtures.insertTopic("ATTEMPTS_TOPIC2");
+        Long q2 = fixtures.insertQuestion(t2, "A");
+        Long v2 = fixtures.insertVariantReturningId(q2, "en", "Q2 stem en?",
+                "[{\"key\":\"A\",\"text\":\"a-text\"},{\"key\":\"B\",\"text\":\"b-text\"}]",
+                "Q2 explanation");
+
+        String sessionId = startSessionAndGetId("en");
+        // 1st: correct (q1, B is correct)
+        submitAnswer(sessionId, questionId, variantEnId, "B");
+        // 2nd: wrong (q2, A is correct, pick B)
+        submitAnswer(sessionId, q2, v2, "B");
+
+        mockMvc.perform(get("/api/v1/practice/sessions/{id}/attempts", sessionId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.items", hasSize(2)))
+                .andExpect(jsonPath("$.data.items[0].question_id").value(questionId.toString()))
+                .andExpect(jsonPath("$.data.items[0].selected_choice_key").value("B"))
+                .andExpect(jsonPath("$.data.items[0].correct_choice_key").value("B"))
+                .andExpect(jsonPath("$.data.items[0].is_correct").value(true))
+                .andExpect(jsonPath("$.data.items[0].stem")
+                        .value("What does a stop sign look like?"))
+                .andExpect(jsonPath("$.data.items[0].choices", hasSize(3)))
+                .andExpect(jsonPath("$.data.items[0].explanation")
+                        .value("A stop sign is a red octagon."))
+                .andExpect(jsonPath("$.data.items[1].question_id").value(q2.toString()))
+                .andExpect(jsonPath("$.data.items[1].selected_choice_key").value("B"))
+                .andExpect(jsonPath("$.data.items[1].correct_choice_key").value("A"))
+                .andExpect(jsonPath("$.data.items[1].is_correct").value(false));
+    }
+
+    @Test
+    void getAttempts_languageRespected_returnsZhStem() throws Exception {
+        String sessionId = startSessionAndGetId("zh");
+        submitAnswer(sessionId, questionId, variantEnId, "B");
+
+        mockMvc.perform(get("/api/v1/practice/sessions/{id}/attempts", sessionId)
+                        .param("language", "zh"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.items[0].stem").value("停车标志是什么样子的？"))
+                .andExpect(jsonPath("$.data.items[0].explanation").value("停车标志是红色八角形。"));
+    }
+
+    @Test
+    void getAttempts_unknownSession_returns404() throws Exception {
+        mockMvc.perform(get("/api/v1/practice/sessions/{id}/attempts", "999999"))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.error.code").value("RESOURCE_NOT_FOUND"));
+    }
+
+    @Test
+    void getAttempts_ownedSession_differentUser_returns403() throws Exception {
+        Long owner = fixtures.insertUser("attempts_owner@example.com");
+        Long stranger = fixtures.insertUser("attempts_stranger@example.com");
+        String sessionId = startSessionAsUser(owner, "en");
+
+        mockMvc.perform(get("/api/v1/practice/sessions/{id}/attempts", sessionId)
+                        .header("Authorization", "Bearer " + stranger))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.error.code").value("FORBIDDEN"));
+    }
+
+    @Test
+    void getAttempts_fullSession_passExpiredMidSession_returns403() throws Exception {
+        Long uid = fixtures.insertUser("attempts_full_expire@example.com");
+        Long passId = fixtures.insertAccessPass(uid, "active",
+                java.time.OffsetDateTime.now().minusDays(1),
+                java.time.OffsetDateTime.now().plusDays(30), 3, 0);
+        String sessionId = startFullSessionAsUser(uid, "en");
+
+        fixtures.expireAccessPass(passId);
+
+        mockMvc.perform(get("/api/v1/practice/sessions/{id}/attempts", sessionId)
+                        .header("Authorization", "Bearer " + uid))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.error.code").value("ACCESS_DENIED"));
+    }
+
+    @Test
+    void getAttempts_pathIdNotNumeric_returns400() throws Exception {
+        mockMvc.perform(get("/api/v1/practice/sessions/{id}/attempts", "abc"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error.code").value("INVALID_ID_FORMAT"));
+    }
+
+    // ---------------------------------------------------------------
     // entry_type=full access control
     // ---------------------------------------------------------------
 

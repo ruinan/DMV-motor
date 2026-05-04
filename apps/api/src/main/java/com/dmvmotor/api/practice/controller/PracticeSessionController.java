@@ -87,6 +87,30 @@ public class PracticeSessionController {
         ));
     }
 
+    @GetMapping("/{id}/attempts")
+    public ApiResponse<?> listAttempts(
+            @CurrentUser Long userId,
+            @PathVariable Long id,
+            @RequestParam(required = false) String language
+    ) {
+        var attempts = practiceService.listAttempts(id, userId, language);
+        var items = attempts.stream().map(a -> Map.ofEntries(
+                Map.entry("question_id",         String.valueOf(a.questionId())),
+                Map.entry("variant_id",          String.valueOf(a.variantId())),
+                Map.entry("topic_id",            String.valueOf(a.topicId())),
+                Map.entry("language",            a.language()),
+                Map.entry("stem",                a.stem()),
+                Map.entry("choices",             a.choices()),
+                Map.entry("correct_choice_key",  a.correctChoiceKey()),
+                Map.entry("selected_choice_key", a.selectedChoiceKey()),
+                Map.entry("explanation",         a.explanation() != null ? a.explanation() : ""),
+                Map.entry("is_correct",          a.isCorrect()),
+                Map.entry("submitted_at",        a.submittedAt().toString())
+        )).toList();
+        return ApiResponse.okWithMeta(Map.of("items", items),
+                Map.of("total", items.size()));
+    }
+
     // ---------------------------------------------------------------
     // DTOs
     // ---------------------------------------------------------------

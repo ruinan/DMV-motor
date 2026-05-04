@@ -10,6 +10,7 @@ import org.jooq.DSLContext;
 import org.jooq.Record;
 import org.springframework.stereotype.Repository;
 
+import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -170,6 +171,63 @@ public class PracticeSessionRepository {
                 .where(ps.ID.eq(sessionId))
                 .execute();
     }
+
+    /**
+     * Past attempts in this session, joined with the question's stem +
+     * choices + explanation in the requested display language.
+     * Order: chronological (earliest submission first).
+     */
+    public List<AttemptDetail> findAttemptsBySessionId(Long sessionId, String languageCode) {
+        var pa = Tables.PRACTICE_ATTEMPTS;
+        var q  = Tables.QUESTIONS;
+        var qv = Tables.QUESTION_VARIANTS;
+
+        return dsl.select(
+                        pa.QUESTION_ID,
+                        pa.QUESTION_VARIANT_ID,
+                        q.PRIMARY_TOPIC_ID,
+                        q.CORRECT_CHOICE_KEY,
+                        pa.SELECTED_CHOICE_KEY,
+                        pa.IS_CORRECT,
+                        pa.SUBMITTED_AT,
+                        qv.STEM_TEXT,
+                        qv.CHOICES_PAYLOAD,
+                        qv.EXPLANATION_TEXT)
+                .from(pa)
+                .join(q).on(q.ID.eq(pa.QUESTION_ID))
+                .join(qv).on(qv.QUESTION_ID.eq(pa.QUESTION_ID)
+                        .and(qv.LANGUAGE_CODE.eq(languageCode)))
+                .where(pa.PRACTICE_SESSION_ID.eq(sessionId))
+                .orderBy(pa.SUBMITTED_AT.asc(), pa.ID.asc())
+                .fetch()
+                .map(r -> new AttemptDetail(
+                        r.get(pa.QUESTION_ID),
+                        r.get(pa.QUESTION_VARIANT_ID),
+                        r.get(q.PRIMARY_TOPIC_ID),
+                        languageCode,
+                        r.get(qv.STEM_TEXT),
+                        QuestionRepository.parseChoices(objectMapper,
+                                r.get(qv.CHOICES_PAYLOAD).data()),
+                        r.get(q.CORRECT_CHOICE_KEY),
+                        r.get(pa.SELECTED_CHOICE_KEY),
+                        r.get(qv.EXPLANATION_TEXT),
+                        r.get(pa.IS_CORRECT),
+                        r.get(pa.SUBMITTED_AT)));
+    }
+
+    public record AttemptDetail(
+            Long           questionId,
+            Long           variantId,
+            Long           topicId,
+            String         language,
+            String         stem,
+            List<Choice>   choices,
+            String         correctChoiceKey,
+            String         selectedChoiceKey,
+            String         explanation,
+            boolean        isCorrect,
+            OffsetDateTime submittedAt
+    ) {}
 
     private PracticeSession map(Record r) {
         var ps = Tables.PRACTICE_SESSIONS;

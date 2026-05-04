@@ -274,6 +274,13 @@
     "errorGeneric": "Something went wrong. Please try again.",
     "errorAuthRequired": "Sign in to start a full practice session.",
     "errorPassRequired": "An access pass is required for full practice.",
-    "selectChoice": "Select an answer to continue."
+    "selectChoice": "Select an answer to continue.",
+    "reviewHistory": "Review answers",
+    "reviewHistoryTitle": "Your answers",
+    "reviewHistoryEmpty": "No answers yet — submit one to start your history.",
+    "reviewHistoryYourPick": "Your answer",
+    "reviewHistoryCorrect": "Correct answer",
+    "reviewHistoryBack": "Back to practice",
+    "reviewHistoryFromCompleted": "Review answers"
   }
 }

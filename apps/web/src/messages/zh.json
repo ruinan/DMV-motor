@@ -274,6 +274,13 @@
     "errorGeneric": "出错啦，请重试。",
     "errorAuthRequired": "请先登录以开始完整练习。",
     "errorPassRequired": "完整练习需要考试通行证。",
-    "selectChoice": "请先选择一个答案。"
+    "selectChoice": "请先选择一个答案。",
+    "reviewHistory": "回看已答题",
+    "reviewHistoryTitle": "你的作答记录",
+    "reviewHistoryEmpty": "还没有答题记录，提交一道题后会出现在这里。",
+    "reviewHistoryYourPick": "你的作答",
+    "reviewHistoryCorrect": "正确答案",
+    "reviewHistoryBack": "返回练习",
+    "reviewHistoryFromCompleted": "查看作答记录"
   }
 }
