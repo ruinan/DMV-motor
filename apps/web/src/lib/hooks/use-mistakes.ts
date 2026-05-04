@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { firebaseAuth } from "@/lib/firebase";
+import { apiFetchEnvelope } from "@/lib/api-client";
 import { useAuth } from "@/lib/auth-context";
 
 export type MistakeItem = {
@@ -18,10 +18,12 @@ export type MistakesPage = {
   total: number;
 };
 
-/**
- * Paginated /mistakes — we have to do the fetch inline (rather than use
- * apiFetch) so we can read `meta.{page,page_size,total}` from the envelope.
- */
+type MistakesMeta = {
+  page?: number | string;
+  page_size?: number | string;
+  total?: number | string;
+};
+
 export function useMistakes(page: number, pageSize = 20) {
   const { user } = useAuth();
   return useQuery({
@@ -29,25 +31,15 @@ export function useMistakes(page: number, pageSize = 20) {
     enabled: !!user,
     staleTime: 30_000,
     queryFn: async (): Promise<MistakesPage> => {
-      const token = await firebaseAuth.currentUser?.getIdToken();
-      const res = await fetch(
+      const env = await apiFetchEnvelope<{ items: MistakeItem[] }>(
         `/api/v1/mistakes?page=${page}&page_size=${pageSize}`,
-        {
-          headers: {
-            Accept: "application/json",
-            ...(token ? { Authorization: `Bearer ${token}` } : {}),
-          },
-        },
       );
-      const json = await res.json().catch(() => null);
-      if (!res.ok || !json?.success) {
-        throw new Error(json?.error?.message ?? `HTTP ${res.status}`);
-      }
+      const meta = (env.meta ?? {}) as MistakesMeta;
       return {
-        items: (json.data?.items ?? []) as MistakeItem[],
-        page: Number(json.meta?.page ?? page),
-        pageSize: Number(json.meta?.page_size ?? pageSize),
-        total: Number(json.meta?.total ?? 0),
+        items: env.data?.items ?? [],
+        page: Number(meta.page ?? page),
+        pageSize: Number(meta.page_size ?? pageSize),
+        total: Number(meta.total ?? 0),
       };
     },
   });
