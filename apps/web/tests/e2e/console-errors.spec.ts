@@ -64,7 +64,17 @@ test.describe("console-error walk (#5)", () => {
   test("public pages emit no console errors", async ({ page }) => {
     const captures: Captured[] = [];
 
-    for (const url of ["/en", "/zh", "/en/login", "/zh/login"]) {
+    // /practice belongs here too: per docs/development/api-contract.md §4 the
+    // free-trial set is open to anonymous users, and PracticeFlow auto-picks
+    // entry_type=free_trial when not signed in.
+    for (const url of [
+      "/en",
+      "/zh",
+      "/en/login",
+      "/zh/login",
+      "/en/practice",
+      "/zh/practice",
+    ]) {
       const c: Captured = {
         url,
         errors: [],
@@ -90,6 +100,16 @@ test.describe("console-error walk (#5)", () => {
       console.log("\n=== Console capture ===\n" + summarize(captures));
     }
     expect(totalErrors, summarize(captures)).toBe(0);
+  });
+
+  test("anonymous /practice renders without auth redirect", async ({ page }) => {
+    // sec audit #4 regression: /practice used to live under the (app)
+    // RequireAuth wrapper, so anonymous visitors got bounced to /login —
+    // breaking the documented "free-trial set is open to anonymous" contract.
+    await page.goto("/en/practice");
+    await expect(page).toHaveURL(/\/en\/practice$/);
+    // Start button is the idle-phase CTA; rendered without a backend call.
+    await expect(page.getByRole("button", { name: /start/i })).toBeVisible();
   });
 
   test.describe("authenticated routes (requires BACKEND_RUNNING=true)", () => {
