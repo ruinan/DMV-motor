@@ -467,6 +467,52 @@ class PracticeSessionControllerTest extends IntegrationTestBase {
                 .andExpect(jsonPath("$.error.code").value("INVALID_ID_FORMAT"));
     }
 
+    @Test
+    void getAttempts_noLanguageParam_fallsBackToSessionLanguage() throws Exception {
+        // PracticeService.listAttempts: when the client omits ?language=, the
+        // resolver falls back to the session's original language. Drives the
+        // null/blank branch that an explicit language= can't reach.
+        String sessionId = startSessionAndGetId("zh");
+        submitAnswer(sessionId, questionId, variantEnId, "B");
+
+        mockMvc.perform(get("/api/v1/practice/sessions/{id}/attempts", sessionId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.items[0].language").value("zh"))
+                .andExpect(jsonPath("$.data.items[0].stem").value("停车标志是什么样子的？"));
+    }
+
+    @Test
+    void getAttempts_blankLanguageParam_fallsBackToSessionLanguage() throws Exception {
+        // The other half of the fallback condition — empty-string language
+        // is treated the same as missing.
+        String sessionId = startSessionAndGetId("zh");
+        submitAnswer(sessionId, questionId, variantEnId, "B");
+
+        mockMvc.perform(get("/api/v1/practice/sessions/{id}/attempts", sessionId)
+                        .param("language", ""))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.items[0].language").value("zh"));
+    }
+
+    @Test
+    void getAttempts_explanationNull_returnsEmptyString() throws Exception {
+        // Mirror PracticeAttemptDetail's explanation-null guard, which the
+        // happy-path tests can't reach (variants are always inserted with a
+        // non-null explanation).
+        Long t2 = fixtures.insertTopic("ATTEMPTS_NULL_EXPL");
+        Long q2 = fixtures.insertQuestion(t2, "B");
+        Long v2 = fixtures.insertVariantReturningId(q2, "en", "Q2 stem en?",
+                "[{\"key\":\"A\",\"text\":\"a\"},{\"key\":\"B\",\"text\":\"b\"}]",
+                null);
+
+        String sessionId = startSessionAndGetId("en");
+        submitAnswer(sessionId, q2, v2, "B");
+
+        mockMvc.perform(get("/api/v1/practice/sessions/{id}/attempts", sessionId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.items[0].explanation").value(""));
+    }
+
     // ---------------------------------------------------------------
     // entry_type=full access control
     // ---------------------------------------------------------------
