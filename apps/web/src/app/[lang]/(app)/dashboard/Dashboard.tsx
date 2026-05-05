@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { useQuery } from "@tanstack/react-query";
 import {
   ArrowRight,
   CheckCircle2,
@@ -9,28 +8,12 @@ import {
   Sparkles,
   Target,
 } from "lucide-react";
-import { useAuth } from "@/lib/auth-context";
 import { useTopicNameMap } from "@/lib/hooks/use-topics";
-import { apiFetch, ApiError } from "@/lib/api-client";
+import {
+  useReviewPack,
+  type ReviewTaskSummary,
+} from "@/lib/hooks/use-review-pack";
 import type { Dictionary, Locale } from "@/lib/dictionaries";
-
-type ReviewTaskSummary = {
-  review_task_id: string;
-  topic_id: string;
-  type: "key_topic" | "persistent" | "mixed" | string;
-  status: "pending" | "in_progress" | "completed" | string;
-  priority: "high" | "medium" | "low" | string;
-  target_question_count: number;
-  completed_question_count: number;
-};
-
-type ReviewPack = {
-  review_pack_id: string;
-  status: string;
-  target_question_count: number;
-  completed_question_count: number;
-  tasks: ReviewTaskSummary[];
-};
 
 type Props = {
   t: Dictionary;
@@ -38,19 +21,9 @@ type Props = {
 };
 
 export function Dashboard({ t, lang }: Props) {
-  const { user } = useAuth();
   const topicMap = useTopicNameMap(lang);
 
-  const { data, isLoading, error } = useQuery({
-    queryKey: ["review-pack"],
-    queryFn: () => apiFetch<ReviewPack>("/api/v1/review/pack"),
-    enabled: !!user,
-    staleTime: 30_000,
-    retry: (count, err) =>
-      err instanceof ApiError && err.code === "ACCESS_DENIED" ? false : count < 2,
-  });
-
-  const noPass = error instanceof ApiError && error.code === "ACCESS_DENIED";
+  const { data, isLoading, error, noPass } = useReviewPack();
 
   if (noPass) return <NoPassFallback t={t} lang={lang} />;
 

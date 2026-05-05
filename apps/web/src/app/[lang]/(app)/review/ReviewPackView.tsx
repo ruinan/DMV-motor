@@ -1,30 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { useQuery } from "@tanstack/react-query";
 import { CheckCircle2, ListChecks, ChevronRight } from "lucide-react";
-import { apiFetch, ApiError } from "@/lib/api-client";
-import { useAuth } from "@/lib/auth-context";
 import { useTopicNameMap } from "@/lib/hooks/use-topics";
+import {
+  useReviewPack,
+  type ReviewTaskSummary,
+} from "@/lib/hooks/use-review-pack";
 import type { Dictionary, Locale } from "@/lib/dictionaries";
-
-export type ReviewTaskSummary = {
-  review_task_id: string;
-  topic_id: string;
-  type: "key_topic" | "persistent" | "mixed" | string;
-  status: "pending" | "in_progress" | "completed" | string;
-  priority: "high" | "medium" | "low" | string;
-  target_question_count: number;
-  completed_question_count: number;
-};
-
-export type ReviewPack = {
-  review_pack_id: string;
-  status: string;
-  target_question_count: number;
-  completed_question_count: number;
-  tasks: ReviewTaskSummary[];
-};
 
 type Props = {
   t: Dictionary["review"];
@@ -32,18 +15,8 @@ type Props = {
 };
 
 export function ReviewPackView({ t, lang }: Props) {
-  const { user } = useAuth();
   const topicMap = useTopicNameMap(lang);
-
-  const { data, isLoading, error } = useQuery({
-    queryKey: ["review-pack"],
-    queryFn: () => apiFetch<ReviewPack>("/api/v1/review/pack"),
-    enabled: !!user,
-    staleTime: 30_000,
-  });
-
-  const noPass =
-    error instanceof ApiError && error.code === "ACCESS_DENIED";
+  const { data, isLoading, error, noPass } = useReviewPack();
 
   const packPct =
     data && data.target_question_count > 0
@@ -67,13 +40,13 @@ export function ReviewPackView({ t, lang }: Props) {
         <p className="text-sm text-muted-foreground">{t.loading}</p>
       )}
 
-      {error && noPass && (
+      {noPass && (
         <div className="rounded-md border border-destructive/40 bg-destructive/10 p-4 text-sm text-destructive">
           {t.passRequired}
         </div>
       )}
 
-      {error && !noPass && (
+      {error && (
         <div className="rounded-md border border-destructive/40 bg-destructive/10 p-4 text-sm text-destructive">
           {t.errorGeneric}
         </div>
