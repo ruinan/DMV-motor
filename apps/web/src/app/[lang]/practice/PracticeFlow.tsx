@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { CheckCircle2, History, XCircle } from "lucide-react";
+import { ArrowLeft, CheckCircle2, History, XCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { apiFetch, ApiError } from "@/lib/api-client";
 import { useMe } from "@/lib/hooks/use-me";
@@ -216,18 +216,56 @@ export function PracticeFlow({ t, lang }: Props) {
     return (
       <Container>
         <Header t={t} />
-        <div className="flex flex-col items-center gap-3">
-          <Button size="lg" onClick={start} disabled={me.isLoading}>
-            {entryType === "full" ? t.startFull : t.startFreeTrial}
-          </Button>
-          <p className="text-xs text-muted-foreground">
-            {isLoggedIn
-              ? hasPass
-                ? `${t.startFull}`
-                : t.errorPassRequired
-              : t.errorAuthRequired}
-          </p>
-        </div>
+        {isLoggedIn ? (
+          // Signed-in user: one primary CTA — Start full or Start free-trial
+          // depending on pass state. Helper text explains the free vs paid line.
+          <div className="flex flex-col items-center gap-3">
+            <Button size="lg" onClick={start} disabled={me.isLoading}>
+              {entryType === "full" ? t.startFull : t.startFreeTrial}
+            </Button>
+            <p className="text-xs text-muted-foreground">
+              {hasPass ? t.startFull : t.errorPassRequired}
+            </p>
+          </div>
+        ) : (
+          // Anonymous: lead with the free-trial set since docs/development
+          // /api-contract.md §4 explicitly opens it to all visitors. Sign-in
+          // sits below as a secondary path for users who want full coverage
+          // + saved progress.
+          <div className="mx-auto flex w-full max-w-md flex-col items-center gap-5">
+            {/* Primary — Free trial */}
+            <div className="w-full rounded-xl border border-primary/30 bg-primary/5 p-6 text-center shadow-sm">
+              <p className="mb-1 text-xs font-medium uppercase tracking-wider text-primary">
+                {t.freeTrialBadge}
+              </p>
+              <h2 className="mb-1 text-lg font-semibold text-foreground">
+                {t.freeTrialHeading}
+              </h2>
+              <p className="mb-4 text-sm text-muted-foreground">
+                {t.freeTrialBody}
+              </p>
+              <Button
+                size="lg"
+                onClick={start}
+                disabled={me.isLoading}
+                className="w-full"
+              >
+                {t.startFreeTrial}
+              </Button>
+            </div>
+
+            {/* Secondary — Sign in / register */}
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <span>{t.signInPrompt}</span>
+              <Link
+                href={`/${lang}/login`}
+                className="font-semibold text-primary underline-offset-4 hover:underline"
+              >
+                {t.signInCta}
+              </Link>
+            </div>
+          </div>
+        )}
         <BackLink t={t} lang={lang} />
       </Container>
     );
@@ -461,8 +499,9 @@ function BackLink({ t, lang }: { t: Dictionary["practice"]; lang: Locale }) {
     <div className="text-center">
       <Link
         href={`/${lang}`}
-        className="text-sm text-muted-foreground hover:text-foreground hover:underline"
+        className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground hover:underline"
       >
+        <ArrowLeft className="size-4" />
         {t.backHome}
       </Link>
     </div>
