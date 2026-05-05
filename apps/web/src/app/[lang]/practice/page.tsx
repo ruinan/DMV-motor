@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import { getDictionary, hasLocale } from "@/lib/dictionaries";
-import { PracticeFlow } from "./PracticeFlow";
+import { PracticeShell } from "./PracticeShell";
 
 export default async function PracticePage({
   params,
@@ -8,5 +8,8 @@ export default async function PracticePage({
   const { lang } = await params;
   if (!hasLocale(lang)) notFound();
   const t = await getDictionary(lang);
-  return <PracticeFlow t={t.practice} lang={lang} />;
+  // PracticeShell branches on client-side auth state to render either the
+  // marketing-style full-screen card (anonymous) or the dashboard chrome
+  // with sidebar (signed in) — same URL, different layout.
+  return <PracticeShell t={t} lang={lang} />;
 }

@@ -213,19 +213,37 @@ export function PracticeFlow({ t, lang }: Props) {
   }
 
   if (phase.kind === "idle") {
+    // Subtitle changes by auth state so a signed-in user doesn't see the
+    // "sign in to unlock" copy that's only meaningful to anonymous visitors.
+    const subtitle = !isLoggedIn
+      ? t.subtitle
+      : hasPass
+        ? t.subtitlePaid
+        : t.subtitleSignedInNoPass;
     return (
       <Container>
-        <Header t={t} />
+        <Header t={t} subtitle={subtitle} />
         {isLoggedIn ? (
           // Signed-in user: one primary CTA — Start full or Start free-trial
-          // depending on pass state. Helper text explains the free vs paid line.
+          // depending on pass state. Helper text explains the free vs paid line;
+          // when the user has no pass we link the helper to /me#subscription so
+          // the "you need a pass" copy isn't a dead end.
           <div className="flex flex-col items-center gap-3">
             <Button size="lg" onClick={start} disabled={me.isLoading}>
               {entryType === "full" ? t.startFull : t.startFreeTrial}
             </Button>
-            <p className="text-xs text-muted-foreground">
-              {hasPass ? t.startFull : t.errorPassRequired}
-            </p>
+            {hasPass ? (
+              <p className="text-xs text-muted-foreground">{t.startFull}</p>
+            ) : (
+              <p className="text-xs text-muted-foreground">
+                <Link
+                  href={`/${lang}/me#subscription`}
+                  className="font-medium text-primary underline-offset-4 hover:underline"
+                >
+                  {t.errorPassRequired}
+                </Link>
+              </p>
+            )}
           </div>
         ) : (
           // Anonymous: lead with the free-trial set since docs/development
@@ -266,7 +284,10 @@ export function PracticeFlow({ t, lang }: Props) {
             </div>
           </div>
         )}
-        <BackLink t={t} lang={lang} />
+        {/* Back-home only makes sense for anonymous visitors who came from
+            the marketing landing page. Signed-in users navigate via the
+            sidebar / mobile tab bar that PracticeShell renders around us. */}
+        {!isLoggedIn && <BackLink t={t} lang={lang} />}
       </Container>
     );
   }
@@ -455,13 +476,19 @@ function Container({ children }: { children: React.ReactNode }) {
   );
 }
 
-function Header({ t }: { t: Dictionary["practice"] }) {
+function Header({
+  t,
+  subtitle,
+}: {
+  t: Dictionary["practice"];
+  subtitle?: string;
+}) {
   return (
     <header className="text-center">
       <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
         {t.title}
       </h1>
-      <p className="mt-2 text-muted-foreground">{t.subtitle}</p>
+      <p className="mt-2 text-muted-foreground">{subtitle ?? t.subtitle}</p>
     </header>
   );
 }
