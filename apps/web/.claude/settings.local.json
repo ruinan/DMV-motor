@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Skill(update-config)",
+      "Read(//c/Users/nanru/OneDrive/Documents/DMV-Motor/.claude/**)",
+      "Read(//c/Users/nanru/.claude/**)",
+      "Bash(python *)"
+    ]
+  }
+}

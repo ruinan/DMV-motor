@@ -47,7 +47,6 @@ build/
 /postman/
 
 ### Project ###
-.claude/
 .progress
 .env
 *.secret

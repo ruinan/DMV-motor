@@ -1,7 +1,7 @@
 # CLAUDE.md — DMV Motor 项目工作规范
 
 > 这个文件是 Claude 的行为规范和项目工作协议。每次对话开始时必须读取。
-> 最后更新：2026-04-28（前端 5 个核心流程已落地：Practice / Mistakes / Review / Mock / Dashboard；commit 7ee5606）
+> 最后更新：2026-05-05（多 agent 工作流上线；prod 跑 revision 00015-stj）
 
 ---
 
@@ -123,6 +123,30 @@ Claude 在本项目中扮演**小公司 CTO** 的角色：
 4. git log --oneline -10（确认最新提交）
 5. 向用户汇报当前状态，然后继续
 ```
+
+---
+
+## 7.5 多 agent 工作流
+
+**主 agent 协调，subagent 执行。** 自定义 subagent 定义放在 `.claude/agents/<name>.md`（YAML frontmatter + system prompt）。
+
+**核心原则**：
+
+- **单一职责**：每个 subagent 只做一件事，描述里写清楚什么时候用。Subagent 越泛 → 越像第二个主 agent，杠杆消失。
+- **冷启动隔离**：subagent 不继承主对话的 context，每次 spawn 重新读必要文件。所以**任务粒度要够大**才划算（启动开销 ~几千 token）。小任务（编一个函数、改一个文案）不值得 spawn。
+- **文件即共享内存**：subagent 之间不直接通信。共享通过文件——`memory/`（持久学习）、`docs/`（架构 / 决策）、本仓库代码本身。Subagent 完成后**返回结构化文字摘要**给主 agent，主 agent 决定哪些进 memory。
+- **并行化 only when independent**：真独立的活（"前端 lint + 后端 verify"）一条消息里发多个 Agent 调用并行跑。有依赖（"先看 review 结果再写代码"）必须串行。
+- **写权限收紧**：review / observation 类 subagent 只给 Read/Grep/Glob/Bash，不给 Edit/Write，物理上做不到产生副作用。
+
+**主 agent 的责任**：
+- 写清晰的 brief（goal + context + 已验证的事实 + 预期产出格式）
+- 决定何时 spawn vs 自己做
+- 把 subagent 的报告综合进 memory / 决策 / 下一步
+
+**Subagent 的责任**：
+- 严格按 brief 执行，不超出范围
+- 报告要结构化（findings / actions / blockers / 下一步建议）
+- 不擅自修改 memory（由主 agent 集中管理）
 
 ---
 
