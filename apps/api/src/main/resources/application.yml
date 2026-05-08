@@ -42,3 +42,14 @@ app:
     topic-correct-rate-threshold: 80
     recent-window: 8
     recent-correct-threshold: 6
+  # AI explain endpoint — see docs/ai-architecture.md + progress decision §27.2.
+  # Cooldown algorithm (decision #6 "thinking-time"): cooldown = min(base + N*increment, max)
+  # where N = calls in past 24h. Bot scanners trip it; humans pacing real questions don't.
+  # Cache hits (UNIQUE user/question/language) skip rate-limit entirely — no LLM cost.
+  ai:
+    enabled: true
+    provider: stub                     # stub | deepseek (Phase B switches)
+    base-cooldown-seconds: 120
+    cooldown-increment-seconds: 60
+    max-cooldown-seconds: 300
+    max-calls-per-day: 50

@@ -5,6 +5,7 @@ package com.dmvmotor.api.infrastructure.jooq.generated;
 
 
 import com.dmvmotor.api.infrastructure.jooq.generated.tables.AccessPasses;
+import com.dmvmotor.api.infrastructure.jooq.generated.tables.AiExplanations;
 import com.dmvmotor.api.infrastructure.jooq.generated.tables.MistakeRecords;
 import com.dmvmotor.api.infrastructure.jooq.generated.tables.MockAttemptResults;
 import com.dmvmotor.api.infrastructure.jooq.generated.tables.MockAttempts;
@@ -32,6 +33,11 @@ public class Tables {
      * The table <code>public.access_passes</code>.
      */
     public static final AccessPasses ACCESS_PASSES = AccessPasses.ACCESS_PASSES;
+
+    /**
+     * The table <code>public.ai_explanations</code>.
+     */
+    public static final AiExplanations AI_EXPLANATIONS = AiExplanations.AI_EXPLANATIONS;
 
     /**
      * The table <code>public.mistake_records</code>.

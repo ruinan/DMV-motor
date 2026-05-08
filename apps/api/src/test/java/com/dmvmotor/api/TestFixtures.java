@@ -29,6 +29,7 @@ public class TestFixtures {
     public void truncateAll() {
         jdbc.execute("""
                 TRUNCATE
+                    ai_explanations,
                     mistake_records,
                     practice_attempts,
                     practice_sessions,
@@ -311,5 +312,32 @@ public class TestFixtures {
         return jdbc.queryForObject(
                 "SELECT mock_exam_used_count FROM access_passes WHERE id = ?",
                 Integer.class, passId);
+    }
+
+    // ---------------------------------------------------------------
+    // AI Explanations (cache + rate-limit history)
+    // ---------------------------------------------------------------
+
+    /**
+     * Insert a synthetic ai_explanations row whose {@code created_at} is
+     * shifted into the past by {@code ageSeconds}. Used by rate-limit
+     * and cache-hit tests to simulate prior calls.
+     */
+    public Long insertAiExplanation(Long userId, Long questionId, String language,
+                                     long ageSeconds) {
+        return jdbc.queryForObject("""
+                INSERT INTO ai_explanations
+                    (user_id, question_id, language, selected_choice_key,
+                     explanation, model, tokens_in, tokens_out, created_at)
+                VALUES (?, ?, ?, 'A', 'fixture-explanation', 'stub', 0, 0,
+                        CURRENT_TIMESTAMP - make_interval(secs => ?))
+                RETURNING id
+                """, Long.class, userId, questionId, language, (double) ageSeconds);
+    }
+
+    public Integer countAiExplanationsForUser(Long userId) {
+        return jdbc.queryForObject(
+                "SELECT COUNT(*) FROM ai_explanations WHERE user_id = ?",
+                Integer.class, userId);
     }
 }

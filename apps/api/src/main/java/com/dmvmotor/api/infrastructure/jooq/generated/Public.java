@@ -5,6 +5,7 @@ package com.dmvmotor.api.infrastructure.jooq.generated;
 
 
 import com.dmvmotor.api.infrastructure.jooq.generated.tables.AccessPasses;
+import com.dmvmotor.api.infrastructure.jooq.generated.tables.AiExplanations;
 import com.dmvmotor.api.infrastructure.jooq.generated.tables.MistakeRecords;
 import com.dmvmotor.api.infrastructure.jooq.generated.tables.MockAttemptResults;
 import com.dmvmotor.api.infrastructure.jooq.generated.tables.MockAttempts;
@@ -46,6 +47,11 @@ public class Public extends SchemaImpl {
      * The table <code>public.access_passes</code>.
      */
     public final AccessPasses ACCESS_PASSES = AccessPasses.ACCESS_PASSES;
+
+    /**
+     * The table <code>public.ai_explanations</code>.
+     */
+    public final AiExplanations AI_EXPLANATIONS = AiExplanations.AI_EXPLANATIONS;
 
     /**
      * The table <code>public.mistake_records</code>.
@@ -139,6 +145,7 @@ public class Public extends SchemaImpl {
     public final List<Table<?>> getTables() {
         return Arrays.asList(
             AccessPasses.ACCESS_PASSES,
+            AiExplanations.AI_EXPLANATIONS,
             MistakeRecords.MISTAKE_RECORDS,
             MockAttemptResults.MOCK_ATTEMPT_RESULTS,
             MockAttempts.MOCK_ATTEMPTS,

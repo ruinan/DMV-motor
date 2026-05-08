@@ -4,9 +4,11 @@
 package com.dmvmotor.api.infrastructure.jooq.generated.tables;
 
 
+import com.dmvmotor.api.infrastructure.jooq.generated.Indexes;
 import com.dmvmotor.api.infrastructure.jooq.generated.Keys;
 import com.dmvmotor.api.infrastructure.jooq.generated.Public;
 import com.dmvmotor.api.infrastructure.jooq.generated.tables.AccessPasses.AccessPassesPath;
+import com.dmvmotor.api.infrastructure.jooq.generated.tables.AiExplanations.AiExplanationsPath;
 import com.dmvmotor.api.infrastructure.jooq.generated.tables.MistakeRecords.MistakeRecordsPath;
 import com.dmvmotor.api.infrastructure.jooq.generated.tables.MockAttempts.MockAttemptsPath;
 import com.dmvmotor.api.infrastructure.jooq.generated.tables.PracticeAttempts.PracticeAttemptsPath;
@@ -16,12 +18,15 @@ import com.dmvmotor.api.infrastructure.jooq.generated.tables.ReviewTasks.ReviewT
 import com.dmvmotor.api.infrastructure.jooq.generated.tables.records.UsersRecord;
 
 import java.time.OffsetDateTime;
+import java.util.Arrays;
 import java.util.Collection;
+import java.util.List;
 
 import org.jooq.Condition;
 import org.jooq.Field;
 import org.jooq.ForeignKey;
 import org.jooq.Identity;
+import org.jooq.Index;
 import org.jooq.InverseForeignKey;
 import org.jooq.Name;
 import org.jooq.Path;
@@ -92,6 +97,11 @@ public class Users extends TableImpl<UsersRecord> {
      */
     public final TableField<UsersRecord, Integer> RESET_COUNT = createField(DSL.name("reset_count"), SQLDataType.INTEGER.nullable(false).defaultValue(DSL.field(DSL.raw("0"), SQLDataType.INTEGER)), this, "");
 
+    /**
+     * The column <code>public.users.firebase_uid</code>.
+     */
+    public final TableField<UsersRecord, String> FIREBASE_UID = createField(DSL.name("firebase_uid"), SQLDataType.VARCHAR(128), this, "");
+
     private Users(Name alias, Table<UsersRecord> aliased) {
         this(alias, aliased, (Field<?>[]) null, null);
     }
@@ -160,6 +170,11 @@ public class Users extends TableImpl<UsersRecord> {
     }
 
     @Override
+    public List<Index> getIndexes() {
+        return Arrays.asList(Indexes.UQ_USERS_FIREBASE_UID);
+    }
+
+    @Override
     public Identity<UsersRecord, Long> getIdentity() {
         return (Identity<UsersRecord, Long>) super.getIdentity();
     }
@@ -180,6 +195,19 @@ public class Users extends TableImpl<UsersRecord> {
             _accessPasses = new AccessPassesPath(this, null, Keys.ACCESS_PASSES__ACCESS_PASSES_USER_ID_FKEY.getInverseKey());
 
         return _accessPasses;
+    }
+
+    private transient AiExplanationsPath _aiExplanations;
+
+    /**
+     * Get the implicit to-many join path to the
+     * <code>public.ai_explanations</code> table
+     */
+    public AiExplanationsPath aiExplanations() {
+        if (_aiExplanations == null)
+            _aiExplanations = new AiExplanationsPath(this, null, Keys.AI_EXPLANATIONS__AI_EXPLANATIONS_USER_ID_FKEY.getInverseKey());
+
+        return _aiExplanations;
     }
 
     private transient MistakeRecordsPath _mistakeRecords;

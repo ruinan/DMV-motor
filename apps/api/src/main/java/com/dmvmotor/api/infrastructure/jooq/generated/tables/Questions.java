@@ -7,6 +7,7 @@ package com.dmvmotor.api.infrastructure.jooq.generated.tables;
 import com.dmvmotor.api.infrastructure.jooq.generated.Indexes;
 import com.dmvmotor.api.infrastructure.jooq.generated.Keys;
 import com.dmvmotor.api.infrastructure.jooq.generated.Public;
+import com.dmvmotor.api.infrastructure.jooq.generated.tables.AiExplanations.AiExplanationsPath;
 import com.dmvmotor.api.infrastructure.jooq.generated.tables.MistakeRecords.MistakeRecordsPath;
 import com.dmvmotor.api.infrastructure.jooq.generated.tables.MockAttemptResults.MockAttemptResultsPath;
 import com.dmvmotor.api.infrastructure.jooq.generated.tables.MockAttempts.MockAttemptsPath;
@@ -240,6 +241,19 @@ public class Questions extends TableImpl<QuestionsRecord> {
             _topics = new TopicsPath(this, Keys.QUESTIONS__QUESTIONS_PRIMARY_TOPIC_ID_FKEY, null);
 
         return _topics;
+    }
+
+    private transient AiExplanationsPath _aiExplanations;
+
+    /**
+     * Get the implicit to-many join path to the
+     * <code>public.ai_explanations</code> table
+     */
+    public AiExplanationsPath aiExplanations() {
+        if (_aiExplanations == null)
+            _aiExplanations = new AiExplanationsPath(this, null, Keys.AI_EXPLANATIONS__AI_EXPLANATIONS_QUESTION_ID_FKEY.getInverseKey());
+
+        return _aiExplanations;
     }
 
     private transient MistakeRecordsPath _mistakeRecords;

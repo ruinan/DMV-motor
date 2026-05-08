@@ -5,6 +5,7 @@ package com.dmvmotor.api.infrastructure.jooq.generated;
 
 
 import com.dmvmotor.api.infrastructure.jooq.generated.tables.AccessPasses;
+import com.dmvmotor.api.infrastructure.jooq.generated.tables.AiExplanations;
 import com.dmvmotor.api.infrastructure.jooq.generated.tables.MistakeRecords;
 import com.dmvmotor.api.infrastructure.jooq.generated.tables.MockAttemptResults;
 import com.dmvmotor.api.infrastructure.jooq.generated.tables.MockAttempts;
@@ -21,6 +22,7 @@ import com.dmvmotor.api.infrastructure.jooq.generated.tables.ReviewTasks;
 import com.dmvmotor.api.infrastructure.jooq.generated.tables.Topics;
 import com.dmvmotor.api.infrastructure.jooq.generated.tables.Users;
 import com.dmvmotor.api.infrastructure.jooq.generated.tables.records.AccessPassesRecord;
+import com.dmvmotor.api.infrastructure.jooq.generated.tables.records.AiExplanationsRecord;
 import com.dmvmotor.api.infrastructure.jooq.generated.tables.records.MistakeRecordsRecord;
 import com.dmvmotor.api.infrastructure.jooq.generated.tables.records.MockAttemptResultsRecord;
 import com.dmvmotor.api.infrastructure.jooq.generated.tables.records.MockAttemptsRecord;
@@ -56,6 +58,8 @@ public class Keys {
     // -------------------------------------------------------------------------
 
     public static final UniqueKey<AccessPassesRecord> ACCESS_PASSES_PKEY = Internal.createUniqueKey(AccessPasses.ACCESS_PASSES, DSL.name("access_passes_pkey"), new TableField[] { AccessPasses.ACCESS_PASSES.ID }, true);
+    public static final UniqueKey<AiExplanationsRecord> AI_EXPLANATIONS_PKEY = Internal.createUniqueKey(AiExplanations.AI_EXPLANATIONS, DSL.name("ai_explanations_pkey"), new TableField[] { AiExplanations.AI_EXPLANATIONS.ID }, true);
+    public static final UniqueKey<AiExplanationsRecord> UQ_AI_EXPLANATIONS_USER_QUESTION_LANG = Internal.createUniqueKey(AiExplanations.AI_EXPLANATIONS, DSL.name("uq_ai_explanations_user_question_lang"), new TableField[] { AiExplanations.AI_EXPLANATIONS.USER_ID, AiExplanations.AI_EXPLANATIONS.QUESTION_ID, AiExplanations.AI_EXPLANATIONS.LANGUAGE }, true);
     public static final UniqueKey<MistakeRecordsRecord> MISTAKE_RECORDS_PKEY = Internal.createUniqueKey(MistakeRecords.MISTAKE_RECORDS, DSL.name("mistake_records_pkey"), new TableField[] { MistakeRecords.MISTAKE_RECORDS.ID }, true);
     public static final UniqueKey<MistakeRecordsRecord> UQ_MISTAKE_RECORDS_USER_QUESTION_CYCLE = Internal.createUniqueKey(MistakeRecords.MISTAKE_RECORDS, DSL.name("uq_mistake_records_user_question_cycle"), new TableField[] { MistakeRecords.MISTAKE_RECORDS.USER_ID, MistakeRecords.MISTAKE_RECORDS.QUESTION_ID, MistakeRecords.MISTAKE_RECORDS.LEARNING_CYCLE }, true);
     public static final UniqueKey<MockAttemptResultsRecord> MOCK_ATTEMPT_RESULTS_MOCK_ATTEMPT_ID_QUESTION_ID_KEY = Internal.createUniqueKey(MockAttemptResults.MOCK_ATTEMPT_RESULTS, DSL.name("mock_attempt_results_mock_attempt_id_question_id_key"), new TableField[] { MockAttemptResults.MOCK_ATTEMPT_RESULTS.MOCK_ATTEMPT_ID, MockAttemptResults.MOCK_ATTEMPT_RESULTS.QUESTION_ID }, true);
@@ -87,6 +91,8 @@ public class Keys {
     // -------------------------------------------------------------------------
 
     public static final ForeignKey<AccessPassesRecord, UsersRecord> ACCESS_PASSES__ACCESS_PASSES_USER_ID_FKEY = Internal.createForeignKey(AccessPasses.ACCESS_PASSES, DSL.name("access_passes_user_id_fkey"), new TableField[] { AccessPasses.ACCESS_PASSES.USER_ID }, Keys.USERS_PKEY, new TableField[] { Users.USERS.ID }, true);
+    public static final ForeignKey<AiExplanationsRecord, QuestionsRecord> AI_EXPLANATIONS__AI_EXPLANATIONS_QUESTION_ID_FKEY = Internal.createForeignKey(AiExplanations.AI_EXPLANATIONS, DSL.name("ai_explanations_question_id_fkey"), new TableField[] { AiExplanations.AI_EXPLANATIONS.QUESTION_ID }, Keys.QUESTIONS_PKEY, new TableField[] { Questions.QUESTIONS.ID }, true);
+    public static final ForeignKey<AiExplanationsRecord, UsersRecord> AI_EXPLANATIONS__AI_EXPLANATIONS_USER_ID_FKEY = Internal.createForeignKey(AiExplanations.AI_EXPLANATIONS, DSL.name("ai_explanations_user_id_fkey"), new TableField[] { AiExplanations.AI_EXPLANATIONS.USER_ID }, Keys.USERS_PKEY, new TableField[] { Users.USERS.ID }, true);
     public static final ForeignKey<MistakeRecordsRecord, TopicsRecord> MISTAKE_RECORDS__MISTAKE_RECORDS_PRIMARY_TOPIC_ID_FKEY = Internal.createForeignKey(MistakeRecords.MISTAKE_RECORDS, DSL.name("mistake_records_primary_topic_id_fkey"), new TableField[] { MistakeRecords.MISTAKE_RECORDS.PRIMARY_TOPIC_ID }, Keys.TOPICS_PKEY, new TableField[] { Topics.TOPICS.ID }, true);
     public static final ForeignKey<MistakeRecordsRecord, QuestionsRecord> MISTAKE_RECORDS__MISTAKE_RECORDS_QUESTION_ID_FKEY = Internal.createForeignKey(MistakeRecords.MISTAKE_RECORDS, DSL.name("mistake_records_question_id_fkey"), new TableField[] { MistakeRecords.MISTAKE_RECORDS.QUESTION_ID }, Keys.QUESTIONS_PKEY, new TableField[] { Questions.QUESTIONS.ID }, true);
     public static final ForeignKey<MistakeRecordsRecord, UsersRecord> MISTAKE_RECORDS__MISTAKE_RECORDS_USER_ID_FKEY = Internal.createForeignKey(MistakeRecords.MISTAKE_RECORDS, DSL.name("mistake_records_user_id_fkey"), new TableField[] { MistakeRecords.MISTAKE_RECORDS.USER_ID }, Keys.USERS_PKEY, new TableField[] { Users.USERS.ID }, true);

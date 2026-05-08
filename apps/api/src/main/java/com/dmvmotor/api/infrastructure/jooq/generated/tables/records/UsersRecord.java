@@ -104,6 +104,20 @@ public class UsersRecord extends UpdatableRecordImpl<UsersRecord> {
         return (Integer) get(5);
     }
 
+    /**
+     * Setter for <code>public.users.firebase_uid</code>.
+     */
+    public void setFirebaseUid(String value) {
+        set(6, value);
+    }
+
+    /**
+     * Getter for <code>public.users.firebase_uid</code>.
+     */
+    public String getFirebaseUid() {
+        return (String) get(6);
+    }
+
     // -------------------------------------------------------------------------
     // Primary key information
     // -------------------------------------------------------------------------
@@ -127,7 +141,7 @@ public class UsersRecord extends UpdatableRecordImpl<UsersRecord> {
     /**
      * Create a detached, initialised UsersRecord
      */
-    public UsersRecord(Long id, String email, String languagePreference, OffsetDateTime createdAt, OffsetDateTime updatedAt, Integer resetCount) {
+    public UsersRecord(Long id, String email, String languagePreference, OffsetDateTime createdAt, OffsetDateTime updatedAt, Integer resetCount, String firebaseUid) {
         super(Users.USERS);
 
         setId(id);
@@ -136,6 +150,7 @@ public class UsersRecord extends UpdatableRecordImpl<UsersRecord> {
         setCreatedAt(createdAt);
         setUpdatedAt(updatedAt);
         setResetCount(resetCount);
+        setFirebaseUid(firebaseUid);
         resetChangedOnNotNull();
     }
 }
