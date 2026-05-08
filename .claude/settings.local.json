@@ -130,7 +130,21 @@
       "Bash(taskkill //F //PID 33304)",
       "Bash(APP_AUTH_FIREBASE_ENABLED=true FIREBASE_AUTH_EMULATOR_HOST=127.0.0.1:9099 GOOGLE_CLOUD_PROJECT=demo-dmv-motor mvn spring-boot:run -Dspring-boot.run.profiles=default)",
       "Bash(NEXT_PUBLIC_USE_FIREBASE_EMULATOR=true npm run dev)",
-      "Bash(taskkill //F //PID 41732)"
+      "Bash(taskkill //F //PID 41732)",
+      "PowerShell(Get-Location; npx playwright install chromium 2>&1 | Select-Object -Last 5)",
+      "PowerShell(npx playwright test tests/e2e/auth-persistence.spec.ts --reporter=list 2>&1 | Select-Object -Last 80)",
+      "PowerShell(docker start dmv-motor-postgres *)",
+      "PowerShell(npm run *)",
+      "PowerShell($ready = $false; $tries = 0; while \\(-not $ready -and $tries -lt 30\\) { try { $r = Invoke-WebRequest -Uri \"http://127.0.0.1:9099/\" -TimeoutSec 2 -UseBasicParsing 2>$null; if \\($r.StatusCode -eq 200\\) { $ready = $true } } catch {}; if \\(-not $ready\\) { Start-Sleep -Seconds 2; $tries++ } }; if \\($ready\\) { Write-Output \"Emulator ready on 9099\" } else { Write-Output \"Emulator timeout after 60s\" })",
+      "PowerShell(mvn spring-boot:run *)",
+      "PowerShell(Get-Content *)",
+      "PowerShell(cmd /c \"dir /b node_modules\\\\next\\\\dist\\\\docs\" | Select-Object -First 30)",
+      "PowerShell(cmd /c \"dir /s /b node_modules\\\\next\\\\dist\\\\docs\\\\01-app | findstr /i error\")",
+      "PowerShell(cmd /c \"dir /s /b node_modules\\\\next\\\\dist\\\\docs\\\\01-app | findstr /i not-found\")",
+      "PowerShell(docker exec dmv-motor-postgres *)",
+      "PowerShell(Get-NetTCPConnection *)",
+      "PowerShell(docker stop dmv-motor-postgres *)",
+      "PowerShell(gcloud sql instances describe *)"
     ],
     "ask": [
       "Bash(rm -rf:*)",
