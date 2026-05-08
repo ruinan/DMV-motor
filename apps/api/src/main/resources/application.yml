@@ -48,8 +48,20 @@ app:
   # Cache hits (UNIQUE user/question/language) skip rate-limit entirely — no LLM cost.
   ai:
     enabled: true
-    provider: stub                     # stub | deepseek (Phase B switches)
+    # provider: stub (default for dev/test — StubAiExplanationProvider with matchIfMissing=true)
+    # Cloud Run flips this to "deepseek" via APP_AI_PROVIDER env (cloudrun.tf).
+    provider: ${APP_AI_PROVIDER:stub}
     base-cooldown-seconds: 120
     cooldown-increment-seconds: 60
     max-cooldown-seconds: 300
     max-calls-per-day: 50
+    deepseek:
+      # Local dev: drop the key into apps/api/.env (gitignored) as APP_AI_DEEPSEEK_API_KEY.
+      # Prod: sourced from Secret Manager `deepseek-api-key` (cloudrun.tf env block).
+      # Empty default keeps Spring Boot from failing to start when the provider
+      # is "stub" (dev/test) and no key is set.
+      api-key: ${APP_AI_DEEPSEEK_API_KEY:}
+      base-url: https://api.deepseek.com
+      model: deepseek-chat
+      max-tokens: 400
+      timeout-seconds: 30
