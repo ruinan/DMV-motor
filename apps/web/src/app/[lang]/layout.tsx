@@ -1,9 +1,10 @@
 import type { Metadata } from "next";
 import { Inter, JetBrains_Mono } from "next/font/google";
 import { notFound } from "next/navigation";
-import { hasLocale, locales } from "@/lib/dictionaries";
+import { getDictionary, hasLocale, locales } from "@/lib/dictionaries";
 import { AuthProvider } from "@/lib/auth-context";
 import { QueryProvider } from "@/lib/query-provider";
+import { SessionExpiredToast } from "@/components/session-expired-toast";
 import "../globals.css";
 
 const inter = Inter({
@@ -38,6 +39,7 @@ export default async function RootLayout({
 }: LayoutProps<"/[lang]">) {
   const { lang } = await params;
   if (!hasLocale(lang)) notFound();
+  const dict = await getDictionary(lang);
 
   return (
     <html
@@ -46,7 +48,16 @@ export default async function RootLayout({
     >
       <body className="min-h-full bg-background text-foreground">
         <QueryProvider>
-          <AuthProvider>{children}</AuthProvider>
+          <AuthProvider>
+            {children}
+            <SessionExpiredToast
+              t={{
+                title: dict.auth.sessionExpiredTitle,
+                body: dict.auth.sessionExpiredBody,
+                dismiss: dict.auth.dismiss,
+              }}
+            />
+          </AuthProvider>
         </QueryProvider>
       </body>
     </html>

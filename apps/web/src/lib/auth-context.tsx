@@ -11,7 +11,7 @@ import {
 import {
   browserLocalPersistence,
   createUserWithEmailAndPassword,
-  onAuthStateChanged,
+  onIdTokenChanged,
   sendPasswordResetEmail,
   setPersistence,
   signInWithEmailAndPassword,
@@ -44,7 +44,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // Storage unavailable (e.g. partitioned cookies + no IDB). The
       // listener below will still fire, just without rehydrated state.
     });
-    const unsub = onAuthStateChanged(firebaseAuth, (u) => {
+    // onIdTokenChanged is a superset of onAuthStateChanged — it fires on
+    // sign-in / sign-out AND on every silent token refresh (~5min before
+    // the 1h TTL expires). Using it keeps the cached user reference fresh
+    // so callers reading currentUser.getIdToken() never get a stale token,
+    // and gives us a single place to observe TTL boundary events.
+    const unsub = onIdTokenChanged(firebaseAuth, (u) => {
       setUser(u);
       setLoading(false);
     });

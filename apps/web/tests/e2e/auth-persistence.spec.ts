@@ -48,4 +48,76 @@ test.describe("auth persistence (#1)", () => {
     await page.goto("/en/dashboard");
     await expect(page).toHaveURL(/\/en\/dashboard$/);
   });
+
+  test("signed-in /practice keeps sidebar chrome through a hard reload", async ({
+    page,
+  }) => {
+    await signIn(page);
+    await page.goto("/en/practice");
+    // Sidebar brand is rendered only by PracticeShell's signed-in branch
+    // (anonymous branch is the full-screen card without the sidebar).
+    const sidebarBrand = page.getByText("M1 Prep").first();
+    await expect(sidebarBrand).toBeVisible();
+    await page.reload();
+    await expect(page).toHaveURL(/\/en\/practice$/);
+    await expect(sidebarBrand).toBeVisible();
+  });
+
+  test("401 with a valid token retries with a refreshed token instead of signing out", async ({
+    page,
+  }) => {
+    // Route must be installed BEFORE signIn, otherwise the /me request that
+    // /en/me fires on first mount slips through the mock. Mock the first
+    // call as 401, the second as 200 — api-client should see the 401, force-
+    // refresh the Firebase token, retry, and surface the 200, leaving the
+    // user on /me with no session-expired toast.
+    let calls = 0;
+    await page.route("**/api/v1/me", async (route) => {
+      calls += 1;
+      if (calls === 1) {
+        await route.fulfill({
+          status: 401,
+          contentType: "application/json",
+          body: JSON.stringify({
+            success: false,
+            error: { code: "UNAUTHORIZED", message: "stale token" },
+          }),
+        });
+      } else {
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({
+            success: true,
+            data: {
+              user_id: "1",
+              email: EMAIL,
+              language: "en",
+              access: {
+                state: "free_trial",
+                has_active_pass: false,
+                expires_at: null,
+                mock_remaining: 0,
+              },
+              learning: {
+                has_in_progress_practice: false,
+                has_in_progress_review: false,
+              },
+            },
+            meta: {},
+          }),
+        });
+      }
+    });
+
+    await signIn(page);
+    // Wait for at least 2 hits on /api/v1/me before asserting — the retry
+    // is fully async (Firebase token refresh + second fetch) and can land
+    // after toHaveURL resolves.
+    await expect.poll(() => calls, { timeout: 7_000 }).toBeGreaterThanOrEqual(2);
+    await expect(page).toHaveURL(/\/en\/me$/);
+    await expect(
+      page.getByTestId("session-expired-toast"),
+    ).not.toBeVisible();
+  });
 });

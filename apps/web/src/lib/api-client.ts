@@ -1,5 +1,6 @@
 import { signOut } from "firebase/auth";
 import { firebaseAuth } from "@/lib/firebase";
+import { emitSessionExpired } from "@/lib/session-expired-bus";
 
 /**
  * All API requests go through Next.js rewrites (see next.config.ts), so the
@@ -19,12 +20,6 @@ export class ApiError extends Error {
   }
 }
 
-async function getIdToken(): Promise<string | null> {
-  const user = firebaseAuth.currentUser;
-  if (!user) return null;
-  return user.getIdToken();
-}
-
 type SuccessEnvelope<T> = { success: true; data: T; meta?: unknown };
 type ErrorEnvelope = {
   success: false;
@@ -34,11 +29,21 @@ type ApiResponse<T> = SuccessEnvelope<T> | ErrorEnvelope;
 
 export type Envelope<T> = { data: T; meta: unknown };
 
-async function rawFetch<T>(
+async function fetchWithToken<T>(
   path: string,
   init: RequestInit,
-): Promise<SuccessEnvelope<T>> {
-  const token = await getIdToken();
+  forceRefresh: boolean,
+): Promise<{
+  response: Response;
+  payload: ApiResponse<T> | null;
+  token: string | null;
+}> {
+  const user = firebaseAuth.currentUser;
+  // forceRefresh=true bypasses Firebase's internal token cache and goes
+  // straight to the refresh endpoint. We only pass true on the retry path
+  // so the happy case still benefits from the SDK's silent refresh.
+  const token = user ? await user.getIdToken(forceRefresh).catch(() => null) : null;
+
   const headers = new Headers(init.headers);
   headers.set("Accept", "application/json");
   if (token) headers.set("Authorization", `Bearer ${token}`);
@@ -48,16 +53,35 @@ async function rawFetch<T>(
 
   const response = await fetch(path, { ...init, headers });
   const payload = (await response.json().catch(() => null)) as ApiResponse<T> | null;
+  return { response, payload, token };
+}
 
-  // 401 with a token sent = our token is bad (revoked, expired, malformed).
-  // Sign out so the auth listener tears down the session and RequireAuth
-  // redirects to /login. Firebase already auto-refreshes; if the refreshed
-  // token is also rejected the user genuinely needs to re-authenticate.
+async function rawFetch<T>(
+  path: string,
+  init: RequestInit,
+): Promise<SuccessEnvelope<T>> {
+  const first = await fetchWithToken<T>(path, init, false);
+  const { token } = first;
+  let response = first.response;
+  let payload = first.payload;
+
+  // 401 with a token sent could mean: (a) the SDK's silent refresh hasn't
+  // fired yet and the token has crossed its 1-hour TTL, or (b) the user is
+  // genuinely revoked. Try once with a force-refreshed token to disambiguate.
+  // Only when the *refreshed* token is also rejected do we surface the
+  // session-expired toast and tear down the session.
   if (response.status === 401 && token) {
-    await signOut(firebaseAuth).catch(() => {
-      // signOut can fail if storage is locked; the throw below still fires
-      // and the auth listener will eventually pick up the cleared state.
-    });
+    const retry = await fetchWithToken<T>(path, init, true);
+    if (retry.response.status !== 401) {
+      response = retry.response;
+      payload = retry.payload;
+    } else {
+      emitSessionExpired();
+      await signOut(firebaseAuth).catch(() => {
+        // Storage locked — the auth listener will eventually pick up the
+        // cleared state. Toast is already on screen so the user knows.
+      });
+    }
   }
 
   if (!response.ok || !payload || payload.success === false) {

@@ -38,7 +38,7 @@
     "practice": "练习",
     "exam": "考试",
     "settings": "设置",
-    "dashboard": "仪表盘",
+    "dashboard": "学习中心",
     "mistakes": "错题",
     "review": "复习",
     "mockExam": "模拟考试",
@@ -110,7 +110,10 @@
     "stuckTitle": "好像卡住了",
     "stuckBody": "无法确认你的登录状态。请刷新重试，或重新登录。",
     "refresh": "刷新",
-    "goToSignIn": "去登录"
+    "goToSignIn": "去登录",
+    "sessionExpiredTitle": "登录已过期",
+    "sessionExpiredBody": "您已被登出，请重新登录以继续。",
+    "dismiss": "关闭"
   },
   "me": {
     "title": "设置",
@@ -195,7 +198,7 @@
     "failed": "未通过",
     "weakTopics": "薄弱知识点",
     "noWeakTopics": "整体覆盖均衡，未识别明显薄弱点。",
-    "backToDashboard": "返回仪表盘",
+    "backToDashboard": "回到学习中心",
     "tryAgain": "再来一次"
   },
   "review": {
@@ -315,7 +318,13 @@
     "explanation": "解析",
     "completedTitle": "练习已完成",
     "completedBody": "本轮题目已全部答完。",
-    "backToDashboard": "返回仪表盘",
+    "exitedTitle": "已退出练习",
+    "exitedBody": "你已中途退出本次练习。已作答的题目已保存，但剩余题目无法继续。",
+    "exitConfirmTitle": "确认退出本次练习？",
+    "exitConfirmBody": "退出后本次练习即结束，剩余题目将无法继续作答。已作答的题目会保留。",
+    "exitConfirmYes": "退出练习",
+    "exitConfirmCancel": "继续练习",
+    "backToDashboard": "回到学习中心",
     "backHome": "返回首页",
     "errorGeneric": "出错啦，请重试。",
     "errorAuthRequired": "请先登录以开始完整练习。",

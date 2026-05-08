@@ -110,7 +110,10 @@
     "stuckTitle": "Taking longer than expected",
     "stuckBody": "We couldn't confirm your sign-in. Refresh to retry, or go to sign in again.",
     "refresh": "Refresh",
-    "goToSignIn": "Go to sign in"
+    "goToSignIn": "Go to sign in",
+    "sessionExpiredTitle": "Your session expired",
+    "sessionExpiredBody": "You've been signed out. Please sign in again to continue.",
+    "dismiss": "Dismiss"
   },
   "me": {
     "title": "Settings",
@@ -315,6 +318,12 @@
     "explanation": "Explanation",
     "completedTitle": "Session complete",
     "completedBody": "You've answered every question in this pool.",
+    "exitedTitle": "Practice exited",
+    "exitedBody": "You ended this session early. Your answered questions are saved, but the rest of the pool can't be resumed.",
+    "exitConfirmTitle": "Exit this practice?",
+    "exitConfirmBody": "If you exit now, this session ends and you won't be able to continue the remaining questions. Already-answered questions are saved.",
+    "exitConfirmYes": "Exit practice",
+    "exitConfirmCancel": "Keep practising",
     "backToDashboard": "Back to dashboard",
     "backHome": "Back home",
     "errorGeneric": "Something went wrong. Please try again.",

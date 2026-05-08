@@ -61,7 +61,7 @@ type Phase =
       result: AnswerResponse;
       totalCount: number;
     }
-  | { kind: "completed"; sessionId: string }
+  | { kind: "completed"; sessionId: string; reason: "finished" | "exited" }
   | { kind: "error"; message: string };
 
 type Props = {
@@ -73,6 +73,7 @@ export function PracticeFlow({ t, lang }: Props) {
   const me = useMe();
   const [phase, setPhase] = useState<Phase>({ kind: "idle" });
   const [historyOpen, setHistoryOpen] = useState(false);
+  const [exitConfirmOpen, setExitConfirmOpen] = useState(false);
 
   // Resolve the session id whenever the phase carries one — used by the
   // history toggle / view. Only "answering" / "feedback" / "completed"
@@ -169,27 +170,28 @@ export function PracticeFlow({ t, lang }: Props) {
     } catch (err) {
       // Backend returns SESSION_COMPLETED (404) when there are no more questions
       if (err instanceof ApiError && err.code === "SESSION_COMPLETED") {
-        await complete(sessionId);
+        await complete(sessionId, "finished");
         return;
       }
       setPhase({ kind: "error", message: errorMessage(err, t) });
     }
   }
 
-  async function complete(sessionId: string) {
+  async function complete(sessionId: string, reason: "finished" | "exited") {
     try {
       await apiFetch(`/api/v1/practice/sessions/${sessionId}/complete`, {
         method: "POST",
       });
     } catch {
-      // Even if complete fails, the user has effectively finished the pool.
+      // Even if complete fails, the user has effectively ended the session.
     }
-    setPhase({ kind: "completed", sessionId });
+    setPhase({ kind: "completed", sessionId, reason });
   }
 
-  async function finish() {
+  async function confirmExit() {
     if (phase.kind !== "answering" && phase.kind !== "feedback") return;
-    await complete(phase.sessionId);
+    setExitConfirmOpen(false);
+    await complete(phase.sessionId, "exited");
   }
 
   // -------------------------------------------------------------------------
@@ -314,12 +316,17 @@ export function PracticeFlow({ t, lang }: Props) {
   }
 
   if (phase.kind === "completed") {
+    const isExited = phase.reason === "exited";
     return (
       <Container>
         <div className="rounded-xl border bg-card p-8 text-center shadow-sm">
           <CheckCircle2 className="mx-auto mb-3 size-12 text-primary" />
-          <h2 className="text-2xl font-semibold">{t.completedTitle}</h2>
-          <p className="mt-2 text-muted-foreground">{t.completedBody}</p>
+          <h2 className="text-2xl font-semibold">
+            {isExited ? t.exitedTitle : t.completedTitle}
+          </h2>
+          <p className="mt-2 text-muted-foreground">
+            {isExited ? t.exitedBody : t.completedBody}
+          </p>
           <div className="mt-6 flex flex-wrap justify-center gap-3">
             <Button onClick={() => setHistoryOpen(true)} size="lg">
               <History className="size-4" />
@@ -442,7 +449,7 @@ export function PracticeFlow({ t, lang }: Props) {
       </div>
 
       <div className="flex items-center justify-between gap-3">
-        <Button variant="ghost" onClick={finish}>
+        <Button variant="ghost" onClick={() => setExitConfirmOpen(true)}>
           {t.exit}
         </Button>
         {phase.kind === "answering" && (
@@ -460,7 +467,58 @@ export function PracticeFlow({ t, lang }: Props) {
           </Button>
         )}
       </div>
+
+      {exitConfirmOpen && (
+        <ExitConfirmDialog
+          t={t}
+          onCancel={() => setExitConfirmOpen(false)}
+          onConfirm={confirmExit}
+        />
+      )}
     </Container>
+  );
+}
+
+function ExitConfirmDialog({
+  t,
+  onCancel,
+  onConfirm,
+}: {
+  t: Dictionary["practice"];
+  onCancel: () => void;
+  onConfirm: () => void;
+}) {
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="exit-confirm-title"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+      onClick={onCancel}
+    >
+      <div
+        className="w-full max-w-sm rounded-xl border border-border bg-card p-6 shadow-xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <h3
+          id="exit-confirm-title"
+          className="text-lg font-semibold text-foreground"
+        >
+          {t.exitConfirmTitle}
+        </h3>
+        <p className="mt-2 text-sm text-muted-foreground">
+          {t.exitConfirmBody}
+        </p>
+        <div className="mt-6 flex justify-end gap-2">
+          <Button variant="outline" onClick={onCancel}>
+            {t.exitConfirmCancel}
+          </Button>
+          <Button variant="destructive" onClick={onConfirm}>
+            {t.exitConfirmYes}
+          </Button>
+        </div>
+      </div>
+    </div>
   );
 }
 
