@@ -144,7 +144,8 @@
       "PowerShell(docker exec dmv-motor-postgres *)",
       "PowerShell(Get-NetTCPConnection *)",
       "PowerShell(docker stop dmv-motor-postgres *)",
-      "PowerShell(gcloud sql instances describe *)"
+      "PowerShell(gcloud sql instances describe *)",
+      "WebSearch"
     ],
     "ask": [
       "Bash(rm -rf:*)",
