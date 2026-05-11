@@ -80,18 +80,22 @@ resource "google_cloud_run_v2_service" "api" {
         value = "true"
       }
 
-      # AI explain endpoint (progress §28 / §28.9 / decision §27.2 #1, #7).
+      # AI explain endpoint (progress §28 / §28.9 / §29 / decision §27.2 #1, #7).
       # The DeepSeek API key lives in Secret Manager (created out-of-band via
       # `gcloud secrets create`, not Terraform-managed — the plaintext never
       # enters Terraform state). The Cloud Run service account already has
       # roles/secretmanager.secretAccessor project-wide (iam.tf:10), so no
       # extra IAM is needed.
       #
-      # `APP_AI_PROVIDER` is deliberately omitted: application.yml defaults
-      # to `stub`, which keeps StubAiExplanationProvider active until Phase
-      # B1 (Java DeepSeekAiExplanationProvider) lands. Setting it to
-      # "deepseek" before that bean exists would crash Spring Boot at start.
-      # Flipping the switch is then a one-line addition here.
+      # `APP_AI_PROVIDER=deepseek` activates DeepSeekAiExplanationProvider
+      # (Phase B1 Java, commit f4954ba). To roll back to the stub, delete
+      # this env block and `terraform apply` — application.yml defaults to
+      # `stub` and StubAiExplanationProvider has `matchIfMissing=true`.
+      env {
+        name  = "APP_AI_PROVIDER"
+        value = "deepseek"
+      }
+
       env {
         name = "APP_AI_DEEPSEEK_API_KEY"
         value_source {
