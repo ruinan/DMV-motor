@@ -17,10 +17,25 @@ import org.springframework.boot.context.properties.bind.DefaultValue;
  */
 @ConfigurationProperties(prefix = "app.ai")
 public record AiProperties(
-        @DefaultValue("true")  boolean enabled,
-        @DefaultValue("stub")  String  provider,
-        @DefaultValue("120")   int     baseCooldownSeconds,
-        @DefaultValue("60")    int     cooldownIncrementSeconds,
-        @DefaultValue("300")   int     maxCooldownSeconds,
-        @DefaultValue("50")    int     maxCallsPerDay
-) {}
+        @DefaultValue("true")  boolean   enabled,
+        @DefaultValue("stub")  String    provider,
+        @DefaultValue("120")   int       baseCooldownSeconds,
+        @DefaultValue("60")    int       cooldownIncrementSeconds,
+        @DefaultValue("300")   int       maxCooldownSeconds,
+        @DefaultValue("50")    int       maxCallsPerDay,
+        @DefaultValue          Deepseek  deepseek
+) {
+
+    /**
+     * DeepSeek provider config — bound only when {@code app.ai.provider=deepseek}.
+     * The empty default for {@code apiKey} lets Spring Boot start under the stub
+     * profile (dev/test) without a real key.
+     */
+    public record Deepseek(
+            @DefaultValue("")                          String apiKey,
+            @DefaultValue("https://api.deepseek.com")  String baseUrl,
+            @DefaultValue("deepseek-chat")             String model,
+            @DefaultValue("400")                       int    maxTokens,
+            @DefaultValue("30")                        int    timeoutSeconds
+    ) {}
+}
