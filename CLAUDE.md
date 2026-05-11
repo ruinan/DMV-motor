@@ -1,7 +1,7 @@
 # CLAUDE.md — DMV Motor 项目工作规范
 
 > 这个文件是 Claude 的行为规范和项目工作协议。每次对话开始时必须读取。
-> 最后更新：2026-05-05（多 agent 工作流上线；prod 跑 revision 00015-stj）
+> 最后更新：2026-05-11（spec-compliance 审计纠偏；§10 加"Spec 要求但未实现"清单 + MasteryEvaluator 标 ORPHAN；prod 跑 revision 00018-2f2 with deepseek）
 
 ---
 
@@ -177,7 +177,7 @@ Claude 在本项目中扮演**小公司 CTO** 的角色：
 
 **项目：** California M1 笔试备考 App（DMV Motor）
 
-**当前阶段：** 后端 MVP 已部署生产；前端 Next.js 16 核心学习闭环已接通后端（Dashboard / Practice / Mistakes / Review / Mock）
+**当前阶段：** 后端 MVP + AI explain 后端（Phase A + B1）已部署生产；前端 Next.js 16 核心学习闭环已接通后端（Dashboard / Practice / Mistakes / Review / Mock / Progress）。**注意**：UI 还**没有** AI 按钮、没有 mastery 数字展示、没有 AI 出题、没有 study plan 页面——这些是用户感知到的"核心 AI 学习闭环"，**至今未做**（详见下面"用户期望但未做"清单）。
 
 **基础设施：**
 - 后端：Java 21 + Spring Boot 3.4 + jOOQ + Flyway
@@ -200,24 +200,54 @@ Claude 在本项目中扮演**小公司 CTO** 的角色：
 - [x] **Round 2 纠偏**：ReadinessProperties 参数化；readiness 公式按 docs/parameters.md §7-§8 重写（2-mock avg 85%/key cov 90%/review 80%/持续薄弱点四道硬门槛；40/25/20/15 权重）；/summary 免费/付费分层；/mock-exams/access 401；review task 端点 canUseReview 纵深防御
 - [x] **线上验证**：revision `dmv-motor-api-00004-cjt`（2026-04-21），`/actuator/health=UP`，`/api/v1/questions/1` 返真实 seed
 - [x] Cloud SQL 已暂停（activation-policy=NEVER）省钱中
-- [x] **MASTERY 判定升级**（2026-04-21，commits 3d52861 + b13c972）：`MasteryEvaluator` + `MasteryProperties`（`app.mastery.*`）+ `PracticeHistoryRepository`（双路径查询 practice+review），topic 正确率 ≥80% & 近 8 条 ≥6 道正确两闸门；第三闸门（confusion point）待 schema 扩展后实现，标记为 `TODO(FUTURE_CONFUSION_SCHEMA)`
+- [x] ⚠️ **MASTERY 判定升级 — 组件写了但 ORPHAN**（2026-04-21，commits 3d52861 + b13c972）：`MasteryEvaluator` + `MasteryProperties`（`app.mastery.*`）+ `PracticeHistoryRepository` 组件本身实现 OK（双闸门：topic 正确率 ≥80% & 近 8 条 ≥6 道正确）。**但 2026-05-11 审计发现 `isMastered()` 没有任何调用方真正接到 MistakeRecord 失活路径**；ReviewService import 它但实际未用于失活。**结果：MistakeRecord 至今永不自动失活。** 等"MasteryEvaluator wire-up to deactivation"完成后再改回真 ✅
 - [x] **Firebase Auth 迁移 code-complete**（2026-04-23，commits 23e5223 + 323754f + 3e71694）：`FirebaseAuthVerifier` 接口 + `StubFirebaseVerifier`（dev/test 默认，`Bearer <numericUserId>` 走它）+ `FirebaseIdTokenVerifier`（prod，`app.auth.firebase.enabled=true` 开启）+ `UserProvisioner`（首次登录按 `firebase_uid` JIT 建号）+ V11 migration；`UserIdResolver` 注入 verifier+provisioner；Terraform 在 Cloud Run 注入 `APP_AUTH_FIREBASE_ENABLED=true`
 - [x] **Firebase Auth 部署生产**（2026-04-25，revision `dmv-motor-api-00009-hf4`，commits ad2ac85 + 75c351f）：`terraform apply` 推 env 后两轮纠偏：`E2ETestBase.createTestUser` 套用 `TestFixtures` stamp 模式（`firebase_uid="test-<id>"`，原本 IT 没盖导致 JIT 新建 user 与断言不符）；`FirebaseConfig` 加 `@Value` + `setProjectId()` + `application-prod.yml` 默认 `${GOOGLE_CLOUD_PROJECT:dmv-motor-prod}`（Cloud Run ADC `ComputeEngineCredentials` 不带 projectId 且 `GOOGLE_CLOUD_PROJECT` env 不自动注入）。Smoke test 用真实 Firebase ID token 调 `/api/v1/me` 双调 200 + 同 user_id（id=1，幂等 ✅，email/uid 从 token 解码正确）。141 tests 全绿。
 - [x] Cloud SQL 已重新暂停（activation-policy=NEVER）省钱中
+- [x] **AI explain Phase A**（2026-05-08，commit cb33a1f）：V12 migration + `/api/v1/ai/explain` 端点 + `AiExplanationService`（cache 命中早返回 / 免费用户付费题 404 防 ID 枚举 / 思考时间 cooldown / 每日 50 cap）+ `StubAiExplanationProvider`（默认 dev/test 用）+ 15 IT；188 unit + 7 IT 全绿
+- [x] **AI explain Phase B1**（2026-05-08 → 2026-05-11，commits 0bd0a37 + f4954ba + 3ea2f6e）：DeepSeek key 进 Secret Manager + Cloud Run env；`DeepSeekAiExplanationProvider`（双语 system prompt / RestClient + 30s timeout / 隐私契约严格不传 user_id / 失败统一 503 AI_PROVIDER_ERROR）+ 11 MockWebServer 测；`terraform apply` 推 `APP_AI_PROVIDER=deepseek` 到 prod；新 revision `dmv-motor-api-00018-2f2`；smoke test prod + 本地双绿（DeepSeek 真返 explanation + cache 命中 cached:true + cross-language 触发 180s cooldown 429）。**注意：仅后端，前端没有 AI 按钮**
 
 **已完成（前端 MVP 第一波）：**
 - [x] **Next.js 16 脚手架**（2026-04-26+，5 个 commit：ad83c2a → 597f060）：App Router + `[lang]/(marketing)/(app)` 分组、shadcn/ui、Tailwind、TanStack Query、`auth-context.tsx`（Firebase Web SDK + `getIdToken()` 注入）、`api-client.ts`（自动带 `Bearer <token>` + ApiError 解构 snake_case error envelope）、`messages/{en,zh}.json` i18n。⚠️ **Next.js 16 与训练数据有差异**：写代码前查阅 `node_modules/next/dist/docs/`（见 `apps/web/AGENTS.md`）
 - [x] **Practice / Mistakes / Review / Mock 流程接通后端**（commits 40c903d / 619dc4a / 8397ed5 / 597f060）：登录 → 选 topic → 答题 → 看错题 → 走复习包 → 模考全链路可用；语言切换实时生效
 - [x] **Lint/Build 基线**（2026-04-28，commit 7ee5606）：React 19 `react-hooks/set-state-in-effect` 规则下，effect 内部 setState 改用「render 期间用 tracked key 比较 + 一次性 setState」官方推荐 pattern；141 后端 tests + `npm run lint` + `npm run build`（19 静态页 + 2 动态路由）全绿
 
-**进行中 / 待做：**
-- [ ] **Summary / Readiness 详情页**（前端缺）：后端 `/api/v1/summary` `/api/v1/readiness` 已就绪，dashboard 只用了 `use-summary` 简单卡片，需要独立详情页（免费/付费分层 + readiness gates 可视化）
-- [ ] 端到端 dev server 走查（真实 Firebase 登录 → 5 个核心流程）
-- [ ] `mvnw` wrapper（目前用本地 mvn）
-- [ ] AI / Reminder / Memory export 增强模块
-- [ ] Confusion point mastery 闸门（等 schema 扩展，`TODO(FUTURE_CONFUSION_SCHEMA)`）
+**Spec 要求但未实现（2026-05-11 spec-compliance-reviewer 审计，按 severity）：**
 
-**下一阶段：** Summary / Readiness 详情页 → 端到端验收 → 用户验收测试
+| Severity | 项 | Spec 章节 | 状态 |
+|---|---|---|---|
+| HIGH | `reminder/` 模块 | `features.md §2` + `reminder-and-readiness.md` 明文 MVP 必备 | `apps/api/.../reminder/` 是**空目录**，0 java 文件 |
+| HIGH | `memoryexport/` 模块 | `features.md §2` 列为 MVP 支撑功能 | `apps/api/.../memoryexport/` 是**空目录** |
+| HIGH | AI 推荐 endpoint | `mvp.md §5 功能 10` 明文："根据答题历史推荐下一轮强化题 / 复习方向" | 只做了 `/ai/explain`（错因解释），**不是**推荐 |
+| HIGH | MasteryEvaluator wire-up | `parameters.md §6` 明文 mastery 驱动 MistakeRecord 失活 | 组件写了但**没接到失活路径，孤儿代码** |
+| HIGH | 个性化挑题 | `review-and-readiness-engine.md` 明文"按用户薄弱点投放" | `PracticeSessionRepository.findNextUnansweredQuestion` 用 `ORDER BY q.ID asc`，**零个性化** |
+| MED | mastery 第 3 闸门 | `parameters.md §6` 第 3 条 | TODO，等 schema 扩展 |
+| MED | `/api/v1/access` endpoint 路径 | `api-contract.md §12` 写 `/access` | 实际是 `/me/access`，**路径不一致** |
+| LOW | `/summary` `pace` 字段 | `parameters.md §9 pace_formula` | 缺字段 |
+| LOW | `next_action` 具体推荐文案 | `reminder-and-readiness.md §13` | 只有 type，缺 topic 推荐 |
+
+**用户钉定 MUST-DO 优先级（2026-05-11，与 audit ROI 略有不同）：**
+
+1. **本节即此**：CLAUDE.md §10 显式列"未实现"——0 代码，防误判（audit #1）
+2. **个性化挑题**——改 `PracticeService.findNextUnansweredQuestion` 加权（错题 topic + 未覆盖 key topic）
+3. **MasteryEvaluator wire-up**——已有组件接到 MistakeRecord 失活路径，和 #2 协同
+4. **AI button (Phase C)**——前端 PracticeFlow.tsx 加"为啥错"按钮调 `/ai/explain`；**用户钉定 MVP 不可省**，即使 audit ROI 排到 #5
+5. **Reminder 模块最小实现**——`reminder_tasks` 表 + cron 生成 + `GET /api/v1/reminders` list（站内）
+
+**SHOULD-DO（spec 要求但 LOW，下次或顺手）：**
+- `/summary` 加 `pace` 字段 + `next_action` 具体文案
+- mastery 第 3 闸门（等 schema）
+- AI 推荐端点（mvp.md §5 功能 10，可与 Phase C 一起或独立 phase）
+
+**NOT-DO（用户曾期望但 spec 没要求 → 用户脑补）：**
+- `/study` 页面（`mvp.md §6` 没列）
+- 显式 "study plan" 实体（spec 用 pace + next_action + review pack 替代）
+
+**已知小缺口（low priority）：**
+- [ ] `mvnw` wrapper（目前用本地 mvn）
+- [ ] `memoryexport/` 模块（spec 列了但 MVP 价值低，暂搁置）
+
+**下一阶段：** MUST-DO 1-5 按顺序做（本会话或下一会话）；SHOULD-DO 等 MUST 跑完再排
 
 **未解决的决策点：** 无
 
