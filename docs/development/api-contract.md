@@ -571,8 +571,10 @@ MVP 阶段如果列表很短，也允许某些接口先不分页，
       "review_task_id": "rt_xxx",
       "type": "same_topic_retry",
       "topic_id": "topic_xxx",
-      "priority": 90,
-      "status": "in_progress"
+      "priority": "high",
+      "status": "in_progress",
+      "target_question_count": 5,
+      "completed_question_count": 2
     }
   ]
 }

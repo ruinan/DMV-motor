@@ -114,10 +114,28 @@ public class ReviewController {
                 "topic_id",                 String.valueOf(t.topicId()),
                 "type",                     t.type(),
                 "status",                   t.status(),
-                "priority",                 t.priority(),
+                "priority",                 priorityTier(t.priority()),
                 "target_question_count",    t.targetQuestionCount(),
                 "completed_question_count", t.completedQuestionCount()
         );
+    }
+
+    /**
+     * Maps the raw priority count (sum of {@code wrong_count} across a topic's
+     * active mistakes) to a display tier the frontend already speaks. Keeping
+     * the count in the domain / DB lossless, the tier is computed at the API
+     * boundary so {@code ReviewPackView.tsx} can branch on string literals
+     * without re-deriving thresholds client-side.
+     *
+     * <p>Thresholds match the practical range of {@code wrongByTopic.merge(...)}
+     * over the seeded question bank: ≥3 wrong answers in one topic feels
+     * urgent ("high"), 1–2 deserves attention ("medium"), 0 is defensive
+     * (active mistakes always carry {@code wrong_count >= 1}).
+     */
+    static String priorityTier(int rawPriority) {
+        if (rawPriority >= 3) return "high";
+        if (rawPriority >= 1) return "medium";
+        return "low";
     }
 
     private Map<String, Object> toQuestionDto(QuestionDetail q) {

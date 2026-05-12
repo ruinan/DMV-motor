@@ -82,8 +82,31 @@ class ReviewControllerTest extends IntegrationTestBase {
                 .andExpect(jsonPath("$.data.tasks[0].type").value("same_topic_retry"))
                 .andExpect(jsonPath("$.data.tasks[0].topic_id").value(String.valueOf(topicId)))
                 .andExpect(jsonPath("$.data.tasks[0].status").value("pending"))
+                .andExpect(jsonPath("$.data.tasks[0].priority").value("medium"))
                 .andExpect(jsonPath("$.data.tasks[0].target_question_count").value(1))
                 .andExpect(jsonPath("$.data.tasks[0].completed_question_count").value(0));
+    }
+
+    @Test
+    void getReviewPack_topicWithThreeOrMoreWrong_priorityHigh() throws Exception {
+        // sum(wrong_count) across topic >= 3 ⇒ high tier
+        fixtures.insertMistakeRecord(userId, questionId1, topicId, 4, "practice");
+
+        mockMvc.perform(get("/api/v1/review/pack")
+                        .header("Authorization", "Bearer " + userId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.tasks[0].priority").value("high"));
+    }
+
+    @Test
+    void getReviewPack_topicWithOneWrong_priorityMedium() throws Exception {
+        // 1-2 wrong ⇒ medium tier
+        fixtures.insertMistakeRecord(userId, questionId1, topicId, 1, "practice");
+
+        mockMvc.perform(get("/api/v1/review/pack")
+                        .header("Authorization", "Bearer " + userId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.tasks[0].priority").value("medium"));
     }
 
     @Test

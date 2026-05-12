@@ -7,7 +7,9 @@ export type ReviewTaskSummary = {
   topic_id: string;
   type: "key_topic" | "persistent" | "mixed" | string;
   status: "pending" | "in_progress" | "completed" | string;
-  priority: "high" | "medium" | "low" | string;
+  // Backend (ReviewController.priorityTier) collapses the raw count to one
+  // of three display tiers, so the union is exact — no `| string` fallback.
+  priority: "high" | "medium" | "low";
   target_question_count: number;
   completed_question_count: number;
 };
