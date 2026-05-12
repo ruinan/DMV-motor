@@ -15,7 +15,6 @@ type Tab = {
   href: string;
   label: string;
   icon: LucideIcon;
-  activePaths: string[];
 };
 
 type Props = {
@@ -29,35 +28,10 @@ export function MobileTabBar({ t, lang }: Props) {
   // Mirror the 4-item desktop sidebar exactly so the IA stays consistent
   // across breakpoints.
   const tabs: Tab[] = [
-    {
-      href: `/${lang}/dashboard`,
-      label: t.nav.study,
-      icon: BookOpen,
-      activePaths: [
-        `/${lang}/dashboard`,
-        `/${lang}/review`,
-        `/${lang}/mistakes`,
-        `/${lang}/progress`,
-      ],
-    },
-    {
-      href: `/${lang}/practice`,
-      label: t.nav.practice,
-      icon: ClipboardList,
-      activePaths: [`/${lang}/practice`],
-    },
-    {
-      href: `/${lang}/mock`,
-      label: t.nav.exam,
-      icon: Timer,
-      activePaths: [`/${lang}/mock`],
-    },
-    {
-      href: `/${lang}/me`,
-      label: t.nav.settings,
-      icon: Settings,
-      activePaths: [`/${lang}/me`],
-    },
+    { href: `/${lang}/dashboard`, label: t.nav.study, icon: BookOpen },
+    { href: `/${lang}/practice`, label: t.nav.practice, icon: ClipboardList },
+    { href: `/${lang}/mock`, label: t.nav.exam, icon: Timer },
+    { href: `/${lang}/me`, label: t.nav.settings, icon: Settings },
   ];
 
   return (
@@ -66,8 +40,8 @@ export function MobileTabBar({ t, lang }: Props) {
       aria-label="Primary"
     >
       <div className="flex items-center justify-around">
-        {tabs.map(({ href, label, icon: Icon, activePaths }) => {
-          const active = activePaths.some((path) => isActivePath(pathname, path));
+        {tabs.map(({ href, label, icon: Icon }) => {
+          const active = pathname === href || pathname.startsWith(`${href}/`);
           return (
             <Link
               key={href}
@@ -86,8 +60,4 @@ export function MobileTabBar({ t, lang }: Props) {
       </div>
     </nav>
   );
-}
-
-function isActivePath(pathname: string, basePath: string): boolean {
-  return pathname === basePath || pathname.startsWith(`${basePath}/`);
 }
