@@ -65,7 +65,7 @@ public class PracticeService {
         Long sessionId = sessionRepo.create(userId, entryType, language, cycle);
 
         QuestionDetail first = sessionRepo
-                .findNextUnansweredQuestion(sessionId, language, entryType)
+                .findNextUnansweredQuestion(sessionId, language, entryType, userId, cycle)
                 .orElseThrow(() -> new BusinessException("NO_QUESTIONS_AVAILABLE",
                         "No questions available", HttpStatus.UNPROCESSABLE_ENTITY));
 
@@ -74,9 +74,18 @@ public class PracticeService {
 
     public QuestionDetail getNextQuestion(Long sessionId, Long requestUserId) {
         PracticeSession session = requireSession(sessionId, requestUserId);
+        // The session was created in a specific learning cycle; even if the
+        // user's reset_count has since incremented, personalization stays
+        // anchored to the session's original cycle so a mid-session reset
+        // does not silently rewire the question stream.
+        int cycle = 0;
+        if (session.userId() != null) {
+            cycle = userRepo.findById(session.userId()).map(u -> u.resetCount()).orElse(0);
+        }
 
         return sessionRepo.findNextUnansweredQuestion(
-                        sessionId, session.languageCode(), session.entryType())
+                        sessionId, session.languageCode(), session.entryType(),
+                        session.userId(), cycle)
                 .orElseThrow(() -> new BusinessException("SESSION_COMPLETED",
                         "No more questions in this session",
                         HttpStatus.NOT_FOUND));
