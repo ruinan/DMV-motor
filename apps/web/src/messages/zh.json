@@ -342,6 +342,13 @@
     "reviewHistoryYourPick": "你的作答",
     "reviewHistoryCorrect": "正确答案",
     "reviewHistoryBack": "返回练习",
-    "reviewHistoryFromCompleted": "查看作答记录"
+    "reviewHistoryFromCompleted": "查看作答记录",
+    "aiExplainButton": "为什么我错了？",
+    "aiExplainLoading": "AI 正在分析…",
+    "aiExplainHeading": "AI 解析",
+    "aiExplainCached": "（已缓存）",
+    "aiExplainAuthRequired": "登录后即可使用 AI 解析。",
+    "aiExplainCooldown": "AI 正在冷却中，请稍后再试。",
+    "aiExplainError": "无法生成 AI 解析，请稍后重试。"
   }
 }

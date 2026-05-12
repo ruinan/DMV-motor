@@ -342,6 +342,13 @@
     "reviewHistoryYourPick": "Your answer",
     "reviewHistoryCorrect": "Correct answer",
     "reviewHistoryBack": "Back to practice",
-    "reviewHistoryFromCompleted": "Review answers"
+    "reviewHistoryFromCompleted": "Review answers",
+    "aiExplainButton": "Why was I wrong?",
+    "aiExplainLoading": "Asking AI…",
+    "aiExplainHeading": "AI explanation",
+    "aiExplainCached": "(cached)",
+    "aiExplainAuthRequired": "Sign in to use AI explanations.",
+    "aiExplainCooldown": "AI is cooling down. Try again in a moment.",
+    "aiExplainError": "Couldn't generate an AI explanation. Try again later."
   }
 }
