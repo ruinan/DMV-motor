@@ -28,6 +28,8 @@
      sidebar) layer with visible separation. */
   --background: #f8f9ff;
   --foreground: #1e293b;
+  --font-sans: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-mono: "Cascadia Code", "Segoe UI Mono", Consolas, monospace;
   --card: #ffffff;
   --card-foreground: #1e293b;
   --popover: #ffffff;
