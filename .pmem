@@ -35,7 +35,7 @@ doc_authority=development/api-contract.md>api.md|runtime-parameters.md>parameter
 
 workflow.mode=implementation
 workflow.current_doc=none
-workflow.current_topic=doc-consistency-fixes-complete
+workflow.current_topic=study-hub-ui-loop-closed
 workflow.active=study_hub_v1_ui_first
 workflow.active_reason=user_wants_frontend_loop_visible_before_backend_schema_expansion
 decision.study_hub.ui_first=true
@@ -46,7 +46,9 @@ decision.study_hub.history_policy=latest_10_detailed_then_aggregate_stats
 decision.study_hub.backend_after_ui=true
 decision.study_hub.notion_entry=Study Hub v1 — UI-first closure check
 implementation.study_hub_v1.commit=867d687
-implementation.study_hub_v1.status=frontend_ui_committed|lint_green|build_green
+implementation.study_hub_v1.status=frontend_ui_committed|practice_loops_closed|lint_green|build_green
+implementation.study_hub_ui_closure.commit=8e393a2
+implementation.study_hub_ui_closure.status=study_shortcuts_added|progress_review_next_action_to_practice|mistakes_to_practice_cta|mock_result_weak_spot_cta|practice_mock_invalidate_study_queries|review_routes_redirect_to_practice
 implementation.study_hub_v1.remaining_backend=active_practice_detail_resume|practice_history_latest10_plus_aggregate|mock_history_latest10_plus_aggregate|knowledge_coverage_endpoint|smart_practice_selection_absorbs_review
 
 decision.tech_arch.system_shape=modular_monolith
