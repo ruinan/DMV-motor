@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Inter, JetBrains_Mono } from "next/font/google";
+import localFont from "next/font/local";
 import { notFound } from "next/navigation";
 import { getDictionary, hasLocale, locales } from "@/lib/dictionaries";
 import { AuthProvider } from "@/lib/auth-context";
@@ -7,14 +7,23 @@ import { QueryProvider } from "@/lib/query-provider";
 import { SessionExpiredToast } from "@/components/session-expired-toast";
 import "../globals.css";
 
-const inter = Inter({
+// Self-hosted variable fonts (OFL). The .woff2 originals come from
+// @fontsource-variable/{inter,jetbrains-mono} — vendored into the repo so
+// `next build` never reaches out to fonts.gstatic.com. Drops a latent build-
+// time dependency on Google Fonts availability without giving up the CSS
+// variable wiring that next/font provides.
+const inter = localFont({
+  src: "../fonts/Inter-Variable.woff2",
   variable: "--font-sans",
-  subsets: ["latin"],
+  display: "swap",
+  weight: "100 900",
 });
 
-const mono = JetBrains_Mono({
+const mono = localFont({
+  src: "../fonts/JetBrainsMono-Variable.woff2",
   variable: "--font-mono",
-  subsets: ["latin"],
+  display: "swap",
+  weight: "100 800",
 });
 
 export const metadata: Metadata = {
