@@ -1,10 +1,12 @@
-import { notFound, redirect } from "next/navigation";
-import { hasLocale } from "@/lib/dictionaries";
+import { notFound } from "next/navigation";
+import { getDictionary, hasLocale } from "@/lib/dictionaries";
+import { ReviewTaskRunner } from "./ReviewTaskRunner";
 
 export default async function ReviewTaskPage({
   params,
 }: PageProps<"/[lang]/review/[taskId]">) {
-  const { lang } = await params;
+  const { lang, taskId } = await params;
   if (!hasLocale(lang)) notFound();
-  redirect(`/${lang}/practice`);
+  const t = await getDictionary(lang);
+  return <ReviewTaskRunner t={t.review} lang={lang} taskId={taskId} />;
 }

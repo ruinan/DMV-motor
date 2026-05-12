@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useState } from "react";
 import { Bookmark, ArrowRight, ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -136,13 +135,7 @@ function MistakeRow({
           {wrongLabel} · {t.lastWrong}: {lastWrong}
         </p>
       </div>
-      <Link
-        href={`/${lang}/practice`}
-        className="inline-flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-md border border-border bg-background px-3 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-      >
-        {t.practiceWeakSpot}
-        <ArrowRight className="size-3.5" aria-hidden />
-      </Link>
+      <ArrowRight className="size-4 shrink-0 text-muted-foreground" aria-hidden />
     </li>
   );
 }

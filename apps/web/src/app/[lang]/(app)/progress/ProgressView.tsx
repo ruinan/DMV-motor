@@ -301,7 +301,7 @@ function NextActionPanel({
   const { href, button } = (() => {
     switch (action.type) {
       case "review":
-        return { href: `/${lang}/practice`, button: t.progress.ctaReview };
+        return { href: `/${lang}/review`, button: t.progress.ctaReview };
       case "mock_exam":
         return { href: `/${lang}/mock`, button: t.progress.ctaMock };
       case "practice":

@@ -86,16 +86,6 @@ export function MockExam({ t, lang, attemptId }: Props) {
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const savedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  function invalidateStudyLoop() {
-    queryClient.invalidateQueries({ queryKey: ["mock-access"] });
-    queryClient.invalidateQueries({ queryKey: ["me"] });
-    queryClient.invalidateQueries({ queryKey: ["summary"] });
-    queryClient.invalidateQueries({ queryKey: ["readiness"] });
-    queryClient.invalidateQueries({ queryKey: ["review-pack"] });
-    queryClient.invalidateQueries({ queryKey: ["mistakes"] });
-    queryClient.invalidateQueries({ queryKey: ["mistakes-count"] });
-  }
-
   useEffect(() => {
     return () => {
       if (savedTimer.current) clearTimeout(savedTimer.current);
@@ -129,7 +119,6 @@ export function MockExam({ t, lang, attemptId }: Props) {
         topicMap={topicMap}
         onTryAgain={() => router.push(`/${lang}/mock`)}
         onBack={() => router.push(`/${lang}/dashboard`)}
-        onPracticeWeakSpots={() => router.push(`/${lang}/practice`)}
       />
     );
   }
@@ -183,8 +172,11 @@ export function MockExam({ t, lang, attemptId }: Props) {
         { method: "POST" },
       );
       window.sessionStorage.removeItem(STORAGE_PREFIX + attemptId);
-      // Mock outcome shifts mistakes, readiness, and Study Hub signals.
-      invalidateStudyLoop();
+      // Mock outcome shifts mistakes / readiness — invalidate so other pages refetch
+      queryClient.invalidateQueries({ queryKey: ["mock-access"] });
+      queryClient.invalidateQueries({ queryKey: ["mistakes"] });
+      queryClient.invalidateQueries({ queryKey: ["mistakes-count"] });
+      queryClient.invalidateQueries({ queryKey: ["summary"] });
       setResult(res);
     } catch (err) {
       setErrorMsg(err instanceof ApiError ? err.message : t.errorGeneric);
@@ -202,7 +194,7 @@ export function MockExam({ t, lang, attemptId }: Props) {
         method: "POST",
       });
       window.sessionStorage.removeItem(STORAGE_PREFIX + attemptId);
-      invalidateStudyLoop();
+      queryClient.invalidateQueries({ queryKey: ["mock-access"] });
       router.push(`/${lang}/mock`);
     } catch (err) {
       setErrorMsg(err instanceof ApiError ? err.message : t.errorGeneric);
@@ -342,7 +334,6 @@ function ResultView({
   topicMap,
   onTryAgain,
   onBack,
-  onPracticeWeakSpots,
 }: {
   t: Dictionary["mock"];
   lang: Locale;
@@ -350,7 +341,6 @@ function ResultView({
   topicMap: Map<string, string>;
   onTryAgain: () => void;
   onBack: () => void;
-  onPracticeWeakSpots: () => void;
 }) {
   const passed = result.score_percent >= PASS_THRESHOLD;
   void lang; // reserved for future locale-aware formatting
@@ -422,11 +412,6 @@ function ResultView({
         <Button variant="outline" onClick={onBack}>
           {t.backToDashboard}
         </Button>
-        {result.weak_topics.length > 0 && (
-          <Button variant="outline" onClick={onPracticeWeakSpots}>
-            {t.practiceWeakSpots}
-          </Button>
-        )}
         <Button onClick={onTryAgain}>{t.tryAgain}</Button>
       </div>
     </div>

@@ -71,8 +71,6 @@ export function Dashboard({ t, lang }: Props) {
         lang={lang}
       />
 
-      <StudyShortcuts t={t} lang={lang} />
-
       <section className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         <LatestPracticePanel t={t} lang={lang} me={me} />
         <NextActionPanel
@@ -109,84 +107,6 @@ function Header({ t }: { t: Dictionary }) {
         {t.dashboard.studyHubSubtitle}
       </p>
     </header>
-  );
-}
-
-function StudyShortcuts({ t, lang }: { t: Dictionary; lang: Locale }) {
-  const items = [
-    {
-      href: `/${lang}/practice`,
-      icon: Target,
-      title: t.dashboard.shortcutPractice,
-      body: t.dashboard.shortcutPracticeBody,
-    },
-    {
-      href: `/${lang}/mock`,
-      icon: Timer,
-      title: t.dashboard.shortcutMock,
-      body: t.dashboard.shortcutMockBody,
-    },
-    {
-      href: `/${lang}/mistakes`,
-      icon: BookOpenCheck,
-      title: t.dashboard.shortcutMistakes,
-      body: t.dashboard.shortcutMistakesBody,
-    },
-    {
-      href: `/${lang}/progress`,
-      icon: History,
-      title: t.dashboard.shortcutProgress,
-      body: t.dashboard.shortcutProgressBody,
-    },
-  ];
-
-  return (
-    <section className="flex flex-col gap-3">
-      <div className="flex flex-col gap-1">
-        <h2 className="text-base font-semibold text-foreground">
-          {t.dashboard.studyShortcutsTitle}
-        </h2>
-        <p className="text-sm text-muted-foreground">
-          {t.dashboard.studyShortcutsSubtitle}
-        </p>
-      </div>
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        {items.map((item) => (
-          <ShortcutLink key={item.href} {...item} />
-        ))}
-      </div>
-    </section>
-  );
-}
-
-function ShortcutLink({
-  href,
-  icon: Icon,
-  title,
-  body,
-}: {
-  href: string;
-  icon: LucideIcon;
-  title: string;
-  body: string;
-}) {
-  return (
-    <Link
-      href={href}
-      className="group flex min-h-24 items-start gap-3 rounded-md border border-border bg-background p-3 transition-colors hover:bg-muted/70"
-    >
-      <span className="flex size-9 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
-        <Icon className="size-4" />
-      </span>
-      <span className="min-w-0">
-        <span className="block text-sm font-semibold text-foreground">
-          {title}
-        </span>
-        <span className="mt-1 block text-xs leading-5 text-muted-foreground">
-          {body}
-        </span>
-      </span>
-    </Link>
   );
 }
 

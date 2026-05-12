@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, CheckCircle2, History, Sparkles, XCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { apiFetch, ApiError } from "@/lib/api-client";
@@ -72,7 +71,6 @@ type Props = {
 };
 
 export function PracticeFlow({ t, lang }: Props) {
-  const queryClient = useQueryClient();
   const me = useMe();
   const ai = useAiExplain();
   const [phase, setPhase] = useState<Phase>({ kind: "idle" });
@@ -92,15 +90,6 @@ export function PracticeFlow({ t, lang }: Props) {
   const isLoggedIn = !!me.data;
   const hasPass = me.data?.access.has_active_pass ?? false;
   const entryType: "free_trial" | "full" = hasPass ? "full" : "free_trial";
-
-  function invalidateStudyLoop() {
-    queryClient.invalidateQueries({ queryKey: ["me"] });
-    queryClient.invalidateQueries({ queryKey: ["summary"] });
-    queryClient.invalidateQueries({ queryKey: ["readiness"] });
-    queryClient.invalidateQueries({ queryKey: ["review-pack"] });
-    queryClient.invalidateQueries({ queryKey: ["mistakes"] });
-    queryClient.invalidateQueries({ queryKey: ["mistakes-count"] });
-  }
 
   // -------------------------------------------------------------------------
   // Actions
@@ -148,7 +137,6 @@ export function PracticeFlow({ t, lang }: Props) {
           }),
         },
       );
-      invalidateStudyLoop();
       setPhase({
         kind: "feedback",
         sessionId: phase.sessionId,
@@ -202,7 +190,6 @@ export function PracticeFlow({ t, lang }: Props) {
     } catch {
       // Even if complete fails, the user has effectively ended the session.
     }
-    invalidateStudyLoop();
     setPhase({ kind: "completed", sessionId, reason });
   }
 
