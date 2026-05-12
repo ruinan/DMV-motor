@@ -510,6 +510,118 @@ class ReviewControllerTest extends IntegrationTestBase {
     }
 
     // ---------------------------------------------------------------
+    // T1.3: Topic-level mastery deactivates ALL active mistakes, not just
+    // questions answered in the current task. Pre-T1.3, only correctly-answered
+    // questions in the task were deactivated — so accumulated mistakes that
+    // happened to be skipped (or in earlier packs) leaked across cycles.
+    // Per docs/parameters.md §6, mastery is a topic-level signal: once both
+    // gates pass, every active mistake for (userId, topicId, cycle) clears.
+    // ---------------------------------------------------------------
+
+    @Test
+    void completeTask_topicMasteryReached_deactivatesMistakes() throws Exception {
+        // Three mistakes in the same topic. User answers only one correctly in this
+        // review task, but has built up enough independent practice history for the
+        // topic to qualify as mastered. All three mistakes — including the two not
+        // answered in this task — must deactivate together.
+        Long q2 = fixtures.insertQuestion(topicId, "A");
+        Long q3 = fixtures.insertQuestion(topicId, "A");
+        fixtures.insertVariantReturningId(q2, "en", "Q2?",
+                "[{\"key\":\"A\",\"text\":\"x\"},{\"key\":\"B\",\"text\":\"y\"}]", null);
+        fixtures.insertVariantReturningId(q3, "en", "Q3?",
+                "[{\"key\":\"A\",\"text\":\"x\"},{\"key\":\"B\",\"text\":\"y\"}]", null);
+        fixtures.insertMistakeRecord(userId, questionId1, topicId, 1, "practice");
+        fixtures.insertMistakeRecord(userId, q2,         topicId, 1, "practice");
+        fixtures.insertMistakeRecord(userId, q3,         topicId, 1, "practice");
+        seedPracticeHistory(topicId, /* correct */ 9, /* incorrect */ 1);
+
+        String taskId = getTaskId();
+
+        // Answer ONLY questionId1 correctly; leave q2/q3 unanswered.
+        mockMvc.perform(post("/api/v1/review/tasks/{id}/answers", taskId)
+                        .header("Authorization", "Bearer " + userId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"question_id":"%s","variant_id":"%s","selected_choice_key":"B"}
+                                """.formatted(questionId1, variantId1)));
+
+        mockMvc.perform(post("/api/v1/review/tasks/{id}/complete", taskId)
+                        .header("Authorization", "Bearer " + userId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.completed").value(true));
+
+        // All three mistakes for the topic should now be inactive — including q2 and q3
+        // which were never answered in this task. Topic mastery clears the whole topic.
+        mockMvc.perform(get("/api/v1/mistakes")
+                        .header("Authorization", "Bearer " + userId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.items", hasSize(0)));
+        mockMvc.perform(get("/api/v1/review/pack")
+                        .header("Authorization", "Bearer " + userId))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.error.code").value("NO_MISTAKES_TO_REVIEW"));
+    }
+
+    @Test
+    void completeTask_topicUnderThreshold_keepsMistakesActive() throws Exception {
+        // 10 attempts, 7 correct (70%) < 80% threshold → not mastered. With multiple
+        // mistakes in the topic, none should clear — including the question the user
+        // just answered correctly in this task. The narrow per-question deactivation
+        // that existed pre-T1.3 would incorrectly clear questionId1 here.
+        Long q2 = fixtures.insertQuestion(topicId, "A");
+        fixtures.insertVariantReturningId(q2, "en", "Q2?",
+                "[{\"key\":\"A\",\"text\":\"x\"},{\"key\":\"B\",\"text\":\"y\"}]", null);
+        fixtures.insertMistakeRecord(userId, questionId1, topicId, 1, "practice");
+        fixtures.insertMistakeRecord(userId, q2,         topicId, 1, "practice");
+        seedPracticeHistory(topicId, /* correct */ 7, /* incorrect */ 3);
+
+        String taskId = getTaskId();
+        mockMvc.perform(post("/api/v1/review/tasks/{id}/answers", taskId)
+                        .header("Authorization", "Bearer " + userId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"question_id":"%s","variant_id":"%s","selected_choice_key":"B"}
+                                """.formatted(questionId1, variantId1)));
+        mockMvc.perform(post("/api/v1/review/tasks/{id}/complete", taskId)
+                        .header("Authorization", "Bearer " + userId))
+                .andExpect(status().isOk());
+
+        // Both mistakes still active — mastery gate not passed.
+        mockMvc.perform(get("/api/v1/mistakes")
+                        .header("Authorization", "Bearer " + userId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.items", hasSize(2)));
+    }
+
+    @Test
+    void completeTask_insufficientHistory_keepsMistakesActive() throws Exception {
+        // < recent-window (8) attempts in topic → mastery insufficient even at 100%.
+        // Multiple mistakes confirm none auto-clear without sufficient evidence.
+        Long q2 = fixtures.insertQuestion(topicId, "A");
+        fixtures.insertVariantReturningId(q2, "en", "Q2?",
+                "[{\"key\":\"A\",\"text\":\"x\"},{\"key\":\"B\",\"text\":\"y\"}]", null);
+        fixtures.insertMistakeRecord(userId, questionId1, topicId, 1, "practice");
+        fixtures.insertMistakeRecord(userId, q2,         topicId, 1, "practice");
+        seedPracticeHistory(topicId, /* correct */ 5, /* incorrect */ 0);
+
+        String taskId = getTaskId();
+        mockMvc.perform(post("/api/v1/review/tasks/{id}/answers", taskId)
+                        .header("Authorization", "Bearer " + userId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"question_id":"%s","variant_id":"%s","selected_choice_key":"B"}
+                                """.formatted(questionId1, variantId1)));
+        mockMvc.perform(post("/api/v1/review/tasks/{id}/complete", taskId)
+                        .header("Authorization", "Bearer " + userId))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(get("/api/v1/mistakes")
+                        .header("Authorization", "Bearer " + userId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.items", hasSize(2)));
+    }
+
+    // ---------------------------------------------------------------
     // Helpers
     // ---------------------------------------------------------------
 

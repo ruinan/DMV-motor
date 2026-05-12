@@ -171,8 +171,11 @@ public class ReviewService {
         // Mastery evaluation per docs/parameters.md mastery_threshold:
         //   (1) topic correctness ≥ threshold percent over the current learning cycle
         //   (2) last N topic attempts have ≥ K correct
-        // All questions in a review task share a topic (tasks are grouped by topic
-        // in getOrCreatePack), so a single evaluation governs all correct answers.
+        // Mastery is a TOPIC-LEVEL signal: once both gates pass, every active
+        // mistake in (userId, topicId, cycle) clears — including mistakes that
+        // weren't answered in this specific task. The earlier per-question
+        // deactivation left accumulated mistakes leaking across cycles whenever
+        // a pack happened to exclude them.
         //
         // TODO(FUTURE_CONFUSION_SCHEMA): add the design doc's third gate
         // ("不连续错在同一混淆点") once questions gain a confusion_tag /
@@ -182,10 +185,7 @@ public class ReviewService {
         var recent = historyRepo.lastNAttemptsForTopic(userId, task.topicId(), cycle,
                 masteryEvaluator.recentWindow());
         if (masteryEvaluator.isMastered(stats, recent)) {
-            List<Long> correctQIds = reviewRepo.findCorrectlyAnsweredQuestionIds(taskId);
-            for (Long qId : correctQIds) {
-                mistakeListRepo.setActive(userId, qId, false, cycle);
-            }
+            mistakeListRepo.deactivateForTopic(userId, task.topicId(), cycle);
         }
 
         reviewRepo.updateTaskStatus(taskId, "completed");

@@ -56,6 +56,27 @@ public class MistakeListRepository {
                 .execute();
     }
 
+    /**
+     * Bulk-deactivate every active mistake for (user, topic, cycle). Called when
+     * topic-level mastery is reached so the user does not have to "answer every
+     * accumulated mistake question individually" to clear them — mastery is a
+     * topic-level signal per docs/parameters.md §6.
+     *
+     * <p>Idempotent: re-running on an already-cleared topic is a no-op.
+     *
+     * @return number of rows updated (caller may log / assert)
+     */
+    public int deactivateForTopic(Long userId, Long topicId, int learningCycle) {
+        var mr = Tables.MISTAKE_RECORDS;
+        return dsl.update(mr)
+                .set(mr.IS_ACTIVE, false)
+                .where(mr.USER_ID.eq(userId)
+                        .and(mr.PRIMARY_TOPIC_ID.eq(topicId))
+                        .and(mr.LEARNING_CYCLE.eq(learningCycle))
+                        .and(mr.IS_ACTIVE.isTrue()))
+                .execute();
+    }
+
     public int countActiveMistakes(Long userId, Long topicId, int learningCycle) {
         var mr = Tables.MISTAKE_RECORDS;
         Condition condition = mr.USER_ID.eq(userId)
