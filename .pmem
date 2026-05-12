@@ -36,6 +36,15 @@ doc_authority=development/api-contract.md>api.md|runtime-parameters.md>parameter
 workflow.mode=implementation
 workflow.current_doc=none
 workflow.current_topic=doc-consistency-fixes-complete
+workflow.active=study_hub_v1_ui_first
+workflow.active_reason=user_wants_frontend_loop_visible_before_backend_schema_expansion
+decision.study_hub.ui_first=true
+decision.study_hub.review_role=background_strategy_inside_practice_not_standalone_destination
+decision.study_hub.signals=knowledge_coverage|readiness
+decision.study_hub.sections=latest_practice|practice_history_latest_10|mock_history_latest_10
+decision.study_hub.history_policy=latest_10_detailed_then_aggregate_stats
+decision.study_hub.backend_after_ui=true
+decision.study_hub.notion_entry=Study Hub v1 — UI-first closure check
 
 decision.tech_arch.system_shape=modular_monolith
 decision.tech_arch.system_shape_reason=initial_qps_low|prefer_lower_complexity|reserve_module_boundaries_for_future_split
