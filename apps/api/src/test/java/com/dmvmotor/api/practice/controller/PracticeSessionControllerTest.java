@@ -664,6 +664,145 @@ class PracticeSessionControllerTest extends IntegrationTestBase {
     }
 
     // ---------------------------------------------------------------
+    // T1.2 — Personalized question selection
+    // (docs/review-and-readiness-engine.md "按用户薄弱点投放")
+    //
+    // Selection priority (highest first):
+    //   1. Topics the user has an active MistakeRecord in (current cycle)
+    //   2. Key topics (topics.is_key_topic=true) the user has not yet
+    //      covered in the current learning cycle
+    //   3. Everything else
+    // Recency penalty: questions whose topic was the topic of one of the
+    // user's last 2 answers in the session are deprioritized.
+    // ---------------------------------------------------------------
+
+    @Test
+    void nextQuestion_userHasActiveMistakeInTopicA_returnsQuestionFromTopicA() throws Exception {
+        // Setup: two non-key topics with one question each. User has an active
+        // MistakeRecord in topic A. The default ID-asc tiebreaker would return
+        // topic B's question (lower id, inserted earlier in setUp) but the
+        // active-mistake topic must win.
+        fixtures.truncateAll();
+        Long topicA = fixtures.insertTopic("MISTAKE_TOPIC_A");
+        Long topicB = fixtures.insertTopic("PLAIN_TOPIC_B");
+        // Insert topicB's question FIRST so its id is lower than topicA's —
+        // proves the personalization re-ranking beat pure ORDER BY id.
+        Long qB = fixtures.insertQuestion(topicB, "A");
+        fixtures.insertEnVariant(qB, "B-stem", "B-expl");
+        Long qA = fixtures.insertQuestion(topicA, "A");
+        fixtures.insertEnVariant(qA, "A-stem", "A-expl");
+
+        Long uid = fixtures.insertUser("mistake_topicA@example.com");
+        // User has an active mistake in topic A (from a prior, hypothetical
+        // attempt — TestFixtures.insertMistakeRecord defaults learning_cycle=0
+        // which matches a new user's reset_count).
+        fixtures.insertMistakeRecord(uid, qA, topicA, 3, "practice");
+
+        String sessionId = startSessionAsUser(uid, "en");
+
+        // The first next_question is the one the session was created with.
+        // Fetch it explicitly via /next-question for clarity.
+        mockMvc.perform(get("/api/v1/practice/sessions/{id}/next-question", sessionId)
+                        .header("Authorization", "Bearer " + uid))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.question_id").value(qA.toString()));
+    }
+
+    @Test
+    void nextQuestion_noMistakes_userMissingKeyTopicB_returnsQuestionFromTopicB() throws Exception {
+        // Setup: non-key topic A and key topic B. No mistake records. User has
+        // covered topic A (via a prior attempt in another session in the same
+        // learning cycle). Even though qA's id is lower, the missing-key-topic
+        // priority must pull qB to the front.
+        fixtures.truncateAll();
+        Long topicA = fixtures.insertTopic("PLAIN_A", "A", "A", false, 0);
+        Long topicB = fixtures.insertTopic("KEY_B",   "B", "B", true,  0);
+        Long qA = fixtures.insertQuestion(topicA, "A");
+        fixtures.insertEnVariant(qA, "A-stem", "A-expl");
+        Long qB = fixtures.insertQuestion(topicB, "A");
+        fixtures.insertEnVariant(qB, "B-stem", "B-expl");
+
+        Long uid = fixtures.insertUser("missing_keyB@example.com");
+
+        // Simulate: user already answered something from topic A in a prior
+        // completed session in the current learning cycle. Now topic B is
+        // uncovered and topic A is covered.
+        Long priorSession = fixtures.insertPracticeSession(uid, 0);
+        Long vA = fixtures.insertVariantReturningId(qA, "zh", "A-zh", "[]", "expl");
+        fixtures.insertPracticeAttempt(uid, priorSession, qA, vA, "A", true);
+
+        String sessionId = startSessionAsUser(uid, "en");
+
+        mockMvc.perform(get("/api/v1/practice/sessions/{id}/next-question", sessionId)
+                        .header("Authorization", "Bearer " + uid))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.question_id").value(qB.toString()));
+    }
+
+    @Test
+    void nextQuestion_recentAnswerFromTopicA_returnsQuestionFromOtherTopic() throws Exception {
+        // Setup: two non-key topics, multiple questions each. No mistake
+        // records, no prior coverage. After the user answers a question from
+        // topic A in this session, the *next* question should NOT be from
+        // topic A (recency penalty) — even though topic A has the lowest-id
+        // remaining question.
+        fixtures.truncateAll();
+        Long topicA = fixtures.insertTopic("RECENT_A");
+        Long topicB = fixtures.insertTopic("RECENT_B");
+        // Insert all topic-A questions first so they have the lowest ids; pure
+        // ORDER BY id would serve a second topic-A question right after the
+        // first answer.
+        Long qA1 = fixtures.insertQuestion(topicA, "B");
+        Long vA1 = fixtures.insertVariantReturningId(qA1, "en", "A1?",
+                "[{\"key\":\"A\",\"text\":\"a\"},{\"key\":\"B\",\"text\":\"b\"}]", "x");
+        Long qA2 = fixtures.insertQuestion(topicA, "B");
+        fixtures.insertEnVariant(qA2, "A2?", "x");
+        Long qB1 = fixtures.insertQuestion(topicB, "B");
+        fixtures.insertEnVariant(qB1, "B1?", "x");
+
+        String sessionId = startSessionAndGetId("en");
+        // Answer qA1 — the most recent answer's topic is now A.
+        submitAnswer(sessionId, qA1, vA1, "B");
+
+        // The next question must be from topic B (recency penalty pushes the
+        // remaining topic-A question down).
+        mockMvc.perform(get("/api/v1/practice/sessions/{id}/next-question", sessionId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.question_id").value(qB1.toString()));
+    }
+
+    @Test
+    void nextQuestion_freeTrialSession_onlyDrawsFromFreeTrialPool() throws Exception {
+        // Regression: personalization must NOT widen the pool. A user with an
+        // active mistake on a paid-only question in a free_trial session must
+        // still only see free-trial questions, because allow_in_free_trial
+        // restricts the pool BEFORE ranking.
+        fixtures.truncateAll();
+        Long topicA = fixtures.insertTopic("FT_TOPIC_A");
+        Long topicB = fixtures.insertTopic("FT_TOPIC_B");
+
+        // Paid-only question in topic A — eligible for personalization but
+        // must be excluded from a free_trial session's pool.
+        Long qPaid = fixtures.insertPaidOnlyQuestion(topicA, "A");
+        fixtures.insertEnVariant(qPaid, "Paid stem", "x");
+        // Free-trial question in topic B — should be the answer.
+        Long qFree = fixtures.insertQuestion(topicB, "A");
+        fixtures.insertEnVariant(qFree, "Free stem", "x");
+
+        Long uid = fixtures.insertUser("ft_mistake@example.com");
+        // Active mistake on the paid-only question — would win ranking if not
+        // filtered out by the free-trial pool gate.
+        fixtures.insertMistakeRecord(uid, qPaid, topicA, 5, "practice");
+
+        String sessionId = startSessionAsUser(uid, "en");
+
+        mockMvc.perform(get("/api/v1/practice/sessions/{id}/next-question", sessionId)
+                        .header("Authorization", "Bearer " + uid))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.question_id").value(qFree.toString()));
+    }
+
+    // ---------------------------------------------------------------
     // Helpers
     // ---------------------------------------------------------------
 
