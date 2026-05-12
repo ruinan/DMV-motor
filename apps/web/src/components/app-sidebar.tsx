@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import {
   BookOpen,
   ClipboardList,
+  LogOut,
   Timer,
   Settings,
   type LucideIcon,
@@ -17,6 +18,7 @@ type NavItem = {
   href: string;
   label: string;
   icon: LucideIcon;
+  activePaths: string[];
 };
 
 type Props = {
@@ -28,14 +30,39 @@ export function AppSidebar({ t, lang }: Props) {
   const pathname = usePathname();
   const { user, signOut } = useAuth();
 
-  // 4-item IA: Study (data overview), Practice (drills + mistakes + review),
-  // Exam (mock), Settings (account). Sub-pages like /mistakes /review /progress
-  // remain reachable from their parent context, just not in the rail.
+  // 4-item IA: Study (global state + study detail), Practice (drills),
+  // Exam (mock), Settings (account). Secondary study pages stay reachable
+  // from their parent context, just not in the rail.
   const items: NavItem[] = [
-    { href: `/${lang}/dashboard`, label: t.nav.study, icon: BookOpen },
-    { href: `/${lang}/practice`, label: t.nav.practice, icon: ClipboardList },
-    { href: `/${lang}/mock`, label: t.nav.exam, icon: Timer },
-    { href: `/${lang}/me`, label: t.nav.settings, icon: Settings },
+    {
+      href: `/${lang}/dashboard`,
+      label: t.nav.study,
+      icon: BookOpen,
+      activePaths: [
+        `/${lang}/dashboard`,
+        `/${lang}/review`,
+        `/${lang}/mistakes`,
+        `/${lang}/progress`,
+      ],
+    },
+    {
+      href: `/${lang}/practice`,
+      label: t.nav.practice,
+      icon: ClipboardList,
+      activePaths: [`/${lang}/practice`],
+    },
+    {
+      href: `/${lang}/mock`,
+      label: t.nav.exam,
+      icon: Timer,
+      activePaths: [`/${lang}/mock`],
+    },
+    {
+      href: `/${lang}/me`,
+      label: t.nav.settings,
+      icon: Settings,
+      activePaths: [`/${lang}/me`],
+    },
   ];
 
   return (
@@ -51,8 +78,8 @@ export function AppSidebar({ t, lang }: Props) {
       </div>
 
       <nav className="flex flex-1 flex-col gap-1 px-3 pt-2">
-        {items.map(({ href, label, icon: Icon }) => {
-          const active = pathname === href || pathname.startsWith(`${href}/`);
+        {items.map(({ href, label, icon: Icon, activePaths }) => {
+          const active = activePaths.some((path) => isActivePath(pathname, path));
           return (
             <Link
               key={href}
@@ -87,7 +114,7 @@ export function AppSidebar({ t, lang }: Props) {
               title={t.nav.signOut}
               className="rounded-md p-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
             >
-              <LogOutIcon />
+              <LogOut className="size-4" />
             </button>
           </div>
         </div>
@@ -96,21 +123,6 @@ export function AppSidebar({ t, lang }: Props) {
   );
 }
 
-function LogOutIcon() {
-  return (
-    <svg
-      className="size-4"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden
-    >
-      <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
-      <polyline points="16 17 21 12 16 7" />
-      <line x1="21" x2="9" y1="12" y2="12" />
-    </svg>
-  );
+function isActivePath(pathname: string, basePath: string): boolean {
+  return pathname === basePath || pathname.startsWith(`${basePath}/`);
 }
