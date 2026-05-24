@@ -42,6 +42,7 @@ public class TestFixtures {
                     question_related_topics,
                     question_variants,
                     questions,
+                    sub_topics,
                     topics,
                     access_passes,
                     users
@@ -59,19 +60,32 @@ public class TestFixtures {
 
     public Long insertTopic(String code, String nameEn, String nameZh,
                              boolean isKeyTopic, int sortOrder) {
-        return jdbc.queryForObject("""
+        Long topicId = jdbc.queryForObject("""
                 INSERT INTO topics (code, name_en, name_zh, is_key_topic, sort_order)
                 VALUES (?, ?, ?, ?, ?)
                 RETURNING id
                 """, Long.class, code, nameEn, nameZh, isKeyTopic, sortOrder);
+        // Auto-seed one default sub-topic so insertQuestion's sub_topic_id
+        // resolver (added when V15 set the column NOT NULL) always finds a row.
+        // Production data uses the V14 seed; tests build minimal topics ad hoc.
+        jdbc.update("""
+                INSERT INTO sub_topics (parent_topic_id, code, name_en, name_zh, sort_order)
+                VALUES (?, ?, ?, ?, 0)
+                """, topicId, code + "_ST", nameEn + " sub", nameZh + " 子");
+        return topicId;
     }
 
     public Long insertChildTopic(String code, Long parentTopicId) {
-        return jdbc.queryForObject("""
+        Long topicId = jdbc.queryForObject("""
                 INSERT INTO topics (code, name_en, name_zh, is_key_topic, sort_order, parent_topic_id)
                 VALUES (?, ?, ?, false, 0, ?)
                 RETURNING id
                 """, Long.class, code, code + " EN", code + " ZH", parentTopicId);
+        jdbc.update("""
+                INSERT INTO sub_topics (parent_topic_id, code, name_en, name_zh, sort_order)
+                VALUES (?, ?, ?, ?, 0)
+                """, topicId, code + "_ST", code + " EN sub", code + " ZH 子");
+        return topicId;
     }
 
     // ---------------------------------------------------------------
@@ -81,36 +95,40 @@ public class TestFixtures {
     public Long insertKeyCoverageQuestion(Long topicId, String correctChoiceKey) {
         return jdbc.queryForObject("""
                 INSERT INTO questions
-                    (primary_topic_id, correct_choice_key, status, allow_in_free_trial, is_key_coverage)
-                VALUES (?, ?, 'active', true, true)
+                    (primary_topic_id, correct_choice_key, status, allow_in_free_trial, is_key_coverage, sub_topic_id)
+                VALUES (?, ?, 'active', true, true,
+                    (SELECT id FROM sub_topics WHERE parent_topic_id = ? ORDER BY sort_order LIMIT 1))
                 RETURNING id
-                """, Long.class, topicId, correctChoiceKey);
+                """, Long.class, topicId, correctChoiceKey, topicId);
     }
 
     public Long insertQuestion(Long topicId, String correctChoiceKey) {
         return jdbc.queryForObject("""
-                INSERT INTO questions (primary_topic_id, correct_choice_key, status, allow_in_free_trial)
-                VALUES (?, ?, 'active', true)
+                INSERT INTO questions (primary_topic_id, correct_choice_key, status, allow_in_free_trial, sub_topic_id)
+                VALUES (?, ?, 'active', true,
+                    (SELECT id FROM sub_topics WHERE parent_topic_id = ? ORDER BY sort_order LIMIT 1))
                 RETURNING id
-                """, Long.class, topicId, correctChoiceKey);
+                """, Long.class, topicId, correctChoiceKey, topicId);
     }
 
     /** Active question excluded from the free-trial pool (allow_in_free_trial=false). */
     public Long insertPaidOnlyQuestion(Long topicId, String correctChoiceKey) {
         return jdbc.queryForObject("""
-                INSERT INTO questions (primary_topic_id, correct_choice_key, status, allow_in_free_trial)
-                VALUES (?, ?, 'active', false)
+                INSERT INTO questions (primary_topic_id, correct_choice_key, status, allow_in_free_trial, sub_topic_id)
+                VALUES (?, ?, 'active', false,
+                    (SELECT id FROM sub_topics WHERE parent_topic_id = ? ORDER BY sort_order LIMIT 1))
                 RETURNING id
-                """, Long.class, topicId, correctChoiceKey);
+                """, Long.class, topicId, correctChoiceKey, topicId);
     }
 
     /** Question with status='inactive' — should never appear in any practice pool. */
     public Long insertInactiveQuestion(Long topicId, String correctChoiceKey) {
         return jdbc.queryForObject("""
-                INSERT INTO questions (primary_topic_id, correct_choice_key, status, allow_in_free_trial)
-                VALUES (?, ?, 'inactive', true)
+                INSERT INTO questions (primary_topic_id, correct_choice_key, status, allow_in_free_trial, sub_topic_id)
+                VALUES (?, ?, 'inactive', true,
+                    (SELECT id FROM sub_topics WHERE parent_topic_id = ? ORDER BY sort_order LIMIT 1))
                 RETURNING id
-                """, Long.class, topicId, correctChoiceKey);
+                """, Long.class, topicId, correctChoiceKey, topicId);
     }
 
     public void insertEnVariant(Long questionId, String stem, String explanation) {
