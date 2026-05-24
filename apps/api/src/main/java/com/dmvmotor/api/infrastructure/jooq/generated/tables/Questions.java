@@ -19,6 +19,7 @@ import com.dmvmotor.api.infrastructure.jooq.generated.tables.QuestionRelatedTopi
 import com.dmvmotor.api.infrastructure.jooq.generated.tables.QuestionVariants.QuestionVariantsPath;
 import com.dmvmotor.api.infrastructure.jooq.generated.tables.ReviewTaskQuestions.ReviewTaskQuestionsPath;
 import com.dmvmotor.api.infrastructure.jooq.generated.tables.ReviewTasks.ReviewTasksPath;
+import com.dmvmotor.api.infrastructure.jooq.generated.tables.SubTopics.SubTopicsPath;
 import com.dmvmotor.api.infrastructure.jooq.generated.tables.Topics.TopicsPath;
 import com.dmvmotor.api.infrastructure.jooq.generated.tables.records.QuestionsRecord;
 
@@ -144,6 +145,11 @@ public class Questions extends TableImpl<QuestionsRecord> {
      */
     public final TableField<QuestionsRecord, Boolean> ALLOW_IN_FREE_TRIAL = createField(DSL.name("allow_in_free_trial"), SQLDataType.BOOLEAN.nullable(false).defaultValue(DSL.field(DSL.raw("false"), SQLDataType.BOOLEAN)), this, "");
 
+    /**
+     * The column <code>public.questions.sub_topic_id</code>.
+     */
+    public final TableField<QuestionsRecord, Long> SUB_TOPIC_ID = createField(DSL.name("sub_topic_id"), SQLDataType.BIGINT, this, "");
+
     private Questions(Name alias, Table<QuestionsRecord> aliased) {
         this(alias, aliased, (Field<?>[]) null, null);
     }
@@ -213,7 +219,7 @@ public class Questions extends TableImpl<QuestionsRecord> {
 
     @Override
     public List<Index> getIndexes() {
-        return Arrays.asList(Indexes.IDX_QUESTIONS_ALLOW_IN_FREE_TRIAL);
+        return Arrays.asList(Indexes.IDX_QUESTIONS_ALLOW_IN_FREE_TRIAL, Indexes.IDX_QUESTIONS_SUB_TOPIC);
     }
 
     @Override
@@ -228,7 +234,7 @@ public class Questions extends TableImpl<QuestionsRecord> {
 
     @Override
     public List<ForeignKey<QuestionsRecord, ?>> getReferences() {
-        return Arrays.asList(Keys.QUESTIONS__QUESTIONS_PRIMARY_TOPIC_ID_FKEY);
+        return Arrays.asList(Keys.QUESTIONS__QUESTIONS_PRIMARY_TOPIC_ID_FKEY, Keys.QUESTIONS__QUESTIONS_SUB_TOPIC_ID_FKEY);
     }
 
     private transient TopicsPath _topics;
@@ -241,6 +247,18 @@ public class Questions extends TableImpl<QuestionsRecord> {
             _topics = new TopicsPath(this, Keys.QUESTIONS__QUESTIONS_PRIMARY_TOPIC_ID_FKEY, null);
 
         return _topics;
+    }
+
+    private transient SubTopicsPath _subTopics;
+
+    /**
+     * Get the implicit join path to the <code>public.sub_topics</code> table.
+     */
+    public SubTopicsPath subTopics() {
+        if (_subTopics == null)
+            _subTopics = new SubTopicsPath(this, Keys.QUESTIONS__QUESTIONS_SUB_TOPIC_ID_FKEY, null);
+
+        return _subTopics;
     }
 
     private transient AiExplanationsPath _aiExplanations;

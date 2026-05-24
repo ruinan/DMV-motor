@@ -216,6 +216,20 @@ public class QuestionsRecord extends UpdatableRecordImpl<QuestionsRecord> {
         return (Boolean) get(13);
     }
 
+    /**
+     * Setter for <code>public.questions.sub_topic_id</code>.
+     */
+    public void setSubTopicId(Long value) {
+        set(14, value);
+    }
+
+    /**
+     * Getter for <code>public.questions.sub_topic_id</code>.
+     */
+    public Long getSubTopicId() {
+        return (Long) get(14);
+    }
+
     // -------------------------------------------------------------------------
     // Primary key information
     // -------------------------------------------------------------------------
@@ -239,7 +253,7 @@ public class QuestionsRecord extends UpdatableRecordImpl<QuestionsRecord> {
     /**
      * Create a detached, initialised QuestionsRecord
      */
-    public QuestionsRecord(Long id, Long primaryTopicId, String correctChoiceKey, String learningLevel, String difficultyLevel, Boolean riskFlag, Boolean isKeyCoverage, Boolean allowInPractice, Boolean allowInReview, Boolean allowInMockExam, String status, OffsetDateTime createdAt, OffsetDateTime updatedAt, Boolean allowInFreeTrial) {
+    public QuestionsRecord(Long id, Long primaryTopicId, String correctChoiceKey, String learningLevel, String difficultyLevel, Boolean riskFlag, Boolean isKeyCoverage, Boolean allowInPractice, Boolean allowInReview, Boolean allowInMockExam, String status, OffsetDateTime createdAt, OffsetDateTime updatedAt, Boolean allowInFreeTrial, Long subTopicId) {
         super(Questions.QUESTIONS);
 
         setId(id);
@@ -256,6 +270,7 @@ public class QuestionsRecord extends UpdatableRecordImpl<QuestionsRecord> {
         setCreatedAt(createdAt);
         setUpdatedAt(updatedAt);
         setAllowInFreeTrial(allowInFreeTrial);
+        setSubTopicId(subTopicId);
         resetChangedOnNotNull();
     }
 }

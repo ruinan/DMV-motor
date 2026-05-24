@@ -19,6 +19,7 @@ import com.dmvmotor.api.infrastructure.jooq.generated.tables.Questions;
 import com.dmvmotor.api.infrastructure.jooq.generated.tables.ReviewPacks;
 import com.dmvmotor.api.infrastructure.jooq.generated.tables.ReviewTaskQuestions;
 import com.dmvmotor.api.infrastructure.jooq.generated.tables.ReviewTasks;
+import com.dmvmotor.api.infrastructure.jooq.generated.tables.SubTopics;
 import com.dmvmotor.api.infrastructure.jooq.generated.tables.Topics;
 import com.dmvmotor.api.infrastructure.jooq.generated.tables.Users;
 
@@ -103,6 +104,11 @@ public class Tables {
      * The table <code>public.review_tasks</code>.
      */
     public static final ReviewTasks REVIEW_TASKS = ReviewTasks.REVIEW_TASKS;
+
+    /**
+     * The table <code>public.sub_topics</code>.
+     */
+    public static final SubTopics SUB_TOPICS = SubTopics.SUB_TOPICS;
 
     /**
      * The table <code>public.topics</code>.

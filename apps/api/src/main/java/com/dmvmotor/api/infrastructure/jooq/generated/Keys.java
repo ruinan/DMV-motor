@@ -19,6 +19,7 @@ import com.dmvmotor.api.infrastructure.jooq.generated.tables.Questions;
 import com.dmvmotor.api.infrastructure.jooq.generated.tables.ReviewPacks;
 import com.dmvmotor.api.infrastructure.jooq.generated.tables.ReviewTaskQuestions;
 import com.dmvmotor.api.infrastructure.jooq.generated.tables.ReviewTasks;
+import com.dmvmotor.api.infrastructure.jooq.generated.tables.SubTopics;
 import com.dmvmotor.api.infrastructure.jooq.generated.tables.Topics;
 import com.dmvmotor.api.infrastructure.jooq.generated.tables.Users;
 import com.dmvmotor.api.infrastructure.jooq.generated.tables.records.AccessPassesRecord;
@@ -36,6 +37,7 @@ import com.dmvmotor.api.infrastructure.jooq.generated.tables.records.QuestionsRe
 import com.dmvmotor.api.infrastructure.jooq.generated.tables.records.ReviewPacksRecord;
 import com.dmvmotor.api.infrastructure.jooq.generated.tables.records.ReviewTaskQuestionsRecord;
 import com.dmvmotor.api.infrastructure.jooq.generated.tables.records.ReviewTasksRecord;
+import com.dmvmotor.api.infrastructure.jooq.generated.tables.records.SubTopicsRecord;
 import com.dmvmotor.api.infrastructure.jooq.generated.tables.records.TopicsRecord;
 import com.dmvmotor.api.infrastructure.jooq.generated.tables.records.UsersRecord;
 
@@ -82,6 +84,8 @@ public class Keys {
     public static final UniqueKey<ReviewTaskQuestionsRecord> REVIEW_TASK_QUESTIONS_PKEY = Internal.createUniqueKey(ReviewTaskQuestions.REVIEW_TASK_QUESTIONS, DSL.name("review_task_questions_pkey"), new TableField[] { ReviewTaskQuestions.REVIEW_TASK_QUESTIONS.ID }, true);
     public static final UniqueKey<ReviewTaskQuestionsRecord> REVIEW_TASK_QUESTIONS_REVIEW_TASK_ID_QUESTION_ID_KEY = Internal.createUniqueKey(ReviewTaskQuestions.REVIEW_TASK_QUESTIONS, DSL.name("review_task_questions_review_task_id_question_id_key"), new TableField[] { ReviewTaskQuestions.REVIEW_TASK_QUESTIONS.REVIEW_TASK_ID, ReviewTaskQuestions.REVIEW_TASK_QUESTIONS.QUESTION_ID }, true);
     public static final UniqueKey<ReviewTasksRecord> REVIEW_TASKS_PKEY = Internal.createUniqueKey(ReviewTasks.REVIEW_TASKS, DSL.name("review_tasks_pkey"), new TableField[] { ReviewTasks.REVIEW_TASKS.ID }, true);
+    public static final UniqueKey<SubTopicsRecord> SUB_TOPICS_CODE_KEY = Internal.createUniqueKey(SubTopics.SUB_TOPICS, DSL.name("sub_topics_code_key"), new TableField[] { SubTopics.SUB_TOPICS.CODE }, true);
+    public static final UniqueKey<SubTopicsRecord> SUB_TOPICS_PKEY = Internal.createUniqueKey(SubTopics.SUB_TOPICS, DSL.name("sub_topics_pkey"), new TableField[] { SubTopics.SUB_TOPICS.ID }, true);
     public static final UniqueKey<TopicsRecord> TOPICS_CODE_KEY = Internal.createUniqueKey(Topics.TOPICS, DSL.name("topics_code_key"), new TableField[] { Topics.TOPICS.CODE }, true);
     public static final UniqueKey<TopicsRecord> TOPICS_PKEY = Internal.createUniqueKey(Topics.TOPICS, DSL.name("topics_pkey"), new TableField[] { Topics.TOPICS.ID }, true);
     public static final UniqueKey<UsersRecord> USERS_PKEY = Internal.createUniqueKey(Users.USERS, DSL.name("users_pkey"), new TableField[] { Users.USERS.ID }, true);
@@ -113,11 +117,13 @@ public class Keys {
     public static final ForeignKey<QuestionRelatedTopicsRecord, TopicsRecord> QUESTION_RELATED_TOPICS__QUESTION_RELATED_TOPICS_TOPIC_ID_FKEY = Internal.createForeignKey(QuestionRelatedTopics.QUESTION_RELATED_TOPICS, DSL.name("question_related_topics_topic_id_fkey"), new TableField[] { QuestionRelatedTopics.QUESTION_RELATED_TOPICS.TOPIC_ID }, Keys.TOPICS_PKEY, new TableField[] { Topics.TOPICS.ID }, true);
     public static final ForeignKey<QuestionVariantsRecord, QuestionsRecord> QUESTION_VARIANTS__QUESTION_VARIANTS_QUESTION_ID_FKEY = Internal.createForeignKey(QuestionVariants.QUESTION_VARIANTS, DSL.name("question_variants_question_id_fkey"), new TableField[] { QuestionVariants.QUESTION_VARIANTS.QUESTION_ID }, Keys.QUESTIONS_PKEY, new TableField[] { Questions.QUESTIONS.ID }, true);
     public static final ForeignKey<QuestionsRecord, TopicsRecord> QUESTIONS__QUESTIONS_PRIMARY_TOPIC_ID_FKEY = Internal.createForeignKey(Questions.QUESTIONS, DSL.name("questions_primary_topic_id_fkey"), new TableField[] { Questions.QUESTIONS.PRIMARY_TOPIC_ID }, Keys.TOPICS_PKEY, new TableField[] { Topics.TOPICS.ID }, true);
+    public static final ForeignKey<QuestionsRecord, SubTopicsRecord> QUESTIONS__QUESTIONS_SUB_TOPIC_ID_FKEY = Internal.createForeignKey(Questions.QUESTIONS, DSL.name("questions_sub_topic_id_fkey"), new TableField[] { Questions.QUESTIONS.SUB_TOPIC_ID }, Keys.SUB_TOPICS_PKEY, new TableField[] { SubTopics.SUB_TOPICS.ID }, true);
     public static final ForeignKey<ReviewPacksRecord, UsersRecord> REVIEW_PACKS__REVIEW_PACKS_USER_ID_FKEY = Internal.createForeignKey(ReviewPacks.REVIEW_PACKS, DSL.name("review_packs_user_id_fkey"), new TableField[] { ReviewPacks.REVIEW_PACKS.USER_ID }, Keys.USERS_PKEY, new TableField[] { Users.USERS.ID }, true);
     public static final ForeignKey<ReviewTaskQuestionsRecord, QuestionsRecord> REVIEW_TASK_QUESTIONS__REVIEW_TASK_QUESTIONS_QUESTION_ID_FKEY = Internal.createForeignKey(ReviewTaskQuestions.REVIEW_TASK_QUESTIONS, DSL.name("review_task_questions_question_id_fkey"), new TableField[] { ReviewTaskQuestions.REVIEW_TASK_QUESTIONS.QUESTION_ID }, Keys.QUESTIONS_PKEY, new TableField[] { Questions.QUESTIONS.ID }, true);
     public static final ForeignKey<ReviewTaskQuestionsRecord, ReviewTasksRecord> REVIEW_TASK_QUESTIONS__REVIEW_TASK_QUESTIONS_REVIEW_TASK_ID_FKEY = Internal.createForeignKey(ReviewTaskQuestions.REVIEW_TASK_QUESTIONS, DSL.name("review_task_questions_review_task_id_fkey"), new TableField[] { ReviewTaskQuestions.REVIEW_TASK_QUESTIONS.REVIEW_TASK_ID }, Keys.REVIEW_TASKS_PKEY, new TableField[] { ReviewTasks.REVIEW_TASKS.ID }, true);
     public static final ForeignKey<ReviewTasksRecord, ReviewPacksRecord> REVIEW_TASKS__REVIEW_TASKS_REVIEW_PACK_ID_FKEY = Internal.createForeignKey(ReviewTasks.REVIEW_TASKS, DSL.name("review_tasks_review_pack_id_fkey"), new TableField[] { ReviewTasks.REVIEW_TASKS.REVIEW_PACK_ID }, Keys.REVIEW_PACKS_PKEY, new TableField[] { ReviewPacks.REVIEW_PACKS.ID }, true);
     public static final ForeignKey<ReviewTasksRecord, TopicsRecord> REVIEW_TASKS__REVIEW_TASKS_TOPIC_ID_FKEY = Internal.createForeignKey(ReviewTasks.REVIEW_TASKS, DSL.name("review_tasks_topic_id_fkey"), new TableField[] { ReviewTasks.REVIEW_TASKS.TOPIC_ID }, Keys.TOPICS_PKEY, new TableField[] { Topics.TOPICS.ID }, true);
     public static final ForeignKey<ReviewTasksRecord, UsersRecord> REVIEW_TASKS__REVIEW_TASKS_USER_ID_FKEY = Internal.createForeignKey(ReviewTasks.REVIEW_TASKS, DSL.name("review_tasks_user_id_fkey"), new TableField[] { ReviewTasks.REVIEW_TASKS.USER_ID }, Keys.USERS_PKEY, new TableField[] { Users.USERS.ID }, true);
+    public static final ForeignKey<SubTopicsRecord, TopicsRecord> SUB_TOPICS__SUB_TOPICS_PARENT_TOPIC_ID_FKEY = Internal.createForeignKey(SubTopics.SUB_TOPICS, DSL.name("sub_topics_parent_topic_id_fkey"), new TableField[] { SubTopics.SUB_TOPICS.PARENT_TOPIC_ID }, Keys.TOPICS_PKEY, new TableField[] { Topics.TOPICS.ID }, true);
     public static final ForeignKey<TopicsRecord, TopicsRecord> TOPICS__TOPICS_PARENT_TOPIC_ID_FKEY = Internal.createForeignKey(Topics.TOPICS, DSL.name("topics_parent_topic_id_fkey"), new TableField[] { Topics.TOPICS.PARENT_TOPIC_ID }, Keys.TOPICS_PKEY, new TableField[] { Topics.TOPICS.ID }, true);
 }

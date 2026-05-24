@@ -11,6 +11,7 @@ import com.dmvmotor.api.infrastructure.jooq.generated.tables.PracticeAttempts;
 import com.dmvmotor.api.infrastructure.jooq.generated.tables.PracticeSessions;
 import com.dmvmotor.api.infrastructure.jooq.generated.tables.Questions;
 import com.dmvmotor.api.infrastructure.jooq.generated.tables.ReviewPacks;
+import com.dmvmotor.api.infrastructure.jooq.generated.tables.SubTopics;
 import com.dmvmotor.api.infrastructure.jooq.generated.tables.Users;
 
 import org.jooq.Index;
@@ -42,6 +43,8 @@ public class Indexes {
     public static final Index IDX_PRACTICE_SESSIONS_USER_CYCLE = Internal.createIndex(DSL.name("idx_practice_sessions_user_cycle"), PracticeSessions.PRACTICE_SESSIONS, new OrderField[] { PracticeSessions.PRACTICE_SESSIONS.USER_ID, PracticeSessions.PRACTICE_SESSIONS.LEARNING_CYCLE }, false);
     public static final Index IDX_PRACTICE_SESSIONS_USER_ID = Internal.createIndex(DSL.name("idx_practice_sessions_user_id"), PracticeSessions.PRACTICE_SESSIONS, new OrderField[] { PracticeSessions.PRACTICE_SESSIONS.USER_ID }, false);
     public static final Index IDX_QUESTIONS_ALLOW_IN_FREE_TRIAL = Internal.createIndex(DSL.name("idx_questions_allow_in_free_trial"), Questions.QUESTIONS, new OrderField[] { Questions.QUESTIONS.ALLOW_IN_FREE_TRIAL }, false);
+    public static final Index IDX_QUESTIONS_SUB_TOPIC = Internal.createIndex(DSL.name("idx_questions_sub_topic"), Questions.QUESTIONS, new OrderField[] { Questions.QUESTIONS.SUB_TOPIC_ID }, false);
     public static final Index IDX_REVIEW_PACKS_USER_CYCLE = Internal.createIndex(DSL.name("idx_review_packs_user_cycle"), ReviewPacks.REVIEW_PACKS, new OrderField[] { ReviewPacks.REVIEW_PACKS.USER_ID, ReviewPacks.REVIEW_PACKS.LEARNING_CYCLE }, false);
+    public static final Index IDX_SUB_TOPICS_PARENT = Internal.createIndex(DSL.name("idx_sub_topics_parent"), SubTopics.SUB_TOPICS, new OrderField[] { SubTopics.SUB_TOPICS.PARENT_TOPIC_ID }, false);
     public static final Index UQ_USERS_FIREBASE_UID = Internal.createIndex(DSL.name("uq_users_firebase_uid"), Users.USERS, new OrderField[] { Users.USERS.FIREBASE_UID }, true);
 }

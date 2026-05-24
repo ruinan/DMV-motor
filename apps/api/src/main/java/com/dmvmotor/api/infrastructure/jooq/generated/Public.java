@@ -19,6 +19,7 @@ import com.dmvmotor.api.infrastructure.jooq.generated.tables.Questions;
 import com.dmvmotor.api.infrastructure.jooq.generated.tables.ReviewPacks;
 import com.dmvmotor.api.infrastructure.jooq.generated.tables.ReviewTaskQuestions;
 import com.dmvmotor.api.infrastructure.jooq.generated.tables.ReviewTasks;
+import com.dmvmotor.api.infrastructure.jooq.generated.tables.SubTopics;
 import com.dmvmotor.api.infrastructure.jooq.generated.tables.Topics;
 import com.dmvmotor.api.infrastructure.jooq.generated.tables.Users;
 
@@ -119,6 +120,11 @@ public class Public extends SchemaImpl {
     public final ReviewTasks REVIEW_TASKS = ReviewTasks.REVIEW_TASKS;
 
     /**
+     * The table <code>public.sub_topics</code>.
+     */
+    public final SubTopics SUB_TOPICS = SubTopics.SUB_TOPICS;
+
+    /**
      * The table <code>public.topics</code>.
      */
     public final Topics TOPICS = Topics.TOPICS;
@@ -159,6 +165,7 @@ public class Public extends SchemaImpl {
             ReviewPacks.REVIEW_PACKS,
             ReviewTaskQuestions.REVIEW_TASK_QUESTIONS,
             ReviewTasks.REVIEW_TASKS,
+            SubTopics.SUB_TOPICS,
             Topics.TOPICS,
             Users.USERS
         );

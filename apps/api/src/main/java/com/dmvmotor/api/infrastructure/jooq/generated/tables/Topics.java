@@ -10,6 +10,7 @@ import com.dmvmotor.api.infrastructure.jooq.generated.tables.MistakeRecords.Mist
 import com.dmvmotor.api.infrastructure.jooq.generated.tables.QuestionRelatedTopics.QuestionRelatedTopicsPath;
 import com.dmvmotor.api.infrastructure.jooq.generated.tables.Questions.QuestionsPath;
 import com.dmvmotor.api.infrastructure.jooq.generated.tables.ReviewTasks.ReviewTasksPath;
+import com.dmvmotor.api.infrastructure.jooq.generated.tables.SubTopics.SubTopicsPath;
 import com.dmvmotor.api.infrastructure.jooq.generated.tables.Topics.TopicsPath;
 import com.dmvmotor.api.infrastructure.jooq.generated.tables.records.TopicsRecord;
 
@@ -261,6 +262,19 @@ public class Topics extends TableImpl<TopicsRecord> {
             _reviewTasks = new ReviewTasksPath(this, null, Keys.REVIEW_TASKS__REVIEW_TASKS_TOPIC_ID_FKEY.getInverseKey());
 
         return _reviewTasks;
+    }
+
+    private transient SubTopicsPath _subTopics;
+
+    /**
+     * Get the implicit to-many join path to the <code>public.sub_topics</code>
+     * table
+     */
+    public SubTopicsPath subTopics() {
+        if (_subTopics == null)
+            _subTopics = new SubTopicsPath(this, null, Keys.SUB_TOPICS__SUB_TOPICS_PARENT_TOPIC_ID_FKEY.getInverseKey());
+
+        return _subTopics;
     }
 
     @Override
