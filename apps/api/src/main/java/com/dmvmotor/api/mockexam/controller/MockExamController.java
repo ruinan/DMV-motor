@@ -124,6 +124,44 @@ public class MockExamController {
         String selectedKey() { return selected_choice_key; }
     }
 
+    @GetMapping("/attempts/history")
+    public ApiResponse<?> listAttemptHistory(
+            @CurrentUser Long userId,
+            @RequestParam(required = false, defaultValue = "10") int limit
+    ) {
+        requireAuth(userId);
+        var result = mockExamService.listHistory(userId, limit);
+        var attempts = result.attempts().stream().map(r -> Map.ofEntries(
+                Map.entry("attempt_id",      String.valueOf(r.id())),
+                Map.entry("mock_exam_id",    String.valueOf(r.mockExamId())),
+                Map.entry("mock_exam_code",  r.mockExamCode()),
+                Map.entry("status",          r.status()),
+                Map.entry("score_percent",   r.scorePercent() == null ? -1 : r.scorePercent()),
+                Map.entry("correct_count",   r.correctCount() == null ? 0 : r.correctCount()),
+                Map.entry("answered_count",  r.answeredCount()),
+                Map.entry("started_at",      r.startedAt().toString()),
+                Map.entry("submitted_at",    r.submittedAt() != null ? r.submittedAt().toString() : "")
+        )).toList();
+        return ApiResponse.ok(Map.of(
+                "attempts",    attempts,
+                "total_in_db", result.totalInDb()
+        ));
+    }
+
+    @GetMapping("/attempts/stats")
+    public ApiResponse<?> getAttemptStats(@CurrentUser Long userId) {
+        requireAuth(userId);
+        var s = mockExamService.getStats(userId);
+        return ApiResponse.ok(Map.of(
+                "total_attempts",               s.totalAttempts(),
+                "submitted_count",              s.submittedCount(),
+                "exited_count",                 s.exitedCount(),
+                "recent_3_avg_score_percent",   s.recent3AvgScorePercent() == null ? -1 : s.recent3AvgScorePercent(),
+                "best_score_percent",           s.bestScorePercent() == null ? -1 : s.bestScorePercent(),
+                "latest_score_percent",         s.latestScorePercent() == null ? -1 : s.latestScorePercent()
+        ));
+    }
+
     private Map<String, Object> toQuestionDto(QuestionDetail q) {
         return Map.of(
                 "question_id", String.valueOf(q.questionId()),

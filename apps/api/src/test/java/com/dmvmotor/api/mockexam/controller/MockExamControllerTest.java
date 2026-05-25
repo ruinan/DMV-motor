@@ -451,4 +451,78 @@ class MockExamControllerTest extends IntegrationTestBase {
         mockMvc.perform(post("/api/v1/mock-exams/attempts/{id}/submit", attemptId)
                 .header("Authorization", "Bearer " + userId));
     }
+
+    // ===== /api/v1/mock-exams/attempts/history =====
+
+    @Test
+    void getAttemptHistory_anonymous_returns401() throws Exception {
+        mockMvc.perform(get("/api/v1/mock-exams/attempts/history"))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void getAttemptHistory_noAttempts_emptyList() throws Exception {
+        mockMvc.perform(get("/api/v1/mock-exams/attempts/history")
+                        .header("Authorization", "Bearer " + userId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.attempts", org.hamcrest.Matchers.hasSize(0)))
+                .andExpect(jsonPath("$.data.total_in_db").value(0));
+    }
+
+    @Test
+    void getAttemptHistory_returnsAttemptsNewestFirst() throws Exception {
+        Long mockExamId = fixtures.insertMockExam("TEST_30Q", 30);
+        Long oldAttempt = fixtures.insertMockAttemptWithScore(userId, mockExamId, 70);
+        Long newAttempt = fixtures.insertMockAttemptWithScore(userId, mockExamId, 85);
+
+        mockMvc.perform(get("/api/v1/mock-exams/attempts/history")
+                        .header("Authorization", "Bearer " + userId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.total_in_db").value(2))
+                .andExpect(jsonPath("$.data.attempts", org.hamcrest.Matchers.hasSize(2)))
+                .andExpect(jsonPath("$.data.attempts[0].attempt_id").value(newAttempt.toString()))
+                .andExpect(jsonPath("$.data.attempts[0].score_percent").value(85))
+                .andExpect(jsonPath("$.data.attempts[0].status").value("submitted"))
+                .andExpect(jsonPath("$.data.attempts[1].attempt_id").value(oldAttempt.toString()))
+                .andExpect(jsonPath("$.data.attempts[1].score_percent").value(70));
+    }
+
+    // ===== /api/v1/mock-exams/attempts/stats =====
+
+    @Test
+    void getAttemptStats_anonymous_returns401() throws Exception {
+        mockMvc.perform(get("/api/v1/mock-exams/attempts/stats"))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void getAttemptStats_emptyAccount_returnsZeros() throws Exception {
+        mockMvc.perform(get("/api/v1/mock-exams/attempts/stats")
+                        .header("Authorization", "Bearer " + userId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.total_attempts").value(0))
+                .andExpect(jsonPath("$.data.submitted_count").value(0))
+                .andExpect(jsonPath("$.data.exited_count").value(0))
+                .andExpect(jsonPath("$.data.recent_3_avg_score_percent").value(-1))
+                .andExpect(jsonPath("$.data.best_score_percent").value(-1))
+                .andExpect(jsonPath("$.data.latest_score_percent").value(-1));
+    }
+
+    @Test
+    void getAttemptStats_withSubmittedAttempts_aggregatesCorrectly() throws Exception {
+        Long mockExamId = fixtures.insertMockExam("TEST_30Q", 30);
+        fixtures.insertMockAttemptWithScore(userId, mockExamId, 70);
+        fixtures.insertMockAttemptWithScore(userId, mockExamId, 80);
+        fixtures.insertMockAttemptWithScore(userId, mockExamId, 90);
+
+        mockMvc.perform(get("/api/v1/mock-exams/attempts/stats")
+                        .header("Authorization", "Bearer " + userId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.total_attempts").value(3))
+                .andExpect(jsonPath("$.data.submitted_count").value(3))
+                .andExpect(jsonPath("$.data.exited_count").value(0))
+                .andExpect(jsonPath("$.data.best_score_percent").value(90))
+                .andExpect(jsonPath("$.data.latest_score_percent").value(90))
+                .andExpect(jsonPath("$.data.recent_3_avg_score_percent").value(80));
+    }
 }

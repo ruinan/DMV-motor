@@ -48,24 +48,22 @@ public class MistakeListRepository {
 
     public int countActive(Long userId, int learningCycle) {
         var mr = Tables.MISTAKE_RECORDS;
-        Integer n = dsl.selectCount()
+        return dsl.selectCount()
                 .from(mr)
                 .where(mr.USER_ID.eq(userId)
                         .and(mr.IS_ACTIVE.isTrue())
                         .and(mr.LEARNING_CYCLE.eq(learningCycle)))
                 .fetchOne(0, Integer.class);
-        return n == null ? 0 : n;
     }
 
     public int countDistinctActiveTopics(Long userId, int learningCycle) {
         var mr = Tables.MISTAKE_RECORDS;
-        Integer n = dsl.select(org.jooq.impl.DSL.countDistinct(mr.PRIMARY_TOPIC_ID))
+        return dsl.select(org.jooq.impl.DSL.countDistinct(mr.PRIMARY_TOPIC_ID))
                 .from(mr)
                 .where(mr.USER_ID.eq(userId)
                         .and(mr.IS_ACTIVE.isTrue())
                         .and(mr.LEARNING_CYCLE.eq(learningCycle)))
                 .fetchOne(0, Integer.class);
-        return n == null ? 0 : n;
     }
 
     public void setActive(Long userId, Long questionId, boolean isActive, int learningCycle) {

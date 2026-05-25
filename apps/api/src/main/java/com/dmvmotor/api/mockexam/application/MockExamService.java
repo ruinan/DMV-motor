@@ -188,4 +188,24 @@ public class MockExamService {
         }
         return attempt;
     }
+
+    // ===== Study Hub history + stats =====
+
+    private static final int MAX_HISTORY_LIMIT = 50;
+
+    public AttemptHistoryResult listHistory(Long userId, int requestedLimit) {
+        int limit = Math.min(Math.max(requestedLimit, 1), MAX_HISTORY_LIMIT);
+        var rows = mockExamRepo.findRecentByUser(userId, limit);
+        int totalInDb = mockExamRepo.countAttemptsByUser(userId);
+        return new AttemptHistoryResult(rows, totalInDb);
+    }
+
+    public MockExamRepository.AttemptStats getStats(Long userId) {
+        return mockExamRepo.aggregateStats(userId);
+    }
+
+    public record AttemptHistoryResult(
+            List<MockExamRepository.AttemptHistoryRow> attempts,
+            int                                        totalInDb
+    ) {}
 }

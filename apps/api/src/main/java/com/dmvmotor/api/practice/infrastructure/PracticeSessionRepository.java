@@ -375,15 +375,17 @@ public class PracticeSessionRepository {
         var ps = Tables.PRACTICE_SESSIONS;
         var pa = Tables.PRACTICE_ATTEMPTS;
         Field<Integer> answered = DSL.count(pa.ID).as("answered");
-        Field<Integer> correct = DSL.sum(DSL.when(pa.IS_CORRECT.isTrue(), 1).otherwise(0))
-                .cast(Integer.class).as("correct");
+        // COALESCE SUM(...) so empty groups produce 0 instead of NULL.
+        Field<Integer> correct = DSL.coalesce(
+                DSL.sum(DSL.when(pa.IS_CORRECT.isTrue(), 1).otherwise(0)),
+                0).cast(Integer.class).as("correct");
         return dsl.select(ps.ID, ps.ENTRY_TYPE, ps.LANGUAGE_CODE, ps.STATUS,
                           ps.STARTED_AT, ps.COMPLETED_AT, answered, correct)
                 .from(ps)
                 .leftJoin(pa).on(pa.PRACTICE_SESSION_ID.eq(ps.ID))
                 .where(ps.USER_ID.eq(userId))
                 .groupBy(ps.ID)
-                .orderBy(ps.STARTED_AT.desc())
+                .orderBy(ps.STARTED_AT.desc(), ps.ID.desc())
                 .limit(limit)
                 .fetch(r -> new SessionHistoryRow(
                         r.get(ps.ID),
@@ -392,32 +394,32 @@ public class PracticeSessionRepository {
                         r.get(ps.STATUS),
                         r.get(ps.STARTED_AT),
                         r.get(ps.COMPLETED_AT),
-                        r.get(answered) == null ? 0 : r.get(answered),
-                        r.get(correct) == null ? 0 : r.get(correct)
+                        r.get(answered),
+                        r.get(correct)
                 ));
     }
 
     public int countByUser(Long userId) {
         var ps = Tables.PRACTICE_SESSIONS;
-        Integer n = dsl.selectCount().from(ps)
+        // selectCount + fetchOne never returns null for an aggregate.
+        return dsl.selectCount().from(ps)
                 .where(ps.USER_ID.eq(userId))
                 .fetchOne(0, Integer.class);
-        return n == null ? 0 : n;
     }
 
     public AttemptTotals attemptTotals(Long userId) {
         var pa = Tables.PRACTICE_ATTEMPTS;
         Field<Integer> total = DSL.count(pa.ID);
-        Field<Integer> correct = DSL.sum(DSL.when(pa.IS_CORRECT.isTrue(), 1).otherwise(0))
-                .cast(Integer.class);
+        // SUM over zero rows = SQL NULL, so coalesce to 0 here to keep the
+        // Java contract integer-typed.
+        Field<Integer> correct = DSL.coalesce(
+                DSL.sum(DSL.when(pa.IS_CORRECT.isTrue(), 1).otherwise(0)),
+                0).cast(Integer.class);
         var record = dsl.select(total, correct)
                 .from(pa)
                 .where(pa.USER_ID.eq(userId))
                 .fetchOne();
-        if (record == null) return new AttemptTotals(0, 0);
-        Integer t = record.get(total);
-        Integer c = record.get(correct);
-        return new AttemptTotals(t == null ? 0 : t, c == null ? 0 : c);
+        return new AttemptTotals(record.get(total), record.get(correct));
     }
 
     public record SessionHistoryRow(

@@ -225,8 +225,9 @@ public class TestFixtures {
         return jdbc.queryForObject("""
                 INSERT INTO mock_attempts
                     (user_id, mock_exam_id, status, score_percent, correct_count,
-                     wrong_count, answered_count, quota_consumed, learning_cycle)
-                VALUES (?, ?, 'submitted', ?, ?, 0, ?, true, ?)
+                     wrong_count, answered_count, quota_consumed, learning_cycle,
+                     submitted_at)
+                VALUES (?, ?, 'submitted', ?, ?, 0, ?, true, ?, CURRENT_TIMESTAMP)
                 RETURNING id
                 """, Long.class, userId, mockExamId, scorePercent,
                 scorePercent / 10, scorePercent / 10, learningCycle);
