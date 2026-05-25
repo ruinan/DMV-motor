@@ -67,4 +67,111 @@ class TopicControllerTest extends IntegrationTestBase {
                 .andExpect(jsonPath("$.data.items[0].code").value("A_TOPIC"))
                 .andExpect(jsonPath("$.data.items[1].code").value("B_TOPIC"));
     }
+
+    // ===== /topics/mastery =====
+
+    @Test
+    void getMastery_anonymous_returns401() throws Exception {
+        mockMvc.perform(get("/api/v1/topics/mastery"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.error.code").value("UNAUTHORIZED"));
+    }
+
+    @Test
+    void getMastery_noAttempts_allSubTopicsNotMastered() throws Exception {
+        Long userId = fixtures.insertUser("mastery-test@test.com");
+        Long topicId = fixtures.insertTopic("LANES", "Lane Use", "车道", false, 10);
+        fixtures.insertQuestion(topicId, "A");
+        fixtures.insertQuestion(topicId, "B");
+
+        mockMvc.perform(get("/api/v1/topics/mastery").header("Authorization", "Bearer " + userId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.summary.total_sub_topics").value(1))
+                .andExpect(jsonPath("$.data.summary.mastered_sub_topics").value(0))
+                .andExpect(jsonPath("$.data.topics", hasSize(1)))
+                .andExpect(jsonPath("$.data.topics[0].is_mastered").value(false))
+                .andExpect(jsonPath("$.data.topics[0].sub_topics[0].is_mastered").value(false))
+                .andExpect(jsonPath("$.data.topics[0].sub_topics[0].attempted_count").value(0))
+                .andExpect(jsonPath("$.data.topics[0].sub_topics[0].bank_size").value(2));
+    }
+
+    @Test
+    void getMastery_meetsThresholds_subTopicMastered() throws Exception {
+        Long userId = fixtures.insertUser("mastery-test@test.com");
+        Long topicId = fixtures.insertTopic("LANES", "Lane Use", "车道", false, 10);
+        Long q1 = fixtures.insertQuestion(topicId, "A");
+        Long v1 = fixtures.insertEnVariantReturningId(q1, "stem 1", "expl 1");
+        Long q2 = fixtures.insertQuestion(topicId, "A");
+        Long v2 = fixtures.insertEnVariantReturningId(q2, "stem 2", "expl 2");
+        Long q3 = fixtures.insertQuestion(topicId, "A");
+        Long v3 = fixtures.insertEnVariantReturningId(q3, "stem 3", "expl 3");
+        Long q4 = fixtures.insertQuestion(topicId, "A");
+        Long v4 = fixtures.insertEnVariantReturningId(q4, "stem 4", "expl 4");
+
+        Long sessionId = fixtures.insertPracticeSession(userId, 0);
+        // 4 attempts, 4 correct → 100% overall, 4/4 recent → mastered
+        fixtures.insertPracticeAttempt(userId, sessionId, q1, v1, "A", true);
+        fixtures.insertPracticeAttempt(userId, sessionId, q2, v2, "A", true);
+        fixtures.insertPracticeAttempt(userId, sessionId, q3, v3, "A", true);
+        fixtures.insertPracticeAttempt(userId, sessionId, q4, v4, "A", true);
+
+        mockMvc.perform(get("/api/v1/topics/mastery").header("Authorization", "Bearer " + userId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.summary.mastered_sub_topics").value(1))
+                .andExpect(jsonPath("$.data.topics[0].is_mastered").value(true))
+                .andExpect(jsonPath("$.data.topics[0].sub_topics[0].is_mastered").value(true))
+                .andExpect(jsonPath("$.data.topics[0].sub_topics[0].attempted_count").value(4))
+                .andExpect(jsonPath("$.data.topics[0].sub_topics[0].correct_count").value(4));
+    }
+
+    @Test
+    void getMastery_belowRecentCorrect_subTopicNotMastered() throws Exception {
+        Long userId = fixtures.insertUser("mastery-test@test.com");
+        Long topicId = fixtures.insertTopic("LANES", "Lane Use", "车道", false, 10);
+        Long q1 = fixtures.insertQuestion(topicId, "A");
+        Long v1 = fixtures.insertEnVariantReturningId(q1, "s1", "e1");
+        Long q2 = fixtures.insertQuestion(topicId, "A");
+        Long v2 = fixtures.insertEnVariantReturningId(q2, "s2", "e2");
+        Long q3 = fixtures.insertQuestion(topicId, "A");
+        Long v3 = fixtures.insertEnVariantReturningId(q3, "s3", "e3");
+        Long q4 = fixtures.insertQuestion(topicId, "A");
+        Long v4 = fixtures.insertEnVariantReturningId(q4, "s4", "e4");
+
+        Long sessionId = fixtures.insertPracticeSession(userId, 0);
+        // 4 attempts, 2 correct → 50% overall (below 80%)
+        fixtures.insertPracticeAttempt(userId, sessionId, q1, v1, "A", true);
+        fixtures.insertPracticeAttempt(userId, sessionId, q2, v2, "A", true);
+        fixtures.insertPracticeAttempt(userId, sessionId, q3, v3, "B", false);
+        fixtures.insertPracticeAttempt(userId, sessionId, q4, v4, "B", false);
+
+        mockMvc.perform(get("/api/v1/topics/mastery").header("Authorization", "Bearer " + userId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.summary.mastered_sub_topics").value(0))
+                .andExpect(jsonPath("$.data.topics[0].sub_topics[0].is_mastered").value(false))
+                .andExpect(jsonPath("$.data.topics[0].sub_topics[0].attempted_count").value(4))
+                .andExpect(jsonPath("$.data.topics[0].sub_topics[0].correct_count").value(2));
+    }
+
+    @Test
+    void getMastery_parentMasteryRequiresAllChildren() throws Exception {
+        // Two topics with one sub-topic each. Master one → only that topic is_mastered.
+        Long userId = fixtures.insertUser("mastery-test@test.com");
+        Long topic1 = fixtures.insertTopic("LANES", "Lane Use", "车道", false, 10);
+        Long topic2 = fixtures.insertTopic("SPEED", "Speed", "速度", false, 20);
+        Long sessionId = fixtures.insertPracticeSession(userId, 0);
+
+        for (int i = 0; i < 4; i++) {
+            Long q = fixtures.insertQuestion(topic1, "A");
+            Long v = fixtures.insertEnVariantReturningId(q, "s" + i, "e" + i);
+            fixtures.insertPracticeAttempt(userId, sessionId, q, v, "A", true);
+        }
+        fixtures.insertQuestion(topic2, "A"); // no attempts
+
+        mockMvc.perform(get("/api/v1/topics/mastery").header("Authorization", "Bearer " + userId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.summary.mastered_sub_topics").value(1))
+                .andExpect(jsonPath("$.data.topics[?(@.code=='LANES')].is_mastered").value(hasItem(true)))
+                .andExpect(jsonPath("$.data.topics[?(@.code=='SPEED')].is_mastered").value(hasItem(false)));
+    }
 }

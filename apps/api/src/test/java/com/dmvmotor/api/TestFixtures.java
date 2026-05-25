@@ -137,6 +137,18 @@ public class TestFixtures {
                 explanation);
     }
 
+    /** Same as {@link #insertEnVariant} but returns the generated variant id for FK references. */
+    public Long insertEnVariantReturningId(Long questionId, String stem, String explanation) {
+        return jdbc.queryForObject("""
+                INSERT INTO question_variants
+                    (question_id, language_code, stem_text, choices_payload, explanation_text)
+                VALUES (?, 'en', ?, ?::jsonb, ?)
+                RETURNING id
+                """, Long.class, questionId, stem,
+                "[{\"key\":\"A\",\"text\":\"Option A\"},{\"key\":\"B\",\"text\":\"Option B\"},{\"key\":\"C\",\"text\":\"Option C\"}]",
+                explanation);
+    }
+
     public void insertZhVariant(Long questionId, String stem, String explanation) {
         insertVariant(questionId, "zh", stem,
                 "[{\"key\":\"A\",\"text\":\"选项A\"},{\"key\":\"B\",\"text\":\"选项B\"},{\"key\":\"C\",\"text\":\"选项C\"}]",
