@@ -105,10 +105,10 @@ public class QuestionGenerator {
         try {
             root = MAPPER.readTree(json);
         } catch (Exception e) {
-            throw new AiQGenException("Generator output was not valid JSON: " + truncate(raw, 200), e);
+            throw new AiQGenException("Generator output was not valid JSON: " + truncate(raw, 500), e);
         }
         if (!root.isArray()) {
-            throw new AiQGenException("Generator output was not a JSON array: " + truncate(raw, 200));
+            throw new AiQGenException("Generator output was not a JSON array: " + truncate(raw, 500));
         }
         List<GeneratedQuestion> out = new ArrayList<>(root.size());
         for (JsonNode node : root) {

@@ -61,9 +61,11 @@ public final class GenerateCli {
         }
 
         String apiKey = require("APP_AI_DEEPSEEK_API_KEY");
+        // max_tokens=4000 covers ~5 bilingual MCQs per batch (each ~600 tokens).
+        // Timeout 180s — DeepSeek can take 30-60s for a 4-question batch.
         AiProperties props = new AiProperties(
                 true, "deepseek", 120, 60, 300, 50,
-                new AiProperties.Deepseek(apiKey, "https://api.deepseek.com", "deepseek-chat", 600, 90));
+                new AiProperties.Deepseek(apiKey, "https://api.deepseek.com", "deepseek-chat", 4000, 180));
 
         DeepSeekChatClient client = new DeepSeekChatClient(props);
         QuestionGenerator generator = new QuestionGenerator(client);
@@ -88,7 +90,9 @@ public final class GenerateCli {
             for (Request req : requests) {
                 SubTopicSpec spec = loadSpec(conn, req.code(), excerpts);
                 System.err.println("--- Generating " + req.count() + " questions for " + req.code());
-                GenerationOrchestrator.Result result = orchestrator.run(spec, req.count());
+                // Batch capped at 4 per call, so allow more retries for larger targets.
+                int retryBudget = Math.max(3, req.count());
+                GenerationOrchestrator.Result result = orchestrator.run(spec, req.count(), retryBudget);
                 System.err.println("Accepted: " + result.accepted().size()
                         + " / target " + req.count()
                         + " after " + result.attemptsUsed() + " attempt(s)");

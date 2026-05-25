@@ -31,6 +31,9 @@ public class GenerationOrchestrator {
 
     private static final Logger LOG = LoggerFactory.getLogger(GenerationOrchestrator.class);
     private static final int OVERSAMPLE_FACTOR = 2;
+    // Cap per-attempt batch so the generator response stays inside max_tokens
+    // (each bilingual MCQ ≈ 600 output tokens; a 4-question batch fits in 4000).
+    private static final int MAX_BATCH_SIZE = 4;
     private static final int DEFAULT_RETRY_BUDGET = 3;
 
     private final QuestionGenerator generator;
@@ -61,8 +64,10 @@ public class GenerationOrchestrator {
         List<String> failureFeedback = new ArrayList<>();
         int attempt = 0;
         while (accepted.size() < targetCount && attempt <= retryBudget) {
-            int batchSize = (targetCount - accepted.size()) * OVERSAMPLE_FACTOR;
-            LOG.info("[{}] attempt {} — requesting {} candidates", spec.code(), attempt, batchSize);
+            int needed = targetCount - accepted.size();
+            int batchSize = Math.min(needed * OVERSAMPLE_FACTOR, MAX_BATCH_SIZE);
+            LOG.info("[{}] attempt {} — requesting {} candidates (need {} more)",
+                    spec.code(), attempt, batchSize, needed);
             List<GeneratedQuestion> batch;
             try {
                 batch = generator.generate(specWithFeedback(spec, failureFeedback), batchSize);

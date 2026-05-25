@@ -11,13 +11,17 @@ import com.dmvmotor.api.aiqgen.domain.GenerationGateResult;
 public class DifficultyJudge {
 
     private static final String SYSTEM =
-            "You are evaluating multiple-choice question difficulty. "
-            + "Look at all 4 choices for a single question and judge whether any one of them is "
-            + "OBVIOUSLY wrong at first read — meaning a casual reader would dismiss it without thinking. "
-            + "A good hard question has all 4 choices look defensible. "
+            "You are evaluating multiple-choice question difficulty for the California M1 "
+            + "motorcycle permit test. The bar is whether the question genuinely tests handbook "
+            + "knowledge, NOT whether every distractor is intrinsically reasonable. "
             + "Reply STRICT JSON only: {\"pass\": true|false, \"reason\": \"short explanation\"}. "
-            + "pass=true means NO distractor is obviously wrong. "
-            + "pass=false means at least one choice is too easy to dismiss. "
+            + "pass=true if a thoughtful but unprepared reader would need handbook knowledge or "
+            + "real motorcycle experience to confidently pick the correct answer. "
+            + "pass=false ONLY if the correct answer is derivable from pure common sense / general "
+            + "knowledge (no handbook needed), or if the question is trivially worded. "
+            + "Note: in safety-procedure questions, 'dangerous distractors' are legitimate — they "
+            + "test whether the reader knows the correct procedure, not whether they can recognize "
+            + "danger. Do NOT reject for that reason. "
             + "No markdown, no commentary.";
 
     private static final String USER_TEMPLATE = """
@@ -28,9 +32,9 @@ public class DifficultyJudge {
 
             Correct answer: %s
 
-            Is at least one distractor obviously wrong on first read?
+            Does answering this question correctly require handbook knowledge or motorcycle experience?
             Reply JSON: {"pass": true|false, "reason": "..."}.
-            Remember: pass=true ONLY if all distractors look defensible.
+            Reject ONLY if the answer is obvious from common sense alone.
             """;
 
     private final DeepSeekChatClient client;

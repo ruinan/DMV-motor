@@ -99,7 +99,7 @@ class FormatValidatorTest {
 
     @Test
     void explanationTooShort_fails() {
-        Variant v = new Variant("Stem", canonicalChoices(), "short");
+        Variant v = new Variant("Stem", canonicalChoices(), "tiny.");
         GeneratedQuestion q = new GeneratedQuestion("TEST_ST", "A", v, canonicalVariantZh());
         GenerationGateResult result = validator.check(q);
         assertThat(result.passed()).isFalse();

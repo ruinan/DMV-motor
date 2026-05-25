@@ -113,7 +113,7 @@ class QuestionGeneratorTest {
 
     @Test
     void longInvalidJson_isTruncatedInErrorMessage() {
-        String big = "X".repeat(500); // not valid JSON, > 200 chars triggers truncate path
+        String big = "X".repeat(800); // not valid JSON, > 500 chars triggers truncate path
         when(client.chat(any(), any())).thenReturn(big);
         assertThatThrownBy(() -> generator.generate(SPEC, 1))
                 .isInstanceOf(AiQGenException.class)

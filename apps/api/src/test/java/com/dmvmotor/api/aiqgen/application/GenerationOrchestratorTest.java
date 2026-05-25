@@ -46,7 +46,7 @@ class GenerationOrchestratorTest {
     }
 
     @Test
-    void run_oversamples2x() {
+    void run_oversamples2x_underBatchCap() {
         when(generator.generate(any(), anyInt())).thenReturn(List.of(candidate(1), candidate(2), candidate(3), candidate(4)));
         passAllGates();
 
@@ -54,7 +54,19 @@ class GenerationOrchestratorTest {
 
         ArgumentCaptor<Integer> sizeCap = ArgumentCaptor.forClass(Integer.class);
         verify(generator).generate(any(), sizeCap.capture());
-        // First batch should ask for 2 * targetCount = 4
+        // 2 * target=2 = 4, under the batch cap.
+        assertThat(sizeCap.getValue()).isEqualTo(4);
+    }
+
+    @Test
+    void run_capsBatchSizeAtMax() {
+        // target=10 → naive oversample=20, but batch cap should clamp to 4.
+        when(generator.generate(any(), anyInt())).thenReturn(List.of());
+        when(formatValidator.check(any())).thenReturn(GenerationGateResult.pass("ok"));
+        orchestrator.run(SPEC, 10, /*retryBudget=*/0);
+
+        ArgumentCaptor<Integer> sizeCap = ArgumentCaptor.forClass(Integer.class);
+        verify(generator).generate(any(), sizeCap.capture());
         assertThat(sizeCap.getValue()).isEqualTo(4);
     }
 

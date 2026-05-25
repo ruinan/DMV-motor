@@ -25,7 +25,9 @@ import java.util.Set;
 public final class FormatValidator {
 
     private static final Set<String> ALLOWED_KEYS = Set.of("A", "B", "C", "D");
-    private static final int EXPLANATION_MIN = 50;
+    // 30 chars accommodates dense Chinese explanations (~15-20 hanzi = a clear
+    // sentence) while still rejecting unhelpful one-liners.
+    private static final int EXPLANATION_MIN = 30;
     private static final int EXPLANATION_MAX = 500;
     private static final int STEM_MAX = 1000;
 
