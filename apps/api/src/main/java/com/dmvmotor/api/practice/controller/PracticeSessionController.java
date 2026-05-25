@@ -111,6 +111,55 @@ public class PracticeSessionController {
                 Map.of("total", items.size()));
     }
 
+    @GetMapping("/history")
+    public ApiResponse<?> listHistory(
+            @CurrentUser Long userId,
+            @RequestParam(required = false, defaultValue = "10") int limit
+    ) {
+        if (userId == null) {
+            throw new com.dmvmotor.api.common.BusinessException("UNAUTHORIZED",
+                    "Authentication required", HttpStatus.UNAUTHORIZED);
+        }
+        var result = practiceService.listHistory(userId, limit);
+        var sessions = result.sessions().stream().map(r -> {
+            int accuracy = r.answeredCount() == 0
+                    ? 0
+                    : (int) Math.round(r.correctCount() * 100.0 / r.answeredCount());
+            return Map.ofEntries(
+                    Map.entry("session_id",       String.valueOf(r.id())),
+                    Map.entry("entry_type",       r.entryType()),
+                    Map.entry("language",         r.languageCode()),
+                    Map.entry("status",           r.status()),
+                    Map.entry("started_at",       r.startedAt().toString()),
+                    Map.entry("completed_at",     r.completedAt() != null ? r.completedAt().toString() : ""),
+                    Map.entry("answered_count",   r.answeredCount()),
+                    Map.entry("correct_count",    r.correctCount()),
+                    Map.entry("accuracy_percent", accuracy)
+            );
+        }).toList();
+        return ApiResponse.ok(Map.of(
+                "sessions",    sessions,
+                "total_in_db", result.totalInDb()
+        ));
+    }
+
+    @GetMapping("/stats")
+    public ApiResponse<?> getStats(@CurrentUser Long userId) {
+        if (userId == null) {
+            throw new com.dmvmotor.api.common.BusinessException("UNAUTHORIZED",
+                    "Authentication required", HttpStatus.UNAUTHORIZED);
+        }
+        var s = practiceService.getStats(userId);
+        return ApiResponse.ok(Map.of(
+                "total_sessions",             s.totalSessions(),
+                "total_questions_answered",   s.totalQuestionsAnswered(),
+                "total_correct",              s.totalCorrect(),
+                "overall_accuracy_percent",   s.overallAccuracyPercent(),
+                "active_mistakes_count",      s.activeMistakesCount(),
+                "active_mistakes_topic_count", s.activeMistakesTopicCount()
+        ));
+    }
+
     // ---------------------------------------------------------------
     // DTOs
     // ---------------------------------------------------------------

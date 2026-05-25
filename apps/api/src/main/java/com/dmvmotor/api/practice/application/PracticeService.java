@@ -6,34 +6,75 @@ import com.dmvmotor.api.common.BusinessException;
 import com.dmvmotor.api.common.ResourceNotFoundException;
 import com.dmvmotor.api.content.domain.QuestionDetail;
 import com.dmvmotor.api.content.infrastructure.QuestionRepository;
+import com.dmvmotor.api.mistakereview.infrastructure.MistakeListRepository;
 import com.dmvmotor.api.practice.domain.AnswerResult;
 import com.dmvmotor.api.practice.domain.PracticeSession;
 import com.dmvmotor.api.practice.infrastructure.MistakeRepository;
 import com.dmvmotor.api.practice.infrastructure.PracticeSessionRepository;
+import com.dmvmotor.api.practice.infrastructure.PracticeSessionRepository.AttemptTotals;
+import com.dmvmotor.api.practice.infrastructure.PracticeSessionRepository.SessionHistoryRow;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
+
 @Service
 public class PracticeService {
+
+    private static final int MAX_HISTORY_LIMIT = 50;
 
     private final PracticeSessionRepository sessionRepo;
     private final QuestionRepository        questionRepo;
     private final MistakeRepository         mistakeRepo;
+    private final MistakeListRepository     mistakeListRepo;
     private final AccessService             accessService;
     private final UserRepository            userRepo;
 
     public PracticeService(PracticeSessionRepository sessionRepo,
                            QuestionRepository questionRepo,
                            MistakeRepository mistakeRepo,
+                           MistakeListRepository mistakeListRepo,
                            AccessService accessService,
                            UserRepository userRepo) {
-        this.sessionRepo   = sessionRepo;
-        this.questionRepo  = questionRepo;
-        this.mistakeRepo   = mistakeRepo;
-        this.accessService = accessService;
-        this.userRepo      = userRepo;
+        this.sessionRepo     = sessionRepo;
+        this.questionRepo    = questionRepo;
+        this.mistakeRepo     = mistakeRepo;
+        this.mistakeListRepo = mistakeListRepo;
+        this.accessService   = accessService;
+        this.userRepo        = userRepo;
     }
+
+    public SessionHistoryResult listHistory(Long userId, int requestedLimit) {
+        int limit = Math.min(Math.max(requestedLimit, 1), MAX_HISTORY_LIMIT);
+        List<SessionHistoryRow> rows = sessionRepo.findRecentByUserWithStats(userId, limit);
+        int totalInDb = sessionRepo.countByUser(userId);
+        return new SessionHistoryResult(rows, totalInDb);
+    }
+
+    public PracticeStats getStats(Long userId) {
+        int totalSessions = sessionRepo.countByUser(userId);
+        AttemptTotals totals = sessionRepo.attemptTotals(userId);
+        int cycle = userRepo.findById(userId).map(UserRepository.UserRow::resetCount).orElse(0);
+        int activeMistakes = mistakeListRepo.countActive(userId, cycle);
+        int activeMistakeTopics = mistakeListRepo.countDistinctActiveTopics(userId, cycle);
+        int accuracy = totals.answered() == 0
+                ? 0
+                : (int) Math.round(totals.correct() * 100.0 / totals.answered());
+        return new PracticeStats(totalSessions, totals.answered(), totals.correct(),
+                accuracy, activeMistakes, activeMistakeTopics);
+    }
+
+    public record SessionHistoryResult(List<SessionHistoryRow> sessions, int totalInDb) {}
+
+    public record PracticeStats(
+            int totalSessions,
+            int totalQuestionsAnswered,
+            int totalCorrect,
+            int overallAccuracyPercent,
+            int activeMistakesCount,
+            int activeMistakesTopicCount
+    ) {}
 
     @Transactional
     public StartSessionResult startSession(Long userId, String entryType, String language) {

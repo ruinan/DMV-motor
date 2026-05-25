@@ -858,4 +858,113 @@ class PracticeSessionControllerTest extends IntegrationTestBase {
                         {"question_id":"%s","variant_id":"%s","selected_choice_key":"%s"}
                         """.formatted(qId, vId, choice)));
     }
+
+    // ===== /api/v1/practice/sessions/history =====
+
+    @Test
+    void getHistory_anonymous_returns401() throws Exception {
+        mockMvc.perform(get("/api/v1/practice/sessions/history"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.error.code").value("UNAUTHORIZED"));
+    }
+
+    @Test
+    void getHistory_noSessions_returnsEmptyList() throws Exception {
+        Long userId = fixtures.insertUser("hist@test.com");
+        mockMvc.perform(get("/api/v1/practice/sessions/history")
+                        .header("Authorization", "Bearer " + userId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.sessions").isArray())
+                .andExpect(jsonPath("$.data.sessions", org.hamcrest.Matchers.hasSize(0)))
+                .andExpect(jsonPath("$.data.total_in_db").value(0));
+    }
+
+    @Test
+    void getHistory_returnsSessionsWithStatsNewestFirst() throws Exception {
+        Long userId = fixtures.insertUser("hist@test.com");
+        Long topicId = fixtures.insertTopic("LANES", "Lane", "车道", false, 10);
+        Long q1 = fixtures.insertQuestion(topicId, "A");
+        Long v1 = fixtures.insertEnVariantReturningId(q1, "s1", "e1");
+        Long q2 = fixtures.insertQuestion(topicId, "A");
+        Long v2 = fixtures.insertEnVariantReturningId(q2, "s2", "e2");
+
+        Long oldSession = fixtures.insertPracticeSession(userId, 0);
+        fixtures.insertPracticeAttempt(userId, oldSession, q1, v1, "A", true);
+        fixtures.insertPracticeAttempt(userId, oldSession, q2, v2, "B", false);
+
+        Long newSession = fixtures.insertPracticeSession(userId, 0);
+        fixtures.insertPracticeAttempt(userId, newSession, q1, v1, "A", true);
+
+        mockMvc.perform(get("/api/v1/practice/sessions/history")
+                        .header("Authorization", "Bearer " + userId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.total_in_db").value(2))
+                .andExpect(jsonPath("$.data.sessions", org.hamcrest.Matchers.hasSize(2)))
+                .andExpect(jsonPath("$.data.sessions[0].session_id").value(newSession.toString()))
+                .andExpect(jsonPath("$.data.sessions[0].answered_count").value(1))
+                .andExpect(jsonPath("$.data.sessions[0].correct_count").value(1))
+                .andExpect(jsonPath("$.data.sessions[0].accuracy_percent").value(100))
+                .andExpect(jsonPath("$.data.sessions[1].session_id").value(oldSession.toString()))
+                .andExpect(jsonPath("$.data.sessions[1].answered_count").value(2))
+                .andExpect(jsonPath("$.data.sessions[1].correct_count").value(1))
+                .andExpect(jsonPath("$.data.sessions[1].accuracy_percent").value(50));
+    }
+
+    @Test
+    void getHistory_clampsLimitToServerMax() throws Exception {
+        Long userId = fixtures.insertUser("hist@test.com");
+        // limit=999 should be capped at server-side max of 50.
+        mockMvc.perform(get("/api/v1/practice/sessions/history?limit=999")
+                        .header("Authorization", "Bearer " + userId))
+                .andExpect(status().isOk());
+    }
+
+    // ===== /api/v1/practice/sessions/stats =====
+
+    @Test
+    void getStats_anonymous_returns401() throws Exception {
+        mockMvc.perform(get("/api/v1/practice/sessions/stats"))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void getStats_emptyAccount_returnsZeros() throws Exception {
+        Long userId = fixtures.insertUser("stats@test.com");
+        mockMvc.perform(get("/api/v1/practice/sessions/stats")
+                        .header("Authorization", "Bearer " + userId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.total_sessions").value(0))
+                .andExpect(jsonPath("$.data.total_questions_answered").value(0))
+                .andExpect(jsonPath("$.data.total_correct").value(0))
+                .andExpect(jsonPath("$.data.overall_accuracy_percent").value(0))
+                .andExpect(jsonPath("$.data.active_mistakes_count").value(0))
+                .andExpect(jsonPath("$.data.active_mistakes_topic_count").value(0));
+    }
+
+    @Test
+    void getStats_withAttemptsAndMistakes_aggregatesCorrectly() throws Exception {
+        Long userId = fixtures.insertUser("stats@test.com");
+        Long topicId = fixtures.insertTopic("LANES", "Lane", "车道", false, 10);
+        Long q1 = fixtures.insertQuestion(topicId, "A");
+        Long v1 = fixtures.insertEnVariantReturningId(q1, "s1", "e1");
+        Long q2 = fixtures.insertQuestion(topicId, "A");
+        Long v2 = fixtures.insertEnVariantReturningId(q2, "s2", "e2");
+
+        Long sessionId = fixtures.insertPracticeSession(userId, 0);
+        fixtures.insertPracticeAttempt(userId, sessionId, q1, v1, "A", true);
+        fixtures.insertPracticeAttempt(userId, sessionId, q2, v2, "B", false);
+
+        // Active mistake (is_active default = TRUE, learning_cycle default = 0)
+        fixtures.insertMistakeRecord(userId, q2, topicId, 1, "practice");
+
+        mockMvc.perform(get("/api/v1/practice/sessions/stats")
+                        .header("Authorization", "Bearer " + userId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.total_sessions").value(1))
+                .andExpect(jsonPath("$.data.total_questions_answered").value(2))
+                .andExpect(jsonPath("$.data.total_correct").value(1))
+                .andExpect(jsonPath("$.data.overall_accuracy_percent").value(50))
+                .andExpect(jsonPath("$.data.active_mistakes_count").value(1))
+                .andExpect(jsonPath("$.data.active_mistakes_topic_count").value(1));
+    }
 }
