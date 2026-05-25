@@ -15,5 +15,19 @@ import org.springframework.boot.context.properties.bind.DefaultValue;
 public record MasteryProperties(
         @DefaultValue("80") int topicCorrectRateThreshold,
         @DefaultValue("8")  int recentWindow,
-        @DefaultValue("6")  int recentCorrectThreshold
-) {}
+        @DefaultValue("6")  int recentCorrectThreshold,
+        @DefaultValue       Subtopic subtopic
+) {
+
+    /**
+     * Sub-topic mastery uses a smaller window (4 vs 8) because each sub-topic
+     * has fewer questions (~5-8 per sub-topic). Requiring 8 recent attempts
+     * would force users to redo the same questions repeatedly before reaching
+     * mastery. Initial values per design doc decision #6.
+     */
+    public record Subtopic(
+            @DefaultValue("80") int correctRateThreshold,
+            @DefaultValue("4")  int recentWindow,
+            @DefaultValue("3")  int recentCorrectThreshold
+    ) {}
+}

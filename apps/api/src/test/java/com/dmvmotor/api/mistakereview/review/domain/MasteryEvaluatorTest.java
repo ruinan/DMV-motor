@@ -10,7 +10,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 class MasteryEvaluatorTest {
 
-    private final MasteryProperties props = new MasteryProperties(80, 8, 6);
+    private final MasteryProperties props = new MasteryProperties(80, 8, 6,
+            new MasteryProperties.Subtopic(80, 4, 3));
     private final MasteryEvaluator evaluator = new MasteryEvaluator(props);
 
     @Test
