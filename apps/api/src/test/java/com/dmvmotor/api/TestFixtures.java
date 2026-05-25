@@ -306,6 +306,16 @@ public class TestFixtures {
                 """, Long.class, userId, learningCycle);
     }
 
+    public Long insertInProgressPracticeSession(Long userId, int learningCycle,
+                                                 String entryType, String language) {
+        return jdbc.queryForObject("""
+                INSERT INTO practice_sessions
+                    (user_id, status, entry_type, language_code, learning_cycle)
+                VALUES (?, 'in_progress', ?, ?, ?)
+                RETURNING id
+                """, Long.class, userId, entryType, language, learningCycle);
+    }
+
     public void insertPracticeAttempt(Long userId, Long practiceSessionId,
                                        Long questionId, Long variantId,
                                        String selectedKey, boolean isCorrect) {

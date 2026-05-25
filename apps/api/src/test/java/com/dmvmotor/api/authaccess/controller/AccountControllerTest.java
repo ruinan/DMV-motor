@@ -40,7 +40,34 @@ class AccountControllerTest extends IntegrationTestBase {
                 .andExpect(jsonPath("$.data.access.has_active_pass").value(false))
                 .andExpect(jsonPath("$.data.access.mock_remaining").value(0))
                 .andExpect(jsonPath("$.data.learning.has_in_progress_practice").value(false))
+                .andExpect(jsonPath("$.data.learning.in_progress_practice").doesNotExist())
                 .andExpect(jsonPath("$.data.learning.has_in_progress_review").value(false));
+    }
+
+    @Test
+    void getMe_withInProgressPractice_returnsSessionDetails() throws Exception {
+        Long topicId = fixtures.insertTopic("LANES", "Lane", "车道", false, 10);
+        Long q1 = fixtures.insertQuestion(topicId, "A");
+        Long v1 = fixtures.insertEnVariantReturningId(q1, "stem 1", "expl 1");
+
+        // Insert in-progress session and 2 attempts
+        Long sessionId = fixtures.insertInProgressPracticeSession(userId, 0, "full", "en");
+        fixtures.insertPracticeAttempt(userId, sessionId, q1, v1, "A", true);
+        Long q2 = fixtures.insertQuestion(topicId, "B");
+        Long v2 = fixtures.insertEnVariantReturningId(q2, "stem 2", "expl 2");
+        fixtures.insertPracticeAttempt(userId, sessionId, q2, v2, "B", true);
+
+        mockMvc.perform(get("/api/v1/me")
+                        .header("Authorization", "Bearer " + userId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.learning.has_in_progress_practice").value(true))
+                .andExpect(jsonPath("$.data.learning.in_progress_practice.session_id")
+                        .value(sessionId.toString()))
+                .andExpect(jsonPath("$.data.learning.in_progress_practice.entry_type").value("full"))
+                .andExpect(jsonPath("$.data.learning.in_progress_practice.language").value("en"))
+                .andExpect(jsonPath("$.data.learning.in_progress_practice.answered_count").value(2))
+                .andExpect(jsonPath("$.data.learning.in_progress_practice.total_count").exists())
+                .andExpect(jsonPath("$.data.learning.in_progress_practice.last_activity_at").exists());
     }
 
     @Test

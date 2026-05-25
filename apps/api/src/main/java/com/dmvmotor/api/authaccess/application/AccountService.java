@@ -5,6 +5,7 @@ import com.dmvmotor.api.authaccess.infrastructure.UserRepository.UserRow;
 import com.dmvmotor.api.common.ResourceNotFoundException;
 import com.dmvmotor.api.mistakereview.review.infrastructure.ReviewRepository;
 import com.dmvmotor.api.practice.infrastructure.PracticeSessionRepository;
+import com.dmvmotor.api.practice.infrastructure.PracticeSessionRepository.InProgressSession;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -32,11 +33,11 @@ public class AccountService {
 
         int cycle = user.resetCount();
         AccessService.AccessInfo access = accessService.getAccess(userId);
-        boolean hasInProgressPractice = practiceSessionRepo.existsInProgressByUserId(userId, cycle);
+        InProgressSession inProgress = practiceSessionRepo.findInProgressByUser(userId, cycle).orElse(null);
         boolean hasInProgressReview   = reviewRepo.findActivePackId(userId, cycle).isPresent();
 
         return new MeResult(userId, user.email(), user.languagePreference(),
-                access, hasInProgressPractice, hasInProgressReview);
+                access, inProgress, hasInProgressReview);
     }
 
     public String updateLanguage(Long userId, String language) {
@@ -56,7 +57,11 @@ public class AccountService {
             String email,
             String language,
             AccessService.AccessInfo access,
-            boolean hasInProgressPractice,
+            InProgressSession inProgressPractice,
             boolean hasInProgressReview
-    ) {}
+    ) {
+        public boolean hasInProgressPractice() {
+            return inProgressPractice != null;
+        }
+    }
 }

@@ -291,6 +291,48 @@ public class PracticeSessionRepository {
                         .and(ps.LEARNING_CYCLE.eq(learningCycle)));
     }
 
+    /**
+     * Finds the user's most-recently-active in-progress practice session
+     * (within the current learning cycle) along with attempts answered so
+     * far. Used by /me to power the Study Hub Resume CTA.
+     */
+    public Optional<InProgressSession> findInProgressByUser(Long userId, int learningCycle) {
+        var ps = Tables.PRACTICE_SESSIONS;
+        var pa = Tables.PRACTICE_ATTEMPTS;
+        Field<Integer> answered = DSL.count(pa.ID).as("answered");
+        Record r = dsl.select(ps.ID, ps.ENTRY_TYPE, ps.LANGUAGE_CODE,
+                              ps.LAST_ACTIVE_AT, answered)
+                .from(ps)
+                .leftJoin(pa).on(pa.PRACTICE_SESSION_ID.eq(ps.ID))
+                .where(ps.USER_ID.eq(userId)
+                        .and(ps.STATUS.eq("in_progress"))
+                        .and(ps.LEARNING_CYCLE.eq(learningCycle)))
+                .groupBy(ps.ID)
+                .orderBy(ps.LAST_ACTIVE_AT.desc(), ps.ID.desc())
+                .limit(1)
+                .fetchOne();
+        if (r == null) return Optional.empty();
+        int answeredCount = r.get(answered);
+        int total = countTotal(r.get(ps.LANGUAGE_CODE), r.get(ps.ENTRY_TYPE));
+        return Optional.of(new InProgressSession(
+                r.get(ps.ID),
+                r.get(ps.ENTRY_TYPE),
+                r.get(ps.LANGUAGE_CODE),
+                answeredCount,
+                total,
+                r.get(ps.LAST_ACTIVE_AT)
+        ));
+    }
+
+    public record InProgressSession(
+            Long           sessionId,
+            String         entryType,
+            String         language,
+            int            answeredCount,
+            int            totalCount,
+            OffsetDateTime lastActivityAt
+    ) {}
+
     public void updateStatus(Long sessionId, String status) {
         var ps = Tables.PRACTICE_SESSIONS;
         dsl.update(ps)

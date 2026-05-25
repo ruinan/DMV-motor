@@ -91,6 +91,19 @@ public class AccountController {
 
         Map<String, Object> learning = new HashMap<>();
         learning.put("has_in_progress_practice", me.hasInProgressPractice());
+        if (me.inProgressPractice() != null) {
+            var ip = me.inProgressPractice();
+            Map<String, Object> ipDto = new HashMap<>();
+            ipDto.put("session_id",       String.valueOf(ip.sessionId()));
+            ipDto.put("entry_type",       ip.entryType());
+            ipDto.put("language",         ip.language());
+            ipDto.put("answered_count",   ip.answeredCount());
+            ipDto.put("total_count",      ip.totalCount());
+            ipDto.put("last_activity_at", ip.lastActivityAt().toString());
+            learning.put("in_progress_practice", ipDto);
+        } else {
+            learning.put("in_progress_practice", null);
+        }
         learning.put("has_in_progress_review",   me.hasInProgressReview());
 
         Map<String, Object> dto = new HashMap<>();
