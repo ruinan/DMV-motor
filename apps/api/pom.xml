@@ -123,6 +123,8 @@
                         <!-- Prod-only Firebase beans — require live Google creds, exercised via manual smoke test -->
                         <exclude>com/dmvmotor/api/authaccess/auth/FirebaseConfig.class</exclude>
                         <exclude>com/dmvmotor/api/authaccess/auth/FirebaseIdTokenVerifier.class</exclude>
+                        <!-- Out-of-band CLI for AI question generation — exercised manually, not in CI -->
+                        <exclude>com/dmvmotor/api/aiqgen/cli/**</exclude>
                     </excludes>
                 </configuration>
                 <executions>
