@@ -122,6 +122,32 @@ export function PracticeFlow({ t, lang }: Props) {
     }
   }
 
+  // Resume an existing in-progress session — invoked from the idle screen when
+  // /me reports a half-finished session for this user. Re-uses the session_id
+  // and pulls the next unanswered question + current progress.
+  async function resume(sessionId: string) {
+    setPhase({ kind: "starting" });
+    try {
+      const question = await apiFetch<Question>(
+        `/api/v1/practice/sessions/${sessionId}/next-question`,
+      );
+      const status = await apiFetch<SessionStatus>(
+        `/api/v1/practice/sessions/${sessionId}`,
+      );
+      setPhase({
+        kind: "answering",
+        sessionId,
+        question,
+        answeredCount: status.answered_count,
+        totalCount: status.total_count,
+        picked: null,
+        submitting: false,
+      });
+    } catch (err) {
+      setPhase({ kind: "error", message: errorMessage(err, t) });
+    }
+  }
+
   async function submit() {
     if (phase.kind !== "answering" || !phase.picked || phase.submitting) return;
     setPhase({ ...phase, submitting: true });
@@ -231,14 +257,42 @@ export function PracticeFlow({ t, lang }: Props) {
       <Container>
         <Header t={t} subtitle={subtitle} />
         {isLoggedIn ? (
-          // Signed-in user: one primary CTA — Start full or Start free-trial
-          // depending on pass state. Helper text explains the free vs paid line;
-          // when the user has no pass we link the helper to /me#subscription so
+          // Signed-in user: if an in-progress session exists, lead with Resume
+          // and offer "Start fresh" as secondary. Otherwise the standard Start
+          // CTA. Helper text links to /me#subscription for no-pass users so
           // the "you need a pass" copy isn't a dead end.
           <div className="flex flex-col items-center gap-3">
-            <Button size="lg" onClick={start} disabled={me.isLoading}>
-              {entryType === "full" ? t.startFull : t.startFreeTrial}
-            </Button>
+            {me.data?.learning.in_progress_practice ? (
+              <>
+                <Button
+                  size="lg"
+                  onClick={() =>
+                    resume(me.data!.learning.in_progress_practice!.session_id)
+                  }
+                >
+                  {t.resumeCta
+                    .replace(
+                      "{answered}",
+                      String(me.data.learning.in_progress_practice.answered_count),
+                    )
+                    .replace(
+                      "{total}",
+                      String(me.data.learning.in_progress_practice.total_count),
+                    )}
+                </Button>
+                <button
+                  type="button"
+                  onClick={start}
+                  className="text-xs font-medium text-muted-foreground underline-offset-4 hover:underline"
+                >
+                  {t.startFresh}
+                </button>
+              </>
+            ) : (
+              <Button size="lg" onClick={start} disabled={me.isLoading}>
+                {entryType === "full" ? t.startFull : t.startFreeTrial}
+              </Button>
+            )}
             {hasPass ? (
               <p className="text-xs text-muted-foreground">{t.startFull}</p>
             ) : (
@@ -386,10 +440,19 @@ export function PracticeFlow({ t, lang }: Props) {
         )}
       </div>
 
-      <div className="rounded-xl border bg-card p-6 shadow-sm md:p-8">
-        <p className="text-base leading-relaxed sm:text-lg">{question.stem}</p>
+      <div className="rounded-xl border border-border/70 bg-card px-5 py-6 shadow-sm md:px-8 md:py-8">
+        <div className="mx-auto max-w-xl text-center">
+          <p className="text-xs font-semibold uppercase tracking-wider text-primary">
+            {t.questionOf
+              .replace("{current}", String(Math.min(answeredCount + 1, totalCount)))
+              .replace("{total}", String(totalCount))}
+          </p>
+          <h2 className="mt-2 text-xl font-semibold leading-8 text-foreground sm:text-2xl sm:leading-9">
+            {question.stem}
+          </h2>
+        </div>
 
-        <ul className="mt-6 flex flex-col gap-3">
+        <ul className="mx-auto mt-7 flex max-w-xl flex-col gap-3">
           {question.choices.map((c) => {
             const selected = pickedKey === c.key;
             const isCorrect = isFeedback && correctKey === c.key;
@@ -397,13 +460,13 @@ export function PracticeFlow({ t, lang }: Props) {
 
             const stateClass = isFeedback
               ? isCorrect
-                ? "border-primary bg-primary/10 text-foreground"
+                ? "border-success bg-success/10 text-foreground shadow-sm"
                 : isWrongPick
-                  ? "border-destructive bg-destructive/10 text-foreground"
+                  ? "border-destructive bg-destructive/10 text-foreground shadow-sm"
                   : "border-border bg-background text-muted-foreground"
               : selected
-                ? "border-primary bg-primary/10 text-foreground"
-                : "border-border bg-background hover:border-primary/50 hover:bg-muted";
+                ? "border-primary bg-primary/10 text-foreground ring-1 ring-primary/20"
+                : "border-border bg-background hover:border-primary/60 hover:bg-primary/5 hover:shadow-sm";
 
             return (
               <li key={c.key}>
@@ -414,17 +477,19 @@ export function PracticeFlow({ t, lang }: Props) {
                     if (phase.kind !== "answering" || phase.submitting) return;
                     setPhase({ ...phase, picked: c.key });
                   }}
-                  className={`flex w-full items-start gap-3 rounded-lg border-2 px-4 py-3 text-left transition-colors disabled:cursor-default ${stateClass}`}
+                  className={`flex w-full items-start gap-3 rounded-xl border-2 px-4 py-4 text-left transition-all disabled:cursor-default ${stateClass}`}
                 >
-                  <span className="mt-0.5 inline-flex size-7 shrink-0 items-center justify-center rounded-full border border-border bg-background text-sm font-semibold">
+                  <span className="mt-0.5 inline-flex size-8 shrink-0 items-center justify-center rounded-full border border-border bg-background text-sm font-bold text-foreground">
                     {c.key}
                   </span>
-                  <span className="flex-1 text-sm sm:text-base">{c.text}</span>
+                  <span className="flex-1 pt-1 text-sm leading-6 sm:text-base">
+                    {c.text}
+                  </span>
                   {isFeedback && isCorrect && (
-                    <CheckCircle2 className="size-5 shrink-0 text-primary" />
+                    <CheckCircle2 className="mt-1 size-5 shrink-0 text-success" />
                   )}
                   {isFeedback && isWrongPick && (
-                    <XCircle className="size-5 shrink-0 text-destructive" />
+                    <XCircle className="mt-1 size-5 shrink-0 text-destructive" />
                   )}
                 </button>
               </li>
@@ -434,13 +499,13 @@ export function PracticeFlow({ t, lang }: Props) {
 
         {isFeedback && (
           <div
-            className={`mt-6 rounded-lg border p-4 text-sm ${
+            className={`mx-auto mt-6 max-w-xl rounded-xl border p-4 text-sm shadow-sm ${
               phase.result.is_correct
-                ? "border-primary/40 bg-primary/5 text-foreground"
+                ? "border-success/40 bg-success/5 text-foreground"
                 : "border-destructive/40 bg-destructive/5 text-foreground"
             }`}
           >
-            <p className="font-semibold">
+            <p className="text-base font-semibold">
               {phase.result.is_correct ? t.correct : t.incorrect}
             </p>
             {phase.result.explanation && (

@@ -1,6 +1,5 @@
 "use client";
 
-import { Loader2 } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { AppSidebar } from "@/components/app-sidebar";
 import { MobileAppBar } from "@/components/mobile-app-bar";
@@ -25,24 +24,9 @@ type Props = {
 export function PracticeShell({ t, lang }: Props) {
   const { user, loading } = useAuth();
 
-  // While Firebase rehydrates, render a centred spinner so we don't flash
-  // the anonymous full-screen card and then snap into the sidebar layout.
-  if (loading) {
-    return (
-      <div
-        role="status"
-        aria-live="polite"
-        className="flex min-h-screen flex-col items-center justify-center gap-3 bg-background p-4"
-      >
-        <Loader2 className="size-8 animate-spin text-primary" />
-        <p className="text-sm text-muted-foreground">{t.auth.verifying}</p>
-      </div>
-    );
-  }
-
-  // Anonymous: full-screen practice card (matches the marketing-style
-  // "Free trial" idle screen the user sees from the landing CTA).
-  if (!user) {
+  // Anonymous/free practice must not block on Firebase rehydration. If auth
+  // later resolves to a user, the signed-in chrome replaces this shell.
+  if (loading || !user) {
     return <PracticeFlow t={t.practice} lang={lang} />;
   }
 

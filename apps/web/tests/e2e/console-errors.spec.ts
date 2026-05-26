@@ -134,11 +134,11 @@ test.describe("console-error walk (#5)", () => {
       await expect(page).toHaveURL(/\/en\/me$/);
 
       // Now collect across every protected route.
+      // /review removed in Phase B6 — Study Hub absorbs review surfacing.
       for (const url of [
         "/en/dashboard",
         "/en/me",
         "/en/mistakes",
-        "/en/review",
         "/en/mock",
         "/en/progress",
         "/en/practice",

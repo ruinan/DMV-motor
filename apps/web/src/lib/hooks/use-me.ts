@@ -2,6 +2,15 @@ import { useQuery } from "@tanstack/react-query";
 import { apiFetch } from "@/lib/api-client";
 import { useAuth } from "@/lib/auth-context";
 
+export type InProgressPractice = {
+  session_id: string;
+  entry_type: "free_trial" | "full" | string;
+  language: string;
+  answered_count: number;
+  total_count: number;
+  last_activity_at: string;
+};
+
 export type MeResponse = {
   user_id: string;
   email: string;
@@ -14,6 +23,7 @@ export type MeResponse = {
   };
   learning: {
     has_in_progress_practice: boolean;
+    in_progress_practice: InProgressPractice | null;
     has_in_progress_review: boolean;
   };
 };
