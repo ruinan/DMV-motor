@@ -794,10 +794,15 @@ function AiExplainBlock({
   }
 
   if (ai.state.kind === "error") {
-    // Rate-limit (429 RATE_LIMITED) gets its own friendlier copy; everything
-    // else falls through to the generic message.
+    // Tier the error copy: rate-limit and operator-disabled get specific
+    // wording; everything else (5xx / network / parse) falls through to a
+    // generic "try later".
     const msg =
-      ai.state.code === "RATE_LIMITED" ? t.aiExplainCooldown : t.aiExplainError;
+      ai.state.code === "RATE_LIMITED"
+        ? t.aiExplainCooldown
+        : ai.state.code === "AI_UNAVAILABLE"
+          ? t.aiExplainUnavailable
+          : t.aiExplainError;
     return (
       <div className="mt-4 border-t border-border/60 pt-4">
         <p className="text-xs text-destructive">{msg}</p>

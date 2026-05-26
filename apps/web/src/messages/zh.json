@@ -379,6 +379,7 @@
     "aiExplainCached": "（已缓存）",
     "aiExplainAuthRequired": "登录后即可使用 AI 解析。",
     "aiExplainCooldown": "AI 正在冷却中，请稍后再试。",
+    "aiExplainUnavailable": "AI 解析功能暂时不可用。",
     "aiExplainError": "无法生成 AI 解析，请稍后重试。"
   }
 }

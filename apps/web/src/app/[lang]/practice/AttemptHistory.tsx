@@ -214,7 +214,9 @@ function AttemptAiBlock({
     const msg =
       ai.state.code === "RATE_LIMITED"
         ? t.aiExplainCooldown
-        : t.aiExplainError;
+        : ai.state.code === "AI_UNAVAILABLE"
+          ? t.aiExplainUnavailable
+          : t.aiExplainError;
     return (
       <div className="mt-3 border-t border-border/60 pt-3">
         <p className="text-xs text-destructive">{msg}</p>

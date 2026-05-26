@@ -51,6 +51,16 @@ public class AiExplanationService {
     public Result explain(Long userId, Long questionId, Long variantId,
                           String selectedChoiceKey, String language) {
 
+        // 0. Feature flag — operators can disable AI without removing the bean
+        //    or yanking the provider. Endpoint surfaces a stable AI_UNAVAILABLE
+        //    error code so the frontend can show a "currently off" message
+        //    rather than a stub / canned text leaking through.
+        if (!props.enabled()) {
+            throw new BusinessException("AI_UNAVAILABLE",
+                    "AI explanations are currently turned off",
+                    HttpStatus.SERVICE_UNAVAILABLE);
+        }
+
         // 1. Cache hit short-circuit — same (user, question, language) returns the
         //    persisted row. No provider call, no rate-limit consumption.
         Optional<AiExplanation> cached =

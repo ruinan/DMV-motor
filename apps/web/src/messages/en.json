@@ -379,6 +379,7 @@
     "aiExplainCached": "(cached)",
     "aiExplainAuthRequired": "Sign in to use AI explanations.",
     "aiExplainCooldown": "AI is cooling down. Try again in a moment.",
+    "aiExplainUnavailable": "AI explanations are currently unavailable.",
     "aiExplainError": "Couldn't generate an AI explanation. Try again later."
   }
 }
