@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, CheckCircle2, History, Sparkles, XCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -83,6 +83,74 @@ export function PracticeFlow({ t, lang }: Props) {
   const [phase, setPhase] = useState<Phase>({ kind: "idle" });
   const [historyOpen, setHistoryOpen] = useState(false);
   const [exitConfirmOpen, setExitConfirmOpen] = useState(false);
+
+  // Mid-session language switch — when the URL lang flips (e.g. user toggles
+  // EN ↔ ZH from the sidebar), refetch the current question's variant in the
+  // new language so the on-screen stem + choices flip too. Without this, the
+  // session sticks to its original language_code and the toggle is a no-op
+  // until next-question advances.
+  const lastFetchedLang = useRef(lang);
+  useEffect(() => {
+    if (lastFetchedLang.current === lang) return;
+    lastFetchedLang.current = lang;
+    if (phase.kind !== "answering" && phase.kind !== "feedback") return;
+    const questionId = phase.question.question_id;
+    const sessionId = phase.sessionId;
+    const isFeedback = phase.kind === "feedback";
+    let cancelled = false;
+
+    async function refetchInNewLanguage() {
+      const q = await apiFetch<Question>(
+        `/api/v1/questions/${questionId}?language=${lang}`,
+      );
+      if (cancelled) return;
+
+      // For feedback phase, also refetch the explanation in the new language
+      // via the attempts endpoint so the explanation copy flips too.
+      let translatedExplanation: string | null = null;
+      if (isFeedback) {
+        try {
+          const att = await apiFetch<{
+            items: Array<{
+              question_id: string;
+              explanation: string;
+              submitted_at: string;
+            }>;
+          }>(`/api/v1/practice/sessions/${sessionId}/attempts?language=${lang}`);
+          if (cancelled) return;
+          const matches = att.items
+            .filter((a) => a.question_id === questionId)
+            .sort((a, b) => b.submitted_at.localeCompare(a.submitted_at));
+          translatedExplanation = matches[0]?.explanation ?? null;
+        } catch {
+          /* keep old explanation if refetch fails */
+        }
+      }
+
+      setPhase((prev) => {
+        if (prev.kind === "answering") return { ...prev, question: q };
+        if (prev.kind === "feedback") {
+          return {
+            ...prev,
+            question: q,
+            result:
+              translatedExplanation != null
+                ? { ...prev.result, explanation: translatedExplanation }
+                : prev.result,
+          };
+        }
+        return prev;
+      });
+    }
+
+    refetchInNewLanguage().catch(() => {
+      /* swallow — keep old-language question if refetch fails */
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [lang, phase]);
 
   // Invalidate any Study Hub data that practice activity touches — answers
   // shift active mistakes / accuracy, starting/exiting sessions changes
