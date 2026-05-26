@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, CheckCircle2, History, Sparkles, XCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { apiFetch, ApiError } from "@/lib/api-client";
@@ -78,9 +79,23 @@ export function PracticeFlow({ t, lang }: Props) {
   const { user } = useAuth();
   const me = useMe();
   const ai = useAiExplain();
+  const queryClient = useQueryClient();
   const [phase, setPhase] = useState<Phase>({ kind: "idle" });
   const [historyOpen, setHistoryOpen] = useState(false);
   const [exitConfirmOpen, setExitConfirmOpen] = useState(false);
+
+  // Invalidate any Study Hub data that practice activity touches — answers
+  // shift active mistakes / accuracy, starting/exiting sessions changes
+  // history rows and the in_progress_practice payload on /me. Without this
+  // the dashboard shows stale zeros for up to staleTime (60s).
+  function invalidateStudyHub() {
+    queryClient.invalidateQueries({ queryKey: ["me"] });
+    queryClient.invalidateQueries({ queryKey: ["practice-stats"] });
+    queryClient.invalidateQueries({ queryKey: ["practice-history"] });
+    queryClient.invalidateQueries({ queryKey: ["topic-mastery"] });
+    queryClient.invalidateQueries({ queryKey: ["mistakes"] });
+    queryClient.invalidateQueries({ queryKey: ["mistakes-count"] });
+  }
 
   // Resolve the session id whenever the phase carries one — used by the
   // history toggle / view. Only "answering" / "feedback" / "completed"
@@ -122,6 +137,7 @@ export function PracticeFlow({ t, lang }: Props) {
         picked: null,
         submitting: false,
       });
+      invalidateStudyHub();
     } catch (err) {
       setPhase({ kind: "error", message: errorMessage(err, t) });
     }
@@ -176,6 +192,8 @@ export function PracticeFlow({ t, lang }: Props) {
         result: res,
         totalCount: phase.totalCount,
       });
+      // Each submitted answer can shift active mistakes / accuracy stats.
+      invalidateStudyHub();
     } catch (err) {
       setPhase({ kind: "error", message: errorMessage(err, t) });
     }
@@ -222,12 +240,17 @@ export function PracticeFlow({ t, lang }: Props) {
       // Even if complete fails, the user has effectively ended the session.
     }
     setPhase({ kind: "completed", sessionId, reason });
+    invalidateStudyHub();
   }
 
   async function confirmExit() {
     if (phase.kind !== "answering" && phase.kind !== "feedback") return;
     setExitConfirmOpen(false);
-    await complete(phase.sessionId, "exited");
+    // Exit does NOT call /complete — leaves the session in_progress so the
+    // user can resume from Study Hub or /practice next visit. Backend
+    // /complete is reserved for finishing all questions.
+    setPhase({ kind: "completed", sessionId: phase.sessionId, reason: "exited" });
+    invalidateStudyHub();
   }
 
   // -------------------------------------------------------------------------
