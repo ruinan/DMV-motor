@@ -84,73 +84,25 @@ export function PracticeFlow({ t, lang }: Props) {
   const [historyOpen, setHistoryOpen] = useState(false);
   const [exitConfirmOpen, setExitConfirmOpen] = useState(false);
 
-  // Mid-session language switch — when the URL lang flips (e.g. user toggles
-  // EN ↔ ZH from the sidebar), refetch the current question's variant in the
-  // new language so the on-screen stem + choices flip too. Without this, the
-  // session sticks to its original language_code and the toggle is a no-op
-  // until next-question advances.
-  const lastFetchedLang = useRef(lang);
+  // Auto-resume on mount — Next.js App Router unmounts client components when
+  // the URL [lang] segment changes (so the language toggle effectively kicks
+  // the user out of practice with state lost). Backend session is still
+  // in_progress though, so we pick it back up automatically: on first mount,
+  // if /me reports an in-progress session, resume() it with the current
+  // URL language so the next-question variant comes back in the new locale.
+  // Phase guards prevent re-triggering once we're already past idle.
+  const autoResumeFired = useRef(false);
   useEffect(() => {
-    if (lastFetchedLang.current === lang) return;
-    lastFetchedLang.current = lang;
-    if (phase.kind !== "answering" && phase.kind !== "feedback") return;
-    const questionId = phase.question.question_id;
-    const sessionId = phase.sessionId;
-    const isFeedback = phase.kind === "feedback";
-    let cancelled = false;
-
-    async function refetchInNewLanguage() {
-      const q = await apiFetch<Question>(
-        `/api/v1/questions/${questionId}?language=${lang}`,
-      );
-      if (cancelled) return;
-
-      // For feedback phase, also refetch the explanation in the new language
-      // via the attempts endpoint so the explanation copy flips too.
-      let translatedExplanation: string | null = null;
-      if (isFeedback) {
-        try {
-          const att = await apiFetch<{
-            items: Array<{
-              question_id: string;
-              explanation: string;
-              submitted_at: string;
-            }>;
-          }>(`/api/v1/practice/sessions/${sessionId}/attempts?language=${lang}`);
-          if (cancelled) return;
-          const matches = att.items
-            .filter((a) => a.question_id === questionId)
-            .sort((a, b) => b.submitted_at.localeCompare(a.submitted_at));
-          translatedExplanation = matches[0]?.explanation ?? null;
-        } catch {
-          /* keep old explanation if refetch fails */
-        }
-      }
-
-      setPhase((prev) => {
-        if (prev.kind === "answering") return { ...prev, question: q };
-        if (prev.kind === "feedback") {
-          return {
-            ...prev,
-            question: q,
-            result:
-              translatedExplanation != null
-                ? { ...prev.result, explanation: translatedExplanation }
-                : prev.result,
-          };
-        }
-        return prev;
-      });
-    }
-
-    refetchInNewLanguage().catch(() => {
-      /* swallow — keep old-language question if refetch fails */
-    });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [lang, phase]);
+    if (autoResumeFired.current) return;
+    if (phase.kind !== "idle") return;
+    const inProgress = me.data?.learning.in_progress_practice;
+    if (!inProgress) return;
+    autoResumeFired.current = true;
+    resume(inProgress.session_id);
+    // resume is stable for the lifetime of this component, eslint-disable-next-line is unnecessary
+    // because we explicitly want this to fire only when in_progress first appears.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [me.data?.learning.in_progress_practice, phase.kind]);
 
   // Invalidate any Study Hub data that practice activity touches — answers
   // shift active mistakes / accuracy, starting/exiting sessions changes
@@ -212,13 +164,15 @@ export function PracticeFlow({ t, lang }: Props) {
   }
 
   // Resume an existing in-progress session — invoked from the idle screen when
-  // /me reports a half-finished session for this user. Re-uses the session_id
-  // and pulls the next unanswered question + current progress.
+  // /me reports a half-finished session, and auto-fired on remount (e.g. after
+  // a language toggle). Passes ?language=<currentUrlLang> so the next-question
+  // variant respects the user's current locale even if the session was started
+  // in the other language.
   async function resume(sessionId: string) {
     setPhase({ kind: "starting" });
     try {
       const question = await apiFetch<Question>(
-        `/api/v1/practice/sessions/${sessionId}/next-question`,
+        `/api/v1/practice/sessions/${sessionId}/next-question?language=${lang}`,
       );
       const status = await apiFetch<SessionStatus>(
         `/api/v1/practice/sessions/${sessionId}`,
@@ -314,11 +268,13 @@ export function PracticeFlow({ t, lang }: Props) {
   async function confirmExit() {
     if (phase.kind !== "answering" && phase.kind !== "feedback") return;
     setExitConfirmOpen(false);
-    // Exit does NOT call /complete — leaves the session in_progress so the
-    // user can resume from Study Hub or /practice next visit. Backend
-    // /complete is reserved for finishing all questions.
-    setPhase({ kind: "completed", sessionId: phase.sessionId, reason: "exited" });
-    invalidateStudyHub();
+    // Exit DOES call /complete — explicit end means the session is over and
+    // the user lands on the idle screen next visit (no auto-resume loop).
+    // For "pause and come back" the user just navigates away (close tab /
+    // sidebar) — that leaves the session in_progress and the Study Hub
+    // Resume CTA picks it up. The auto-resume on PracticeFlow mount then
+    // pulls them straight back in.
+    await complete(phase.sessionId, "exited");
   }
 
   // -------------------------------------------------------------------------

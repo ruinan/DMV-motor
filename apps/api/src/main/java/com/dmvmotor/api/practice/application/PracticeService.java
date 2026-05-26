@@ -114,6 +114,10 @@ public class PracticeService {
     }
 
     public QuestionDetail getNextQuestion(Long sessionId, Long requestUserId) {
+        return getNextQuestion(sessionId, requestUserId, null);
+    }
+
+    public QuestionDetail getNextQuestion(Long sessionId, Long requestUserId, String overrideLanguage) {
         PracticeSession session = requireSession(sessionId, requestUserId);
         // The session was created in a specific learning cycle; even if the
         // user's reset_count has since incremented, personalization stays
@@ -124,8 +128,15 @@ public class PracticeService {
             cycle = userRepo.findById(session.userId()).map(u -> u.resetCount()).orElse(0);
         }
 
+        // overrideLanguage lets the caller (typically the frontend after a
+        // mid-session locale toggle) flip the displayed variant without
+        // mutating the session's stored language_code.
+        String effectiveLang = overrideLanguage != null && !overrideLanguage.isBlank()
+                ? overrideLanguage
+                : session.languageCode();
+
         return sessionRepo.findNextUnansweredQuestion(
-                        sessionId, session.languageCode(), session.entryType(),
+                        sessionId, effectiveLang, session.entryType(),
                         session.userId(), cycle)
                 .orElseThrow(() -> new BusinessException("SESSION_COMPLETED",
                         "No more questions in this session",

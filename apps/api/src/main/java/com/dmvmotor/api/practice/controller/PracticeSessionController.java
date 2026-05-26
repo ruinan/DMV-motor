@@ -38,8 +38,12 @@ public class PracticeSessionController {
     }
 
     @GetMapping("/{id}/next-question")
-    public ApiResponse<?> nextQuestion(@CurrentUser Long userId, @PathVariable Long id) {
-        QuestionDetail q = practiceService.getNextQuestion(id, userId);
+    public ApiResponse<?> nextQuestion(
+            @CurrentUser Long userId,
+            @PathVariable Long id,
+            @RequestParam(required = false) String language
+    ) {
+        QuestionDetail q = practiceService.getNextQuestion(id, userId, language);
         int answered = practiceService.getSessionStatus(id, userId).answeredCount();
         return ApiResponse.ok(Map.of(
                 "question_id", String.valueOf(q.questionId()),
