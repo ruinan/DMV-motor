@@ -39,6 +39,15 @@ export function Dashboard({ t, lang }: Props) {
   const inProgress = me.data?.learning.in_progress_practice;
   const masteredCount = mastery.data?.summary.mastered_sub_topics ?? 0;
   const totalSubTopics = mastery.data?.summary.total_sub_topics ?? 16;
+  // "Touched" = any sub-topic with at least one attempt. Updates after a
+  // single practice; mastered moves slower (needs the 4-of-last-4 + 80%
+  // threshold). Both are exposed in the donut subtitle.
+  const coveredCount =
+    mastery.data?.topics.reduce(
+      (sum, t) =>
+        sum + t.sub_topics.filter((s) => s.attempted_count > 0).length,
+      0,
+    ) ?? 0;
 
   return (
     <div className="flex flex-col gap-10">
@@ -56,9 +65,11 @@ export function Dashboard({ t, lang }: Props) {
         <div className="flex flex-col items-center gap-3">
           <CoverageDonut
             mastered={masteredCount}
+            covered={coveredCount}
             total={totalSubTopics}
             label={t.studyHub.coverageTitle}
-            sublabel={t.studyHub.coverageSublabel}
+            masteredLabel={t.studyHub.coverageMastered}
+            coveredLabel={t.studyHub.coverageTouched}
           />
         </div>
         <div className="flex flex-col items-center gap-3">

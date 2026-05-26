@@ -51,6 +51,8 @@
     "subtitle": "Track what you've mastered and what's next.",
     "coverageTitle": "Knowledge coverage",
     "coverageSublabel": "sub-topics mastered",
+    "coverageTouched": "touched",
+    "coverageMastered": "mastered",
     "readinessTitle": "Exam readiness",
     "readinessLabel": "ready",
     "readinessLocked": "Get a pass to unlock",

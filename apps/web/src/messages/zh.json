@@ -51,6 +51,8 @@
     "subtitle": "看看你掌握了多少、下一步该练什么。",
     "coverageTitle": "知识点覆盖",
     "coverageSublabel": "已掌握的子知识点",
+    "coverageTouched": "已涉及",
+    "coverageMastered": "已掌握",
     "readinessTitle": "应考准备度",
     "readinessLabel": "准备度",
     "readinessLocked": "购买学习卡解锁",

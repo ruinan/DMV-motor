@@ -6,18 +6,37 @@
  */
 type Props = {
   mastered: number;
+  covered: number;
   total: number;
   label: string;
-  sublabel?: string;
+  masteredLabel: string;
+  coveredLabel: string;
   size?: number;
 };
 
-export function CoverageDonut({ mastered, total, label, sublabel, size = 160 }: Props) {
+/**
+ * Two-tone ring: outer "touched" arc (any attempts) + inner "mastered" arc
+ * (full mastery threshold met). One ride through practice moves the touched
+ * arc immediately so the user sees something change; mastered moves slower
+ * because it requires the 4-of-last-4 + ≥80% gates.
+ */
+export function CoverageDonut({
+  mastered,
+  covered,
+  total,
+  label,
+  masteredLabel,
+  coveredLabel,
+  size = 160,
+}: Props) {
   const safeTotal = Math.max(total, 1);
-  const pct = mastered / safeTotal;
+  const masteredPct = mastered / safeTotal;
+  const coveredPct = Math.min(covered, total) / safeTotal;
+
   const radius = (size - 16) / 2;
   const circumference = 2 * Math.PI * radius;
-  const dashLen = pct * circumference;
+  const masteredDash = masteredPct * circumference;
+  const coveredDash = coveredPct * circumference;
   const center = size / 2;
 
   return (
@@ -27,8 +46,9 @@ export function CoverageDonut({ mastered, total, label, sublabel, size = 160 }: 
         height={size}
         viewBox={`0 0 ${size} ${size}`}
         role="img"
-        aria-label={`${label}: ${mastered} of ${total} mastered`}
+        aria-label={`${label}: ${mastered} of ${total} mastered, ${covered} touched`}
       >
+        {/* background ring */}
         <circle
           cx={center}
           cy={center}
@@ -36,8 +56,9 @@ export function CoverageDonut({ mastered, total, label, sublabel, size = 160 }: 
           fill="none"
           stroke="currentColor"
           strokeWidth="10"
-          className="text-muted/40"
+          className="text-muted/30"
         />
+        {/* outer (touched) tint — laid down first so mastered overlays it */}
         <circle
           cx={center}
           cy={center}
@@ -46,7 +67,20 @@ export function CoverageDonut({ mastered, total, label, sublabel, size = 160 }: 
           stroke="currentColor"
           strokeWidth="10"
           strokeLinecap="round"
-          strokeDasharray={`${dashLen} ${circumference}`}
+          strokeDasharray={`${coveredDash} ${circumference}`}
+          transform={`rotate(-90 ${center} ${center})`}
+          className="text-primary/30 transition-all"
+        />
+        {/* mastered (full saturation) */}
+        <circle
+          cx={center}
+          cy={center}
+          r={radius}
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="10"
+          strokeLinecap="round"
+          strokeDasharray={`${masteredDash} ${circumference}`}
           transform={`rotate(-90 ${center} ${center})`}
           className="text-primary transition-all"
         />
@@ -56,7 +90,7 @@ export function CoverageDonut({ mastered, total, label, sublabel, size = 160 }: 
           textAnchor="middle"
           className="fill-foreground text-3xl font-bold"
         >
-          {mastered}
+          {covered}
         </text>
         <text
           x={center}
@@ -68,9 +102,12 @@ export function CoverageDonut({ mastered, total, label, sublabel, size = 160 }: 
         </text>
       </svg>
       <p className="text-center text-sm font-semibold text-foreground">{label}</p>
-      {sublabel && (
-        <p className="text-center text-xs text-muted-foreground">{sublabel}</p>
-      )}
+      <p className="text-center text-xs text-muted-foreground">
+        <span className="font-medium text-primary">{covered}</span> {coveredLabel}
+        {" · "}
+        <span className="font-medium text-foreground">{mastered}</span>{" "}
+        {masteredLabel}
+      </p>
     </div>
   );
 }
