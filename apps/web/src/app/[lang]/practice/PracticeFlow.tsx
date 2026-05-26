@@ -5,6 +5,7 @@ import { useState } from "react";
 import { ArrowLeft, CheckCircle2, History, Sparkles, XCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { apiFetch, ApiError } from "@/lib/api-client";
+import { useAuth } from "@/lib/auth-context";
 import { useMe } from "@/lib/hooks/use-me";
 import { useAiExplain } from "@/lib/hooks/use-ai-explain";
 import type { Dictionary, Locale } from "@/lib/dictionaries";
@@ -71,6 +72,10 @@ type Props = {
 };
 
 export function PracticeFlow({ t, lang }: Props) {
+  // Drive isLoggedIn off Firebase auth state, not /me fetch state — otherwise
+  // the anonymous "Sign in or register" UI flashes for the half-second between
+  // Firebase resolving the user and /me returning the profile.
+  const { user } = useAuth();
   const me = useMe();
   const ai = useAiExplain();
   const [phase, setPhase] = useState<Phase>({ kind: "idle" });
@@ -87,7 +92,7 @@ export function PracticeFlow({ t, lang }: Props) {
       ? phase.sessionId
       : null;
 
-  const isLoggedIn = !!me.data;
+  const isLoggedIn = !!user;
   const hasPass = me.data?.access.has_active_pass ?? false;
   const entryType: "free_trial" | "full" = hasPass ? "full" : "free_trial";
 
