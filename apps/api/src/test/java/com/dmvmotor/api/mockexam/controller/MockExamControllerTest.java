@@ -452,6 +452,138 @@ class MockExamControllerTest extends IntegrationTestBase {
                 .header("Authorization", "Bearer " + userId));
     }
 
+    // ===== GET /api/v1/mock-exams/attempts/{id} =====
+
+    @Test
+    void getAttempt_anonymous_returns401() throws Exception {
+        mockMvc.perform(get("/api/v1/mock-exams/attempts/1"))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void getAttempt_resumesWithQuestionsAndSavedAnswers() throws Exception {
+        fixtures.insertAccessPass(userId, "active",
+                OffsetDateTime.now().minusDays(1), OffsetDateTime.now().plusDays(30), 3, 0);
+
+        // Start an attempt first to get a real attemptId + question IDs to answer
+        String startBody = mockMvc.perform(post("/api/v1/mock-exams/attempts")
+                        .header("Authorization", "Bearer " + userId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"language":"en"}
+                                """))
+                .andReturn().getResponse().getContentAsString();
+
+        String attemptId = extractJsonString(startBody, "mock_attempt_id");
+        // Pluck the first question_id + variant_id to save one answer against
+        String firstQuestionId = extractJsonStringFromQuestions(startBody, "question_id");
+        String firstVariantId = extractJsonStringFromQuestions(startBody, "variant_id");
+        mockMvc.perform(post("/api/v1/mock-exams/attempts/{id}/answers", attemptId)
+                .header("Authorization", "Bearer " + userId)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                        {"question_id":"%s","variant_id":"%s","selected_choice_key":"B"}
+                        """.formatted(firstQuestionId, firstVariantId)));
+
+        // Now resume from a clean slate via GET — should return all questions
+        // + the one saved answer.
+        mockMvc.perform(get("/api/v1/mock-exams/attempts/{id}", attemptId)
+                        .header("Authorization", "Bearer " + userId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.mock_attempt_id").value(attemptId))
+                .andExpect(jsonPath("$.data.status").value("in_progress"))
+                .andExpect(jsonPath("$.data.questions").isArray())
+                .andExpect(jsonPath("$.data.questions[0].question_id").isString())
+                .andExpect(jsonPath("$.data.questions[0].stem").isString())
+                .andExpect(jsonPath("$.data.saved_answers", org.hamcrest.Matchers.hasSize(1)))
+                .andExpect(jsonPath("$.data.saved_answers[0].selected_choice_key").value("B"));
+    }
+
+    @Test
+    void getAttempt_withLanguageOverride_returnsRequestedVariant() throws Exception {
+        fixtures.insertAccessPass(userId, "active",
+                OffsetDateTime.now().minusDays(1), OffsetDateTime.now().plusDays(30), 3, 0);
+        // Need ZH variants for the override path to find a row.
+        fixtures.insertZhVariant(q1, "Q1 中文", "解释 1");
+        fixtures.insertZhVariant(q2, "Q2 中文", "解释 2");
+
+        String startBody = mockMvc.perform(post("/api/v1/mock-exams/attempts")
+                        .header("Authorization", "Bearer " + userId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"language":"en"}
+                                """))
+                .andReturn().getResponse().getContentAsString();
+        String attemptId = extractJsonString(startBody, "mock_attempt_id");
+
+        mockMvc.perform(get("/api/v1/mock-exams/attempts/{id}", attemptId)
+                        .header("Authorization", "Bearer " + userId)
+                        .param("language", "zh"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.language").value("zh"));
+    }
+
+    @Test
+    void getAttempt_blankLanguageParam_fallsBackToSessionLanguage() throws Exception {
+        fixtures.insertAccessPass(userId, "active",
+                OffsetDateTime.now().minusDays(1), OffsetDateTime.now().plusDays(30), 3, 0);
+        String startBody = mockMvc.perform(post("/api/v1/mock-exams/attempts")
+                        .header("Authorization", "Bearer " + userId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"language":"en"}
+                                """))
+                .andReturn().getResponse().getContentAsString();
+        String attemptId = extractJsonString(startBody, "mock_attempt_id");
+
+        // Empty string param → service falls back to attempt's stored EN.
+        mockMvc.perform(get("/api/v1/mock-exams/attempts/{id}", attemptId)
+                        .header("Authorization", "Bearer " + userId)
+                        .param("language", "   "))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.language").value("en"));
+    }
+
+    @Test
+    void getAttempt_crossUser_returns403() throws Exception {
+        fixtures.insertAccessPass(userId, "active",
+                OffsetDateTime.now().minusDays(1), OffsetDateTime.now().plusDays(30), 3, 0);
+        String startBody = mockMvc.perform(post("/api/v1/mock-exams/attempts")
+                        .header("Authorization", "Bearer " + userId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"language":"en"}
+                                """))
+                .andReturn().getResponse().getContentAsString();
+        String attemptId = extractJsonString(startBody, "mock_attempt_id");
+
+        Long otherUser = fixtures.insertUser("other@example.com");
+        mockMvc.perform(get("/api/v1/mock-exams/attempts/{id}", attemptId)
+                        .header("Authorization", "Bearer " + otherUser))
+                .andExpect(status().isForbidden());
+    }
+
+    private static String extractJsonStringFromQuestions(String json, String field) {
+        int qStart = json.indexOf("\"questions\":[");
+        if (qStart < 0) return "";
+        String tail = json.substring(qStart);
+        String key = "\"" + field + "\":\"";
+        int kStart = tail.indexOf(key);
+        if (kStart < 0) return "";
+        int valStart = kStart + key.length();
+        int valEnd = tail.indexOf("\"", valStart);
+        return tail.substring(valStart, valEnd);
+    }
+
+    private static String extractJsonString(String json, String field) {
+        String key = "\"" + field + "\":\"";
+        int start = json.indexOf(key);
+        if (start < 0) return "";
+        int valStart = start + key.length();
+        int valEnd = json.indexOf("\"", valStart);
+        return json.substring(valStart, valEnd);
+    }
+
     // ===== /api/v1/mock-exams/attempts/history =====
 
     @Test

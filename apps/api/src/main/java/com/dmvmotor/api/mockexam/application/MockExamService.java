@@ -208,4 +208,42 @@ public class MockExamService {
             List<MockExamRepository.AttemptHistoryRow> attempts,
             int                                        totalInDb
     ) {}
+
+    /**
+     * Returns enough state for a mock-exam attempt to be resumed on a fresh
+     * client (refresh / new tab / different device). The original startAttempt
+     * response was stashed in sessionStorage; this endpoint replaces that
+     * dependency by reading the same data from the persisted attempt.
+     */
+    public AttemptDetailResult getAttemptDetail(Long attemptId, Long userId, String language) {
+        AttemptRow attempt = requireAttempt(attemptId, userId);
+        String effectiveLang = language != null && !language.isBlank()
+                ? language
+                : attempt.language();
+
+        List<Long> questionIds = mockExamRepo.findQuestionIdsByMockExamId(attempt.mockExamId());
+        List<QuestionDetail> questions = questionIds.stream()
+                .map(qId -> questionRepo.findByIdAndLanguage(qId, effectiveLang)
+                        .orElseThrow(() -> new ResourceNotFoundException(
+                                "Question not found: " + qId)))
+                .toList();
+
+        List<AnswerRow> savedAnswers = mockExamRepo.findAnswersByAttemptId(attemptId);
+        return new AttemptDetailResult(
+                attempt.id(),
+                attempt.mockExamId(),
+                attempt.status(),
+                effectiveLang,
+                questions,
+                savedAnswers);
+    }
+
+    public record AttemptDetailResult(
+            Long                 attemptId,
+            Long                 mockExamId,
+            String               status,
+            String               language,
+            List<QuestionDetail> questions,
+            List<AnswerRow>      savedAnswers
+    ) {}
 }

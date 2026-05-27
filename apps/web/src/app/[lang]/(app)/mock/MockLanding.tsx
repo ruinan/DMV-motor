@@ -31,8 +31,6 @@ type StartResponse = {
   questions: Question[];
 };
 
-const STORAGE_PREFIX = "dmv:mock-attempt:";
-
 type Props = {
   t: Dictionary["mock"];
   lang: Locale;
@@ -59,16 +57,9 @@ export function MockLanding({ t, lang }: Props) {
         method: "POST",
         body: JSON.stringify({ language: lang }),
       });
-      // Stash the question payload so the [attemptId] page has data without
-      // needing a backend GET endpoint. Cleared on submit/exit.
-      window.sessionStorage.setItem(
-        STORAGE_PREFIX + res.mock_attempt_id,
-        JSON.stringify({
-          questions: res.questions,
-          language: lang,
-          remaining_after_start: res.mock_remaining_after_start,
-        }),
-      );
+      // No sessionStorage write — the /mock/[attemptId] page fetches its own
+      // state from GET /attempts/{id}, which is refresh-resilient and works
+      // cross-tab / cross-device.
       router.push(`/${lang}/mock/${res.mock_attempt_id}`);
     } catch (err) {
       if (err instanceof ApiError) {

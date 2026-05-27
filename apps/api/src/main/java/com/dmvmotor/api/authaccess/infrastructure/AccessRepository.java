@@ -73,4 +73,26 @@ public class AccessRepository {
                 r.get(ap.MOCK_EXAM_TOTAL_COUNT),
                 r.get(ap.MOCK_EXAM_USED_COUNT));
     }
+
+    /**
+     * Inserts a fresh active pass for the given user. Used by the dev-only
+     * grant endpoint and by future paid-checkout flows. Returns the inserted
+     * row's id.
+     */
+    public Long insertActivePass(Long userId,
+                                  OffsetDateTime startsAt,
+                                  OffsetDateTime expiresAt,
+                                  int mockExamTotalCount) {
+        var ap = Tables.ACCESS_PASSES;
+        return dsl.insertInto(ap)
+                .set(ap.USER_ID,               userId)
+                .set(ap.STATUS,                "active")
+                .set(ap.STARTS_AT,             startsAt)
+                .set(ap.EXPIRES_AT,            expiresAt)
+                .set(ap.MOCK_EXAM_TOTAL_COUNT, mockExamTotalCount)
+                .set(ap.MOCK_EXAM_USED_COUNT,  0)
+                .returningResult(ap.ID)
+                .fetchOne()
+                .value1();
+    }
 }

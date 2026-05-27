@@ -53,6 +53,28 @@ public class MockExamController {
         ));
     }
 
+    @GetMapping("/attempts/{id}")
+    public ApiResponse<?> getAttempt(
+            @CurrentUser Long userId,
+            @PathVariable Long id,
+            @RequestParam(required = false) String language
+    ) {
+        requireAuth(userId);
+        var result = mockExamService.getAttemptDetail(id, userId, language);
+        return ApiResponse.ok(Map.of(
+                "mock_attempt_id", String.valueOf(result.attemptId()),
+                "mock_exam_id",    String.valueOf(result.mockExamId()),
+                "status",          result.status(),
+                "language",        result.language(),
+                "questions",       result.questions().stream().map(this::toQuestionDto).toList(),
+                "saved_answers",   result.savedAnswers().stream()
+                        .map(a -> Map.of(
+                                "question_id",         String.valueOf(a.questionId()),
+                                "selected_choice_key", a.selectedKey()))
+                        .toList()
+        ));
+    }
+
     @PostMapping("/attempts/{id}/answers")
     public ApiResponse<?> saveAnswer(
             @CurrentUser Long userId,

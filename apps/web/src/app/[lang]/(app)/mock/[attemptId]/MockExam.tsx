@@ -2,29 +2,15 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { CheckCircle2, ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { apiFetch, ApiError } from "@/lib/api-client";
 import { useAuth } from "@/lib/auth-context";
 import { useTopicNameMap } from "@/lib/hooks/use-topics";
+import { useMockAttempt } from "@/lib/hooks/use-mock-attempt";
 import type { Dictionary, Locale } from "@/lib/dictionaries";
-
-type Choice = { key: string; text: string };
-
-type Question = {
-  question_id: string;
-  variant_id: string;
-  stem: string;
-  choices: Choice[];
-};
-
-type StoredStart = {
-  questions: Question[];
-  language: string;
-  remaining_after_start: number;
-};
 
 type SubmitResponse = {
   mock_attempt_id: string;
@@ -38,18 +24,7 @@ type SubmitResponse = {
 
 type SaveStatus = "idle" | "saving" | "saved" | "error";
 
-const STORAGE_PREFIX = "dmv:mock-attempt:";
 const PASS_THRESHOLD = 85;
-
-// useSyncExternalStore plumbing — sessionStorage is read once on mount and
-// never mutated externally during the exam, so subscribe is a no-op.
-const subscribeNoop = () => () => {};
-const getServerSnapshot = (): string | null => null;
-const readStoredRaw =
-  (attemptId: string) => (): string | null => {
-    if (typeof window === "undefined") return null;
-    return window.sessionStorage.getItem(STORAGE_PREFIX + attemptId);
-  };
 
 type Props = {
   t: Dictionary["mock"];
@@ -63,22 +38,18 @@ export function MockExam({ t, lang, attemptId }: Props) {
   const queryClient = useQueryClient();
   const topicMap = useTopicNameMap(lang);
 
-  const raw = useSyncExternalStore(
-    subscribeNoop,
-    useMemo(() => readStoredRaw(attemptId), [attemptId]),
-    getServerSnapshot,
-  );
-  const stored = useMemo<StoredStart | null>(() => {
-    if (!raw) return null;
-    try {
-      return JSON.parse(raw) as StoredStart;
-    } catch {
-      return null;
-    }
-  }, [raw]);
+  // Source of truth: backend attempt detail. Refresh / new tab / cross-device
+  // all hydrate from this; no sessionStorage dependency. Saved picks are
+  // pre-populated from the persisted answers so the user lands back on the
+  // same question with their previous answers intact.
+  const attempt = useMockAttempt(attemptId, lang);
 
   const [index, setIndex] = useState(0);
   const [picks, setPicks] = useState<Map<string, string>>(new Map());
+  // Tracks which attemptId we've already initialised picks for. React 19's
+  // "set state during render in response to changed props" pattern; using a
+  // ref here would trip the no-mutate-refs-in-render rule.
+  const [initialisedFor, setInitialisedFor] = useState<string | null>(null);
   const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle");
   const [submitting, setSubmitting] = useState(false);
   const [exiting, setExiting] = useState(false);
@@ -92,9 +63,30 @@ export function MockExam({ t, lang, attemptId }: Props) {
     };
   }, []);
 
+  // Seed picks from server-persisted saved_answers on first successful fetch.
+  if (attempt.data && initialisedFor !== attempt.data.mock_attempt_id) {
+    setInitialisedFor(attempt.data.mock_attempt_id);
+    const seeded = new Map<string, string>();
+    for (const a of attempt.data.saved_answers) {
+      seeded.set(a.question_id, a.selected_choice_key);
+    }
+    setPicks(seeded);
+  }
+
   if (!user) return null;
 
-  if (!stored && !result) {
+  // Loading state — fetching attempt detail. Single spinner, consistent with
+  // the practice page transitions.
+  if (attempt.isLoading && !attempt.data) {
+    return (
+      <div className="mx-auto flex w-full max-w-xl flex-col items-center justify-center gap-4 py-16">
+        <Loader2 className="size-10 animate-spin text-primary" />
+        <p className="text-sm text-muted-foreground">{t.loading ?? "Loading…"}</p>
+      </div>
+    );
+  }
+
+  if (attempt.error || (!attempt.data && !result)) {
     return (
       <div className="mx-auto flex w-full max-w-xl flex-col gap-4">
         <div className="rounded-md border border-destructive/40 bg-destructive/10 p-4 text-sm text-destructive">
@@ -123,12 +115,24 @@ export function MockExam({ t, lang, attemptId }: Props) {
     );
   }
 
-  const questions = stored!.questions;
+  // Once we're past the loading + error guards above, attempt.data is set
+  // (the result-only branch below also returns early if there's no data).
+  const questions = attempt.data?.questions ?? [];
   const total = questions.length;
   const question = questions[index];
-  const pickedKey = picks.get(question.question_id) ?? null;
+  const pickedKey = question ? picks.get(question.question_id) ?? null : null;
   const answeredCount = picks.size;
   const isLast = index + 1 >= total;
+
+  // Result view (post-submit) is rendered before this block lives, but we
+  // still need to gate on having a current question for the answering UI.
+  if (!result && !question) {
+    return (
+      <div className="mx-auto flex w-full max-w-xl flex-col items-center justify-center gap-4 py-16">
+        <Loader2 className="size-10 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   async function pick(choiceKey: string) {
     if (saveStatus === "saving") return;
@@ -171,12 +175,13 @@ export function MockExam({ t, lang, attemptId }: Props) {
         `/api/v1/mock-exams/attempts/${attemptId}/submit`,
         { method: "POST" },
       );
-      window.sessionStorage.removeItem(STORAGE_PREFIX + attemptId);
       // Mock outcome shifts mistakes / readiness — invalidate so other pages refetch
       queryClient.invalidateQueries({ queryKey: ["mock-access"] });
       queryClient.invalidateQueries({ queryKey: ["mistakes"] });
       queryClient.invalidateQueries({ queryKey: ["mistakes-count"] });
       queryClient.invalidateQueries({ queryKey: ["summary"] });
+      queryClient.invalidateQueries({ queryKey: ["mock-history"] });
+      queryClient.invalidateQueries({ queryKey: ["mock-stats"] });
       setResult(res);
     } catch (err) {
       setErrorMsg(err instanceof ApiError ? err.message : t.errorGeneric);
@@ -193,8 +198,8 @@ export function MockExam({ t, lang, attemptId }: Props) {
       await apiFetch(`/api/v1/mock-exams/attempts/${attemptId}/exit`, {
         method: "POST",
       });
-      window.sessionStorage.removeItem(STORAGE_PREFIX + attemptId);
       queryClient.invalidateQueries({ queryKey: ["mock-access"] });
+      queryClient.invalidateQueries({ queryKey: ["mock-history"] });
       router.push(`/${lang}/mock`);
     } catch (err) {
       setErrorMsg(err instanceof ApiError ? err.message : t.errorGeneric);
