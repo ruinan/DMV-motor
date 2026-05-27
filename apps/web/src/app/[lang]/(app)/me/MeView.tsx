@@ -414,7 +414,74 @@ function SubscriptionSection({
           </>
         )}
       </div>
+
+      {process.env.NODE_ENV !== "production" && <DevGrantPass />}
     </Section>
+  );
+}
+
+// Dev-only shortcut to grant the current user a 30-day active pass with 5
+// mock-exam quota. Hidden in production builds (tree-shaken by NODE_ENV
+// check above). Bound to the same /api/v1/dev/grant-pass endpoint that's
+// gated by APP_DEV_ENDPOINTS=true on the backend — if either side is in
+// prod mode the button does nothing useful.
+function DevGrantPass() {
+  const queryClient = useQueryClient();
+  const [status, setStatus] = useState<"idle" | "loading" | "ok" | "error">(
+    "idle",
+  );
+  const [message, setMessage] = useState<string>("");
+
+  async function grant() {
+    setStatus("loading");
+    setMessage("");
+    try {
+      const res = await apiFetch<{
+        pass_id: string;
+        expires_at: string;
+        mock_quota: number;
+      }>("/api/v1/dev/grant-pass", { method: "POST" });
+      setStatus("ok");
+      setMessage(
+        `Pass #${res.pass_id} granted · ${res.mock_quota} mock attempts · expires ${new Date(res.expires_at).toLocaleDateString()}`,
+      );
+      // Refresh /me + downstream surfaces so the UI flips from free_trial.
+      queryClient.invalidateQueries({ queryKey: ["me"] });
+      queryClient.invalidateQueries({ queryKey: ["mock-access"] });
+      queryClient.invalidateQueries({ queryKey: ["topic-mastery"] });
+    } catch (err) {
+      setStatus("error");
+      setMessage(
+        err instanceof ApiError
+          ? `${err.code}: ${err.message}`
+          : "Failed to grant pass",
+      );
+    }
+  }
+
+  return (
+    <div className="mt-5 rounded-md border border-dashed border-amber-500/40 bg-amber-500/5 p-3">
+      <p className="mb-2 text-xs font-medium uppercase tracking-wider text-amber-700">
+        Dev tools
+      </p>
+      <div className="flex flex-wrap items-center gap-3">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={grant}
+          disabled={status === "loading"}
+        >
+          {status === "loading" ? "Granting…" : "Grant test pass (30 days, 5 mocks)"}
+        </Button>
+        {message && (
+          <p
+            className={`text-xs ${status === "error" ? "text-destructive" : "text-muted-foreground"}`}
+          >
+            {message}
+          </p>
+        )}
+      </div>
+    </div>
   );
 }
 
