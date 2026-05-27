@@ -330,6 +330,28 @@ export function PracticeFlow({ t, lang }: Props) {
     );
   }
 
+  // Signed-in users may be about to be auto-resumed (lang toggle remount or
+  // a follow-up navigation from Study Hub's Resume CTA). Don't flash the
+  // idle "Start" / "Resume" UI in that window — render the same spinner the
+  // "starting" phase uses so the transition feels continuous. Covers two
+  // cases: (1) /me is still loading, we don't yet know if there's an
+  // in-progress session; (2) /me reports in_progress and the useEffect
+  // below is about to fire setPhase("starting").
+  const willAutoResume =
+    phase.kind === "idle" &&
+    !!user &&
+    (me.isLoading || me.data?.learning.in_progress_practice != null);
+  if (willAutoResume) {
+    return (
+      <Container>
+        <div className="flex min-h-[40vh] flex-col items-center justify-center gap-4">
+          <Loader2 className="size-10 animate-spin text-primary" />
+          <p className="text-sm text-muted-foreground">{t.starting}</p>
+        </div>
+      </Container>
+    );
+  }
+
   if (phase.kind === "idle") {
     // Subtitle changes by auth state so a signed-in user doesn't see the
     // "sign in to unlock" copy that's only meaningful to anonymous visitors.
