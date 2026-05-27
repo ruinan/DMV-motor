@@ -3,7 +3,14 @@
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, CheckCircle2, History, Sparkles, XCircle } from "lucide-react";
+import {
+  ArrowLeft,
+  CheckCircle2,
+  History,
+  Loader2,
+  Sparkles,
+  XCircle,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { apiFetch, ApiError } from "@/lib/api-client";
 import { useAuth } from "@/lib/auth-context";
@@ -135,18 +142,38 @@ export function PracticeFlow({ t, lang }: Props) {
   // Actions
   // -------------------------------------------------------------------------
 
+  // Ensures the "starting" loader stays on screen for at least minMs even when
+  // the network is fast. Smooths the lang-toggle remount + auto-resume so the
+  // spinner doesn't flash by in 50ms — feels more deliberate than instant snap.
+  const MIN_STARTING_MS = 1000;
+  async function withMinDuration<T>(work: Promise<T>, minMs: number): Promise<T> {
+    const startedAt = Date.now();
+    const result = await work;
+    const elapsed = Date.now() - startedAt;
+    if (elapsed < minMs) {
+      await new Promise((r) => setTimeout(r, minMs - elapsed));
+    }
+    return result;
+  }
+
   async function start() {
     setPhase({ kind: "starting" });
     try {
-      const startRes = await apiFetch<StartResponse>(
-        "/api/v1/practice/sessions",
-        {
-          method: "POST",
-          body: JSON.stringify({ entry_type: entryType, language: lang }),
-        },
-      );
-      const status = await apiFetch<SessionStatus>(
-        `/api/v1/practice/sessions/${startRes.session_id}`,
+      const { startRes, status } = await withMinDuration(
+        (async () => {
+          const startRes = await apiFetch<StartResponse>(
+            "/api/v1/practice/sessions",
+            {
+              method: "POST",
+              body: JSON.stringify({ entry_type: entryType, language: lang }),
+            },
+          );
+          const status = await apiFetch<SessionStatus>(
+            `/api/v1/practice/sessions/${startRes.session_id}`,
+          );
+          return { startRes, status };
+        })(),
+        MIN_STARTING_MS,
       );
       setPhase({
         kind: "answering",
@@ -171,11 +198,17 @@ export function PracticeFlow({ t, lang }: Props) {
   async function resume(sessionId: string) {
     setPhase({ kind: "starting" });
     try {
-      const question = await apiFetch<Question>(
-        `/api/v1/practice/sessions/${sessionId}/next-question?language=${lang}`,
-      );
-      const status = await apiFetch<SessionStatus>(
-        `/api/v1/practice/sessions/${sessionId}`,
+      const { question, status } = await withMinDuration(
+        (async () => {
+          const question = await apiFetch<Question>(
+            `/api/v1/practice/sessions/${sessionId}/next-question?language=${lang}`,
+          );
+          const status = await apiFetch<SessionStatus>(
+            `/api/v1/practice/sessions/${sessionId}`,
+          );
+          return { question, status };
+        })(),
+        MIN_STARTING_MS,
       );
       setPhase({
         kind: "answering",
@@ -232,7 +265,7 @@ export function PracticeFlow({ t, lang }: Props) {
     setPhase({ kind: "starting" });
     try {
       const q = await apiFetch<Question & { progress?: { answered_count: number } }>(
-        `/api/v1/practice/sessions/${sessionId}/next-question`,
+        `/api/v1/practice/sessions/${sessionId}/next-question?language=${lang}`,
       );
       setPhase({
         kind: "answering",
@@ -408,7 +441,10 @@ export function PracticeFlow({ t, lang }: Props) {
   if (phase.kind === "starting") {
     return (
       <Container>
-        <p className="text-muted-foreground">{t.starting}</p>
+        <div className="flex min-h-[40vh] flex-col items-center justify-center gap-4">
+          <Loader2 className="size-10 animate-spin text-primary" />
+          <p className="text-sm text-muted-foreground">{t.starting}</p>
+        </div>
       </Container>
     );
   }
