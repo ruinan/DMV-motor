@@ -87,9 +87,14 @@ public class MockExamController {
                 Ids.parse(req.questionId(), "question_id"),
                 Ids.parse(req.variantId(), "variant_id"),
                 req.selectedKey());
-        return ApiResponse.ok(Map.of(
-                "saved",          result.saved(),
-                "answered_count", result.answeredCount()
+        return ApiResponse.ok(Map.ofEntries(
+                Map.entry("saved",              result.saved()),
+                Map.entry("answered_count",     result.answeredCount()),
+                Map.entry("is_correct",         result.isCorrect()),
+                Map.entry("correct_choice_key", result.correctChoiceKey()),
+                Map.entry("wrong_count",        result.wrongCountSoFar()),
+                Map.entry("max_allowed_wrong",  result.maxAllowedWrong()),
+                Map.entry("should_terminate",   result.shouldTerminate())
         ));
     }
 

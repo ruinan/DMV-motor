@@ -228,7 +228,10 @@
     "weakTopics": "Weakest topics",
     "noWeakTopics": "Even coverage — no specific weak topics flagged.",
     "backToDashboard": "Back to dashboard",
-    "tryAgain": "Take another mock"
+    "tryAgain": "Take another mock",
+    "terminatedTitle": "Exam ended — too many wrong answers",
+    "terminatedBody": "You had {wrong} wrong out of {correct}+{wrong} answered. The exam ends when wrong answers exceed the pass threshold.",
+    "terminatedTryAgain": "Take a new mock exam"
   },
   "review": {
     "title": "Review pack",

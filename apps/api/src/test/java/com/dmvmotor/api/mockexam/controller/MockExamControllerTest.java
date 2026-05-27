@@ -194,7 +194,52 @@ class MockExamControllerTest extends IntegrationTestBase {
                                 """.formatted(q1, v1)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.saved").value(true))
-                .andExpect(jsonPath("$.data.answered_count").value(1));
+                .andExpect(jsonPath("$.data.answered_count").value(1))
+                .andExpect(jsonPath("$.data.is_correct").value(true))
+                .andExpect(jsonPath("$.data.correct_choice_key").value("B"))
+                .andExpect(jsonPath("$.data.wrong_count").value(0))
+                .andExpect(jsonPath("$.data.should_terminate").value(false));
+    }
+
+    @Test
+    void saveAnswer_wrongAnswer_marksTerminateWhenCapExceeded() throws Exception {
+        // The setUp seeds a 2-question mock exam. With pass_threshold = 0.85,
+        // max_allowed_wrong = ceil(2 * 0.15) = 1. So the SECOND wrong answer
+        // should flip should_terminate=true.
+        String attemptId = startMockAndGetId();
+
+        // First wrong — within cap, no terminate
+        mockMvc.perform(post("/api/v1/mock-exams/attempts/{id}/answers", attemptId)
+                        .header("Authorization", "Bearer " + userId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"question_id":"%s","variant_id":"%s","selected_choice_key":"A"}
+                                """.formatted(q1, v1)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.is_correct").value(false))
+                .andExpect(jsonPath("$.data.wrong_count").value(1))
+                .andExpect(jsonPath("$.data.should_terminate").value(false));
+
+        // Second wrong — exceeds cap (1), attempt should terminate
+        mockMvc.perform(post("/api/v1/mock-exams/attempts/{id}/answers", attemptId)
+                        .header("Authorization", "Bearer " + userId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"question_id":"%s","variant_id":"%s","selected_choice_key":"B"}
+                                """.formatted(q2, v2)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.wrong_count").value(2))
+                .andExpect(jsonPath("$.data.should_terminate").value(true));
+
+        // Subsequent answers on the terminated attempt → 409
+        mockMvc.perform(post("/api/v1/mock-exams/attempts/{id}/answers", attemptId)
+                        .header("Authorization", "Bearer " + userId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"question_id":"%s","variant_id":"%s","selected_choice_key":"B"}
+                                """.formatted(q1, v1)))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.error.code").value("MOCK_ALREADY_ENDED"));
     }
 
     @Test

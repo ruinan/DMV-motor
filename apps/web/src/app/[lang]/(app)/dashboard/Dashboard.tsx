@@ -103,10 +103,14 @@ export function Dashboard({ t, lang }: Props) {
         stats={practiceStats.data}
       />
 
-      {/* Section 3: Mock exam history */}
+      {/* Section 3: Mock exam history — only completed attempts (submitted,
+          ended_by_failure, ended_by_exit). In-progress is hidden until the
+          user finishes / fails / explicitly exits the attempt. */}
       <MockHistorySection
         t={t}
-        attempts={mockHistory.data?.attempts ?? []}
+        attempts={(mockHistory.data?.attempts ?? []).filter(
+          (a) => a.status !== "in_progress",
+        )}
         totalInDb={mockHistory.data?.total_in_db ?? 0}
         stats={mockStats.data}
       />

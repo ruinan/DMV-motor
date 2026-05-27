@@ -228,7 +228,10 @@
     "weakTopics": "薄弱知识点",
     "noWeakTopics": "整体覆盖均衡，未识别明显薄弱点。",
     "backToDashboard": "回到学习中心",
-    "tryAgain": "再来一次"
+    "tryAgain": "再来一次",
+    "terminatedTitle": "考试结束——错题过多",
+    "terminatedBody": "你已答 {correct}+{wrong} 题，其中 {wrong} 道错。错题超过通过门槛，考试自动终止。",
+    "terminatedTryAgain": "重新开始一次模考"
   },
   "review": {
     "title": "复习包",

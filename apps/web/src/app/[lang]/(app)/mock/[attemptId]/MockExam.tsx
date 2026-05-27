@@ -4,7 +4,13 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { CheckCircle2, ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
+import {
+  AlertCircle,
+  CheckCircle2,
+  ChevronRight,
+  Loader2,
+  XCircle,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { apiFetch, ApiError } from "@/lib/api-client";
 import { useAuth } from "@/lib/auth-context";
@@ -20,6 +26,21 @@ type SubmitResponse = {
   wrong_count: number;
   weak_topics: { topic_id: string; label: string }[];
   next_action: { type: string; label: string };
+};
+
+type SaveAnswerResponse = {
+  saved: boolean;
+  answered_count: number;
+  is_correct: boolean;
+  correct_choice_key: string;
+  wrong_count: number;
+  max_allowed_wrong: number;
+  should_terminate: boolean;
+};
+
+type QuestionFeedback = {
+  isCorrect: boolean;
+  correctKey: string;
 };
 
 type SaveStatus = "idle" | "saving" | "saved" | "error";
@@ -46,6 +67,15 @@ export function MockExam({ t, lang, attemptId }: Props) {
 
   const [index, setIndex] = useState(0);
   const [picks, setPicks] = useState<Map<string, string>>(new Map());
+  // Per-question correctness verdict (server-computed at save time). Drives
+  // the inline "right/wrong" UI and gates the Next button.
+  const [feedback, setFeedback] = useState<Map<string, QuestionFeedback>>(
+    new Map(),
+  );
+  // True when the wrong-answer cap was exceeded — the attempt has been
+  // finalized as ended_by_failure on the backend, no further answers are
+  // accepted, and the user lands on a failure result view.
+  const [terminated, setTerminated] = useState(false);
   // Tracks which attemptId we've already initialised picks for. React 19's
   // "set state during render in response to changed props" pattern; using a
   // ref here would trip the no-mutate-refs-in-render rule.
@@ -115,6 +145,36 @@ export function MockExam({ t, lang, attemptId }: Props) {
     );
   }
 
+  // Wrong-answer cap exceeded — server has finalized the attempt. Show a
+  // simple failure summary; the user can either go back or start a new mock.
+  if (terminated) {
+    const wrong = Array.from(feedback.values()).filter((f) => !f.isCorrect).length;
+    const correct = Array.from(feedback.values()).filter((f) => f.isCorrect).length;
+    return (
+      <div className="mx-auto flex w-full max-w-xl flex-col gap-6">
+        <div className="rounded-xl border border-destructive/40 bg-destructive/5 p-6 text-center shadow-sm">
+          <AlertCircle className="mx-auto mb-3 size-12 text-destructive" />
+          <h2 className="text-2xl font-bold text-foreground">
+            {t.terminatedTitle}
+          </h2>
+          <p className="mt-2 text-sm text-muted-foreground">
+            {t.terminatedBody
+              .replace("{wrong}", String(wrong))
+              .replace("{correct}", String(correct))}
+          </p>
+        </div>
+        <div className="flex flex-col gap-3 sm:flex-row sm:justify-center">
+          <Button onClick={() => router.push(`/${lang}/mock`)}>
+            {t.terminatedTryAgain}
+          </Button>
+          <Button variant="outline" onClick={() => router.push(`/${lang}/dashboard`)}>
+            {t.backToDashboard}
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
   // Once we're past the loading + error guards above, attempt.data is set
   // (the result-only branch below also returns early if there's no data).
   const questions = attempt.data?.questions ?? [];
@@ -136,6 +196,10 @@ export function MockExam({ t, lang, attemptId }: Props) {
 
   async function pick(choiceKey: string) {
     if (saveStatus === "saving") return;
+    // Once feedback is shown for this question, locking the choice. No
+    // changing your mind mid-question per the exam UX rules.
+    if (feedback.has(question.question_id)) return;
+
     setPicks((prev) => {
       const next = new Map(prev);
       next.set(question.question_id, choiceKey);
@@ -148,22 +212,46 @@ export function MockExam({ t, lang, attemptId }: Props) {
       savedTimer.current = null;
     }
     try {
-      await apiFetch(`/api/v1/mock-exams/attempts/${attemptId}/answers`, {
-        method: "POST",
-        body: JSON.stringify({
-          question_id: question.question_id,
-          variant_id: question.variant_id,
-          selected_choice_key: choiceKey,
-        }),
+      const res = await apiFetch<SaveAnswerResponse>(
+        `/api/v1/mock-exams/attempts/${attemptId}/answers`,
+        {
+          method: "POST",
+          body: JSON.stringify({
+            question_id: question.question_id,
+            variant_id: question.variant_id,
+            selected_choice_key: choiceKey,
+          }),
+        },
+      );
+      // Capture the per-question verdict so the UI can paint correctness +
+      // unlock the Next button.
+      setFeedback((prev) => {
+        const next = new Map(prev);
+        next.set(question.question_id, {
+          isCorrect: res.is_correct,
+          correctKey: res.correct_choice_key,
+        });
+        return next;
       });
       setSaveStatus("saved");
       savedTimer.current = setTimeout(() => setSaveStatus("idle"), 1500);
+      if (res.should_terminate) {
+        setTerminated(true);
+      }
     } catch (err) {
       setSaveStatus("error");
-      setErrorMsg(
-        err instanceof ApiError ? err.message : t.errorGeneric,
-      );
+      setErrorMsg(err instanceof ApiError ? err.message : t.errorGeneric);
+      // Roll back the pick so the user can try again with a different choice.
+      setPicks((prev) => {
+        const next = new Map(prev);
+        next.delete(question.question_id);
+        return next;
+      });
     }
+  }
+
+  function goNext() {
+    if (index + 1 < total) setIndex((i) => i + 1);
   }
 
   async function onSubmit() {
@@ -261,21 +349,39 @@ export function MockExam({ t, lang, attemptId }: Props) {
         <ul className="mt-6 flex flex-col gap-3">
           {question.choices.map((c) => {
             const selected = pickedKey === c.key;
-            const cls = selected
-              ? "border-primary bg-primary/10 text-foreground"
-              : "border-border bg-background hover:border-primary/50 hover:bg-muted";
+            const fb = feedback.get(question.question_id);
+            const showVerdict = !!fb;
+            const isCorrect = showVerdict && c.key === fb.correctKey;
+            const isWrongPick = showVerdict && selected && c.key !== fb.correctKey;
+
+            const cls = showVerdict
+              ? isCorrect
+                ? "border-success bg-success/10 text-foreground"
+                : isWrongPick
+                  ? "border-destructive bg-destructive/10 text-foreground"
+                  : "border-border bg-background text-muted-foreground"
+              : selected
+                ? "border-primary bg-primary/10 text-foreground"
+                : "border-border bg-background hover:border-primary/50 hover:bg-muted";
+
             return (
               <li key={c.key}>
                 <button
                   type="button"
-                  disabled={submitting || exiting}
+                  disabled={submitting || exiting || showVerdict}
                   onClick={() => pick(c.key)}
-                  className={`flex w-full items-start gap-3 rounded-lg border-2 px-4 py-3 text-left transition-colors disabled:cursor-default disabled:opacity-60 ${cls}`}
+                  className={`flex w-full items-start gap-3 rounded-lg border-2 px-4 py-3 text-left transition-colors disabled:cursor-default ${cls}`}
                 >
                   <span className="mt-0.5 inline-flex size-7 shrink-0 items-center justify-center rounded-full border border-border bg-background text-sm font-semibold">
                     {c.key}
                   </span>
                   <span className="flex-1 text-sm sm:text-base">{c.text}</span>
+                  {showVerdict && isCorrect && (
+                    <CheckCircle2 className="size-5 shrink-0 text-success" />
+                  )}
+                  {showVerdict && isWrongPick && (
+                    <XCircle className="size-5 shrink-0 text-destructive" />
+                  )}
                 </button>
               </li>
             );
@@ -287,21 +393,14 @@ export function MockExam({ t, lang, attemptId }: Props) {
         )}
       </div>
 
-      {/* Nav row */}
-      <div className="flex items-center justify-between gap-3">
-        <Button
-          variant="outline"
-          onClick={() => setIndex((i) => Math.max(0, i - 1))}
-          disabled={index === 0 || submitting || exiting}
-        >
-          <ChevronLeft className="size-4" />
-          {t.previous}
-        </Button>
-
+      {/* Nav row — no Previous button: linear exam flow, can't revisit
+          earlier questions. Next is gated by per-question feedback (must
+          answer first); on the last question, Next becomes Submit. */}
+      <div className="flex items-center justify-end gap-3">
         {!isLast ? (
           <Button
-            onClick={() => setIndex((i) => Math.min(total - 1, i + 1))}
-            disabled={submitting || exiting}
+            onClick={goNext}
+            disabled={!feedback.has(question.question_id) || submitting || exiting}
           >
             {t.next}
             <ChevronRight className="size-4" />
@@ -309,7 +408,7 @@ export function MockExam({ t, lang, attemptId }: Props) {
         ) : (
           <Button
             onClick={onSubmit}
-            disabled={submitting || exiting}
+            disabled={!feedback.has(question.question_id) || submitting || exiting}
             size="lg"
           >
             {submitting ? t.submitting : t.submitExam}

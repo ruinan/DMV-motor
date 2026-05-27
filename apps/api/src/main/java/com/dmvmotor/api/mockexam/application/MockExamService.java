@@ -78,6 +78,23 @@ public class MockExamService {
                 mockRemainingAfterStart, questions);
     }
 
+    /**
+     * Pass threshold = 85% per docs/parameters.md. Anything strictly above the
+     * resulting wrong cap → exam auto-terminates with status='ended_by_failure'.
+     * 30-question exam → ceil(30 × 0.15) = 5 wrongs allowed; on the 6th, fail.
+     * Kept in service so unit-test overrides land without an env round-trip.
+     */
+    private static final double PASS_THRESHOLD = 0.85;
+
+    private int maxAllowedWrong(int totalQuestions) {
+        return (int) Math.ceil(totalQuestions * (1 - PASS_THRESHOLD));
+    }
+
+    private static int scorePercent(int correctCount, int totalQuestions) {
+        if (totalQuestions == 0) return 0;
+        return (int) Math.round(100.0 * correctCount / totalQuestions);
+    }
+
     @Transactional
     public SaveAnswerResult saveAnswer(Long attemptId, Long userId,
                                        Long questionId, Long variantId, String selectedKey) {
@@ -94,9 +111,40 @@ public class MockExamService {
                     HttpStatus.BAD_REQUEST);
         }
 
-        boolean isNew = mockExamRepo.upsertAnswer(attemptId, questionId, variantId, selectedKey);
+        // Compute correctness inline — new UX shows right/wrong before
+        // advancing, so the answer row carries is_correct from save-time
+        // instead of waiting until submit().
+        QuestionDetail question = questionRepo
+                .findByIdAndLanguage(questionId, attempt.language())
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Question not found: " + questionId));
+        boolean isCorrect = question.correctChoiceKey().equals(selectedKey);
+
+        boolean isNew = mockExamRepo.upsertAnswer(attemptId, questionId, variantId, selectedKey, isCorrect);
         int answeredCount = isNew ? attempt.answeredCount() + 1 : attempt.answeredCount();
-        return new SaveAnswerResult(true, answeredCount);
+
+        // Mistake-record upsert happens on every wrong answer regardless of
+        // pass/fail — keeps practice personalization fresh in real time.
+        if (!isCorrect) {
+            int cycle = userRepo.findById(userId).map(u -> u.resetCount()).orElse(0);
+            mistakeRepo.upsertMistake(userId, questionId, question.topicId(),
+                    "mock_exam", cycle);
+        }
+
+        int wrongCount = mockExamRepo.countWrongAnswers(attemptId);
+        int totalQuestions = mockExamRepo.findMockExamQuestionCount(attempt.mockExamId());
+        int maxWrong = maxAllowedWrong(totalQuestions);
+        boolean shouldTerminate = wrongCount > maxWrong;
+
+        if (shouldTerminate) {
+            int correctCount = mockExamRepo.countCorrectAnswers(attemptId);
+            mockExamRepo.finalizeAttempt(attemptId, "ended_by_failure",
+                    scorePercent(correctCount, totalQuestions), correctCount, wrongCount);
+        }
+
+        return new SaveAnswerResult(
+                true, answeredCount, isCorrect,
+                question.correctChoiceKey(), wrongCount, maxWrong, shouldTerminate);
     }
 
     @Transactional
@@ -108,31 +156,14 @@ public class MockExamService {
                     "Mock exam already submitted or exited", HttpStatus.CONFLICT);
         }
 
-        int cycle = userRepo.findById(userId).map(u -> u.resetCount()).orElse(0);
-
-        List<AnswerRow> answers = mockExamRepo.findAnswersByAttemptId(attemptId);
-        int correctCount = 0;
-        int wrongCount   = 0;
-
-        for (AnswerRow answer : answers) {
-            QuestionDetail q = questionRepo
-                    .findByIdAndLanguage(answer.questionId(), attempt.language())
-                    .orElseThrow(() -> new ResourceNotFoundException(
-                            "Question not found: " + answer.questionId()));
-            boolean isCorrect = q.correctChoiceKey().equals(answer.selectedKey());
-            mockExamRepo.markAnswerCorrectness(attemptId, answer.questionId(), isCorrect);
-            if (isCorrect) {
-                correctCount++;
-            } else {
-                wrongCount++;
-                mistakeRepo.upsertMistake(userId, answer.questionId(),
-                        q.topicId(), "mock_exam", cycle);
-            }
-        }
-
-        int total        = mockExamRepo.findMockExamQuestionCount(attempt.mockExamId());
-        int scorePercent = total == 0 ? 0 : (int) Math.round(100.0 * correctCount / total);
-        mockExamRepo.scoreAttempt(attemptId, correctCount, wrongCount, scorePercent);
+        // Correctness is already persisted on each row by saveAnswer (new mock
+        // UX scores inline). Submit just aggregates and finalizes — no more
+        // per-answer recompute. Mistake upserts also happened at save time.
+        int correctCount  = mockExamRepo.countCorrectAnswers(attemptId);
+        int wrongCount    = mockExamRepo.countWrongAnswers(attemptId);
+        int total         = mockExamRepo.findMockExamQuestionCount(attempt.mockExamId());
+        mockExamRepo.finalizeAttempt(attemptId, "submitted",
+                scorePercent(correctCount, total), correctCount, wrongCount);
 
         List<MockExamRepository.WeakTopicRow> weakTopics =
                 mockExamRepo.findWeakTopicsByAttemptId(attemptId);
@@ -141,7 +172,7 @@ public class MockExamService {
                 ? Map.of("type", "review", "label", "Review weak topics first")
                 : Map.of("type", "practice", "label", "Keep practicing");
 
-        return new SubmitResult(attemptId, "submitted", scorePercent,
+        return new SubmitResult(attemptId, "submitted", scorePercent(correctCount, total),
                 correctCount, wrongCount, weakTopics, nextAction);
     }
 
@@ -166,7 +197,15 @@ public class MockExamService {
             Long attemptId, String status,
             int mockRemainingAfterStart, List<QuestionDetail> questions) {}
 
-    public record SaveAnswerResult(boolean saved, int answeredCount) {}
+    public record SaveAnswerResult(
+            boolean saved,
+            int     answeredCount,
+            boolean isCorrect,
+            String  correctChoiceKey,
+            int     wrongCountSoFar,
+            int     maxAllowedWrong,
+            boolean shouldTerminate
+    ) {}
 
     public record SubmitResult(
             Long attemptId, String status,

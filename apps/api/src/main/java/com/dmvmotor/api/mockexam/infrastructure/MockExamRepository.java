@@ -5,6 +5,7 @@ import org.jooq.DSLContext;
 import org.jooq.Record;
 import org.springframework.stereotype.Repository;
 
+import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -104,10 +105,12 @@ public class MockExamRepository {
     // ---------------------------------------------------------------
 
     /**
-     * Upsert: overwrite if same question answered again (retry allowed).
+     * Upsert with immediate correctness — new mock-exam UX scores each answer
+     * inline so the user sees right/wrong before advancing. Returns whether
+     * this is a NEW answer (false = retry of an already-answered question).
      */
     public boolean upsertAnswer(Long attemptId, Long questionId, Long variantId,
-                                  String selectedKey) {
+                                  String selectedKey, boolean isCorrect) {
         var mar = Tables.MOCK_ATTEMPT_RESULTS;
         boolean exists = dsl.fetchExists(mar,
                 mar.MOCK_ATTEMPT_ID.eq(attemptId).and(mar.QUESTION_ID.eq(questionId)));
@@ -116,6 +119,7 @@ public class MockExamRepository {
             dsl.update(mar)
                     .set(mar.QUESTION_VARIANT_ID, variantId)
                     .set(mar.SELECTED_CHOICE_KEY, selectedKey)
+                    .set(mar.IS_CORRECT, isCorrect)
                     .where(mar.MOCK_ATTEMPT_ID.eq(attemptId).and(mar.QUESTION_ID.eq(questionId)))
                     .execute();
             return false; // existing updated
@@ -125,6 +129,7 @@ public class MockExamRepository {
                     .set(mar.QUESTION_ID, questionId)
                     .set(mar.QUESTION_VARIANT_ID, variantId)
                     .set(mar.SELECTED_CHOICE_KEY, selectedKey)
+                    .set(mar.IS_CORRECT, isCorrect)
                     .execute();
             // Increment answered_count on attempt
             var ma = Tables.MOCK_ATTEMPTS;
@@ -134,6 +139,38 @@ public class MockExamRepository {
                     .execute();
             return true; // new answer
         }
+    }
+
+    /** Count wrong answers (is_correct=false) for an attempt. */
+    public int countWrongAnswers(Long attemptId) {
+        var mar = Tables.MOCK_ATTEMPT_RESULTS;
+        return dsl.selectCount()
+                .from(mar)
+                .where(mar.MOCK_ATTEMPT_ID.eq(attemptId).and(mar.IS_CORRECT.isFalse()))
+                .fetchOne(0, Integer.class);
+    }
+
+    /** Count correct answers (is_correct=true) for an attempt. */
+    public int countCorrectAnswers(Long attemptId) {
+        var mar = Tables.MOCK_ATTEMPT_RESULTS;
+        return dsl.selectCount()
+                .from(mar)
+                .where(mar.MOCK_ATTEMPT_ID.eq(attemptId).and(mar.IS_CORRECT.isTrue()))
+                .fetchOne(0, Integer.class);
+    }
+
+    /** Flip attempt to a terminal status with a computed score + summary. */
+    public void finalizeAttempt(Long attemptId, String status,
+                                 int scorePercent, int correctCount, int wrongCount) {
+        var ma = Tables.MOCK_ATTEMPTS;
+        dsl.update(ma)
+                .set(ma.STATUS, status)
+                .set(ma.SCORE_PERCENT, scorePercent)
+                .set(ma.CORRECT_COUNT, correctCount)
+                .set(ma.WRONG_COUNT, wrongCount)
+                .set(ma.SUBMITTED_AT, OffsetDateTime.now())
+                .where(ma.ID.eq(attemptId))
+                .execute();
     }
 
     public List<AnswerRow> findAnswersByAttemptId(Long attemptId) {
