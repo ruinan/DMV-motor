@@ -1,7 +1,7 @@
 # CLAUDE.md — DMV Motor 项目工作规范
 
 > 这个文件是 Claude 的行为规范和项目工作协议。每次对话开始时必须读取。
-> 最后更新：2026-05-11（spec-compliance 审计纠偏；§10 加"Spec 要求但未实现"清单 + MasteryEvaluator 标 ORPHAN；prod 跑 revision 00018-2f2 with deepseek）
+> 最后更新：2026-05-28（**Phase B Study Hub 全部完成**，30 commits e88b3b6→67b1ad4 已 push；§10 改写为 Phase B 完成 + backlog；prod 仍跑 revision 00018-2f2，本会话改动尚未上 prod，Cloud SQL STOPPED）
 
 ---
 
@@ -177,7 +177,7 @@ Claude 在本项目中扮演**小公司 CTO** 的角色：
 
 **项目：** California M1 笔试备考 App（DMV Motor）
 
-**当前阶段：** 后端 MVP + AI explain 后端（Phase A + B1）已部署生产；前端 Next.js 16 核心学习闭环已接通后端（Dashboard / Practice / Mistakes / Review / Mock / Progress）。**注意**：UI 还**没有** AI 按钮、没有 mastery 数字展示、没有 AI 出题、没有 study plan 页面——这些是用户感知到的"核心 AI 学习闭环"，**至今未做**（详见下面"用户期望但未做"清单）。
+**当前阶段：** **Phase B Study Hub 全部完成（2026-05-28，本地 QA 绿，尚未上 prod）。** 后端 MVP + AI explain（Phase A/B1）此前已上 prod。Phase B 本会话做完：sub-topic schema（V13-V15）+ AI 出题 pipeline（V16，24 道）+ 后端 sub-topic mastery / practice & mock history endpoints + 前端 Study Hub UI（重写 /dashboard、删 /review）+ AI explain 按钮（点击式，free/paid 分层）+ mock exam linear 重写（逐题只标对错、不可回退、答错超 15% 自动 terminate）+ Phase E 考后 AI 复习计划 + practice topic_filter + Mistakes "Practice these" CTA。**注意**：付费购买流程仍是 stub（用户钉定"先不做付费"，临时用 dev grant-pass 后门）；reminder 模块、AI 主动推荐 endpoint 仍未做（见 backlog）。**prod 仍跑旧 revision 00018-2f2，本会话所有改动尚未部署。**
 
 **基础设施：**
 - 后端：Java 21 + Spring Boot 3.4 + jOOQ + Flyway
@@ -200,7 +200,7 @@ Claude 在本项目中扮演**小公司 CTO** 的角色：
 - [x] **Round 2 纠偏**：ReadinessProperties 参数化；readiness 公式按 docs/parameters.md §7-§8 重写（2-mock avg 85%/key cov 90%/review 80%/持续薄弱点四道硬门槛；40/25/20/15 权重）；/summary 免费/付费分层；/mock-exams/access 401；review task 端点 canUseReview 纵深防御
 - [x] **线上验证**：revision `dmv-motor-api-00004-cjt`（2026-04-21），`/actuator/health=UP`，`/api/v1/questions/1` 返真实 seed
 - [x] Cloud SQL 已暂停（activation-policy=NEVER）省钱中
-- [x] ⚠️ **MASTERY 判定升级 — 组件写了但 ORPHAN**（2026-04-21，commits 3d52861 + b13c972）：`MasteryEvaluator` + `MasteryProperties`（`app.mastery.*`）+ `PracticeHistoryRepository` 组件本身实现 OK（双闸门：topic 正确率 ≥80% & 近 8 条 ≥6 道正确）。**但 2026-05-11 审计发现 `isMastered()` 没有任何调用方真正接到 MistakeRecord 失活路径**；ReviewService import 它但实际未用于失活。**结果：MistakeRecord 至今永不自动失活。** 等"MasteryEvaluator wire-up to deactivation"完成后再改回真 ✅
+- [x] **MASTERY 判定升级 + wire-up 完成**（commits 3d52861 + b13c972 组件；2026-05-11 commit 5a79e07 真 wire-up）：`MasteryEvaluator` + `MasteryProperties`（`app.mastery.*`）+ `PracticeHistoryRepository`（双闸门：topic 正确率 ≥80% & 近 8 条 ≥6 道正确）。早先审计标 ORPHAN 部分有误——`isMastered()` 被 `ReviewService.completeTask` 调用，但原本只做 per-question 失活；`5a79e07` 用 `MistakeListRepository.deactivateForTopic` jOOQ bulk UPDATE 接通 topic-level 失活。Phase B 又加了 `SubTopicMasteryEvaluator`（`app.mastery.subtopic.*`，window=4/correct=3/rate≥0.80）驱动 Study Hub donut
 - [x] **Firebase Auth 迁移 code-complete**（2026-04-23，commits 23e5223 + 323754f + 3e71694）：`FirebaseAuthVerifier` 接口 + `StubFirebaseVerifier`（dev/test 默认，`Bearer <numericUserId>` 走它）+ `FirebaseIdTokenVerifier`（prod，`app.auth.firebase.enabled=true` 开启）+ `UserProvisioner`（首次登录按 `firebase_uid` JIT 建号）+ V11 migration；`UserIdResolver` 注入 verifier+provisioner；Terraform 在 Cloud Run 注入 `APP_AUTH_FIREBASE_ENABLED=true`
 - [x] **Firebase Auth 部署生产**（2026-04-25，revision `dmv-motor-api-00009-hf4`，commits ad2ac85 + 75c351f）：`terraform apply` 推 env 后两轮纠偏：`E2ETestBase.createTestUser` 套用 `TestFixtures` stamp 模式（`firebase_uid="test-<id>"`，原本 IT 没盖导致 JIT 新建 user 与断言不符）；`FirebaseConfig` 加 `@Value` + `setProjectId()` + `application-prod.yml` 默认 `${GOOGLE_CLOUD_PROJECT:dmv-motor-prod}`（Cloud Run ADC `ComputeEngineCredentials` 不带 projectId 且 `GOOGLE_CLOUD_PROJECT` env 不自动注入）。Smoke test 用真实 Firebase ID token 调 `/api/v1/me` 双调 200 + 同 user_id（id=1，幂等 ✅，email/uid 从 token 解码正确）。141 tests 全绿。
 - [x] Cloud SQL 已重新暂停（activation-policy=NEVER）省钱中
@@ -212,42 +212,37 @@ Claude 在本项目中扮演**小公司 CTO** 的角色：
 - [x] **Practice / Mistakes / Review / Mock 流程接通后端**（commits 40c903d / 619dc4a / 8397ed5 / 597f060）：登录 → 选 topic → 答题 → 看错题 → 走复习包 → 模考全链路可用；语言切换实时生效
 - [x] **Lint/Build 基线**（2026-04-28，commit 7ee5606）：React 19 `react-hooks/set-state-in-effect` 规则下，effect 内部 setState 改用「render 期间用 tracked key 比较 + 一次性 setState」官方推荐 pattern；141 后端 tests + `npm run lint` + `npm run build`（19 静态页 + 2 动态路由）全绿
 
-**Spec 要求但未实现（2026-05-11 spec-compliance-reviewer 审计，按 severity）：**
+**已完成（Phase B Study Hub，2026-05-28，详见 memory/progress §31-§32）：**
+- [x] **B0-B3 数据层**：vendor DMV M1 handbook（B0）+ 冻结 16 sub-topics（B1）+ V13/V14 sub_topics 表 + seed（B2）+ V15 retag 99 题 + NOT NULL（B3）
+- [x] **B4 AI 出题 pipeline**：`aiqgen/` 模块（FormatValidator + DeepSeekChatClient + QuestionGenerator + 3 LLM judges + GenerationOrchestrator + CLI）；V16 灌 24 道 AI 题补 3 个薄弱 sub-topic；DeepSeek 成本 ~$0.15
+- [x] **B5 后端 mastery + history endpoints**：`SubTopicMasteryEvaluator` + `GET /topics/mastery` + `/practice/sessions/{history,stats}` + `/mock-exams/attempts/{history,stats}` + `/me` 加 `in_progress_practice`
+- [x] **B6 Study Hub UI**：重写 `/dashboard`（CoverageDonut 双弧 + ReadinessRing + Resume/Start card + practice/mock history + 手写 Sparkline）+ **删 `/review` 路由树**（后端 ReviewController/Service/Repo 标 `@Deprecated(forRemoval=true)` 保留）+ AI explain 按钮（点击式 / free 与 paid 分层 / AI 关闭返 `AI_UNAVAILABLE`）
+- [x] **Mock exam linear 重写**（用户新规则）：逐题只标对错不解释、不可回退、手动 Next、答错超 `ceil(total*0.15)` 自动 `ended_by_failure`（V18）、refresh 可续考、focus mode 隐藏侧栏、V17 deactivate legacy 46-q mock
+- [x] **Phase E 考后 AI 复习计划**：`POST /api/v1/ai/review-plan`（V19 缓存列 + Stub/DeepSeek provider + 归属/状态/enabled 闸门，点击式防 hijack）
+- [x] **审计纠偏**（commit 67b1ad4）：practice `topic_filter`（V20，server cap 8）+ Mistakes "Practice these" CTA + `@Deprecated` review 模块 + design doc 决策 #2 rubric 更新
+- [x] **基线**：335 unit + 7 IT 全绿，JaCoCo branch 90.47%；security clean（1 LOW）
 
-| Severity | 项 | Spec 章节 | 状态 |
+**Backlog — Phase B 期间识别但未做（按 severity）：**
+
+| Sev | 项 | 来源 | 状态 |
 |---|---|---|---|
-| HIGH | `reminder/` 模块 | `features.md §2` + `reminder-and-readiness.md` 明文 MVP 必备 | `apps/api/.../reminder/` 是**空目录**，0 java 文件 |
-| HIGH | `memoryexport/` 模块 | `features.md §2` 列为 MVP 支撑功能 | `apps/api/.../memoryexport/` 是**空目录** |
-| HIGH | AI 推荐 endpoint | `mvp.md §5 功能 10` 明文："根据答题历史推荐下一轮强化题 / 复习方向" | 只做了 `/ai/explain`（错因解释），**不是**推荐 |
-| HIGH | MasteryEvaluator wire-up | `parameters.md §6` 明文 mastery 驱动 MistakeRecord 失活 | 组件写了但**没接到失活路径，孤儿代码** |
-| HIGH | 个性化挑题 | `review-and-readiness-engine.md` 明文"按用户薄弱点投放" | `PracticeSessionRepository.findNextUnansweredQuestion` 用 `ORDER BY q.ID asc`，**零个性化** |
-| MED | mastery 第 3 闸门 | `parameters.md §6` 第 3 条 | TODO，等 schema 扩展 |
-| MED | `/api/v1/access` endpoint 路径 | `api-contract.md §12` 写 `/access` | 实际是 `/me/access`，**路径不一致** |
-| LOW | `/summary` `pace` 字段 | `parameters.md §9 pace_formula` | 缺字段 |
-| LOW | `next_action` 具体推荐文案 | `reminder-and-readiness.md §13` | 只有 type，缺 topic 推荐 |
+| HIGH | 付费 access pass 真实购买流程 | 用户钉定"先不做付费" | /me 全 Coming soon stub；临时用 dev grant-pass 后门 |
+| HIGH | `reminder/` 模块 | `features.md §2` + `reminder-and-readiness.md` MVP 必备 | 空目录，0 java |
+| HIGH | AI 主动推荐 endpoint | `mvp.md §5 功能 10`："推荐下一轮强化题/复习方向" | 只有 /ai/explain（错因）+ /ai/review-plan（考后），**不是**主动推荐 |
+| MED | mastery 第 3 闸门（混淆点） | `parameters.md §6` 第 3 条 | 等 questions 加 confusion_tag schema；`TODO(FUTURE_CONFUSION_SCHEMA)` |
+| MED | `api-contract.md §16` mock UX 过期 | 本会话用户改了 mock 规则 | 文档还写旧"逐题对错统计"，需更新为 linear/auto-terminate/考后 AI |
+| MED | `/api/v1/access` 路径不一致 | `api-contract.md §12` 写 `/access` | 实际 `/me/access` |
+| LOW | aiqgen stem 去重 | audit #4 | Q-gen 没查重复题干 |
+| LOW | DevController `@Profile("!prod")` 双保险 | security audit LOW | 当前只靠 `app.dev.endpoints` flag |
+| LOW | `/summary` `pace` 字段 + `next_action` 具体文案 | `parameters.md §9` / `reminder-and-readiness §13` | |
+| LOW | `memoryexport/` 模块 | `features.md §2` | 空目录，MVP 价值低，暂搁 |
+| LOW | `mvnw` wrapper | — | 目前用本地 mvn |
 
-**用户钉定 MUST-DO 优先级（2026-05-11，与 audit ROI 略有不同）：**
-
-1. **本节即此**：CLAUDE.md §10 显式列"未实现"——0 代码，防误判（audit #1）
-2. **个性化挑题**——改 `PracticeService.findNextUnansweredQuestion` 加权（错题 topic + 未覆盖 key topic）
-3. **MasteryEvaluator wire-up**——已有组件接到 MistakeRecord 失活路径，和 #2 协同
-4. **AI button (Phase C)**——前端 PracticeFlow.tsx 加"为啥错"按钮调 `/ai/explain`；**用户钉定 MVP 不可省**，即使 audit ROI 排到 #5
-5. **Reminder 模块最小实现**——`reminder_tasks` 表 + cron 生成 + `GET /api/v1/reminders` list（站内）
-
-**SHOULD-DO（spec 要求但 LOW，下次或顺手）：**
-- `/summary` 加 `pace` 字段 + `next_action` 具体文案
-- mastery 第 3 闸门（等 schema）
-- AI 推荐端点（mvp.md §5 功能 10，可与 Phase C 一起或独立 phase）
-
-**NOT-DO（用户曾期望但 spec 没要求 → 用户脑补）：**
-- `/study` 页面（`mvp.md §6` 没列）
+**NOT-DO（用户曾期望但 spec 没要求 → 不做）：**
+- `/study` 独立页面（`mvp.md §6` 没列；Study Hub 即 `/dashboard`）
 - 显式 "study plan" 实体（spec 用 pace + next_action + review pack 替代）
 
-**已知小缺口（low priority）：**
-- [ ] `mvnw` wrapper（目前用本地 mvn）
-- [ ] `memoryexport/` 模块（spec 列了但 MVP 价值低，暂搁置）
-
-**下一阶段：** MUST-DO 1-5 按顺序做（本会话或下一会话）；SHOULD-DO 等 MUST 跑完再排
+**下一阶段：** ①把本会话改动部署 prod（启 Cloud SQL + cost approval + smoke test）②按 backlog severity 排：付费流程 / reminder 模块 / AI 推荐 endpoint。等用户定优先级。
 
 **未解决的决策点：** 无
 
