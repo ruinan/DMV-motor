@@ -149,6 +149,14 @@ public class PracticeService {
                 ? overrideLanguage
                 : session.languageCode();
 
+        // A session is capped at SESSION_QUESTION_CAP questions. Once the user
+        // has answered that many, the session is done — surfaced as the same
+        // SESSION_COMPLETED the frontend already treats as "finished".
+        if (sessionRepo.countAnswered(sessionId) >= PracticeSessionRepository.SESSION_QUESTION_CAP) {
+            throw new BusinessException("SESSION_COMPLETED",
+                    "No more questions in this session", HttpStatus.NOT_FOUND);
+        }
+
         return sessionRepo.findNextUnansweredQuestion(
                         sessionId, effectiveLang, session.entryType(),
                         session.userId(), cycle, session.topicFilter())
@@ -160,7 +168,8 @@ public class PracticeService {
     public SessionStatus getSessionStatus(Long sessionId, Long requestUserId) {
         PracticeSession session = requireSession(sessionId, requestUserId);
         int answered = sessionRepo.countAnswered(sessionId);
-        int total    = sessionRepo.countTotal(session.languageCode(), session.entryType());
+        int total    = Math.min(PracticeSessionRepository.SESSION_QUESTION_CAP,
+                sessionRepo.countTotal(session.languageCode(), session.entryType()));
         return new SessionStatus(sessionId, session.status(), answered, total);
     }
 

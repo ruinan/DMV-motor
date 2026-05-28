@@ -8,6 +8,9 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 
+import java.util.ArrayList;
+import java.util.List;
+
 import static org.hamcrest.Matchers.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
@@ -105,6 +108,74 @@ class PracticeSessionControllerTest extends IntegrationTestBase {
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.error.code").value("SESSION_COMPLETED"));
     }
+
+    @Test
+    void session_totalCountCappedAt20() throws Exception {
+        // setUp's 1 question + 24 more = 26 active free-trial questions, but a
+        // session is capped at 20.
+        seedExtraFreeTrialQuestions(24);
+
+        String startBody = mockMvc.perform(post("/api/v1/practice/sessions")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"entry_type":"free_trial","language":"en"}
+                                """))
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString();
+        String sessionId = extractSessionId(startBody);
+
+        mockMvc.perform(get("/api/v1/practice/sessions/{id}", sessionId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.total_count").value(20))
+                .andExpect(jsonPath("$.data.answered_count").value(0));
+    }
+
+    @Test
+    void session_completesAfter20Answers() throws Exception {
+        QuestionPool pool = seedExtraFreeTrialQuestions(24);
+
+        String startBody = mockMvc.perform(post("/api/v1/practice/sessions")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"entry_type":"free_trial","language":"en"}
+                                """))
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString();
+        String sessionId = extractSessionId(startBody);
+
+        // Answer exactly 20 distinct questions.
+        for (int i = 0; i < 20; i++) {
+            mockMvc.perform(post("/api/v1/practice/sessions/{id}/answers", sessionId)
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("""
+                                    {"question_id":"%s","variant_id":"%s","selected_choice_key":"B"}
+                                    """.formatted(pool.qIds().get(i), pool.vIds().get(i))))
+                    .andExpect(status().isOk());
+        }
+
+        // The 21st request is refused — the session is full.
+        mockMvc.perform(get("/api/v1/practice/sessions/{id}/next-question", sessionId))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.error.code").value("SESSION_COMPLETED"));
+    }
+
+    /** Seeds {@code n} extra active free-trial questions (correct key "B") and
+     *  returns all question/variant ids including setUp's original. */
+    private QuestionPool seedExtraFreeTrialQuestions(int n) {
+        List<Long> qIds = new ArrayList<>(List.of(questionId));
+        List<Long> vIds = new ArrayList<>(List.of(variantEnId));
+        for (int i = 0; i < n; i++) {
+            Long qid = fixtures.insertQuestion(topicId, "B");
+            Long vid = fixtures.insertVariantReturningId(qid, "en", "Capped Q" + i,
+                    "[{\"key\":\"A\",\"text\":\"a\"},{\"key\":\"B\",\"text\":\"b\"}]",
+                    "explanation " + i);
+            qIds.add(qid);
+            vIds.add(vid);
+        }
+        return new QuestionPool(qIds, vIds);
+    }
+
+    private record QuestionPool(List<Long> qIds, List<Long> vIds) {}
 
     private static String extractSessionId(String json) {
         String key = "\"session_id\":\"";

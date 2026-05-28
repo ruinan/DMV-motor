@@ -259,6 +259,14 @@ public class PracticeSessionRepository {
         ));
     }
 
+    /**
+     * Max questions served per practice session. A session is a bounded study
+     * chunk, not a sweep of the whole bank — once this many are answered the
+     * session completes. The displayed total is min(cap, bank) so a small pool
+     * (free trial / narrow topic filter) still shows its real size.
+     */
+    public static final int SESSION_QUESTION_CAP = 20;
+
     public int countAnswered(Long sessionId) {
         var pa = Tables.PRACTICE_ATTEMPTS;
         return dsl.fetchCount(pa, pa.PRACTICE_SESSION_ID.eq(sessionId));
@@ -351,7 +359,8 @@ public class PracticeSessionRepository {
                 .fetchOne();
         if (r == null) return Optional.empty();
         int answeredCount = r.get(answered);
-        int total = countTotal(r.get(ps.LANGUAGE_CODE), r.get(ps.ENTRY_TYPE));
+        int total = Math.min(SESSION_QUESTION_CAP,
+                countTotal(r.get(ps.LANGUAGE_CODE), r.get(ps.ENTRY_TYPE)));
         return Optional.of(new InProgressSession(
                 r.get(ps.ID),
                 r.get(ps.ENTRY_TYPE),
