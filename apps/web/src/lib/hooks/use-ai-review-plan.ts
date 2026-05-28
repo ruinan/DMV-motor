@@ -1,42 +1,52 @@
 "use client";
 
-import { useState } from "react";
-import { apiFetch, ApiError } from "@/lib/api-client";
+import { useRef } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { apiFetch } from "@/lib/api-client";
+import { useAuth } from "@/lib/auth-context";
 
-export type AiReviewPlanState =
-  | { kind: "idle" }
-  | { kind: "loading" }
-  | { kind: "ok"; text: string; cached: boolean }
-  | { kind: "error"; message: string; code?: string };
+export type AiReviewPlanView =
+  | { state: "loading" }
+  | { state: "pending" } // job running — keep polling
+  | { state: "stalled" } // gave up polling; job likely failed
+  | { state: "unavailable" } // AI turned off
+  | { state: "ready"; plan: string };
 
-type AiReviewPlanResponse = {
-  plan: string;
-  cached: boolean;
-};
+type Resp = { status: "ready" | "pending" | "unavailable" | string; plan: string };
+
+// Stop polling after ~30s (10 × 3s). A plan normally lands within a few
+// seconds; if it hasn't by then the background job probably failed.
+const MAX_POLLS = 10;
 
 /**
- * Post-exam AI review plan for a completed mock attempt. One plan per attempt
- * is cached server-side, so re-clicking returns instantly with cached:true.
+ * Reads the auto-generated AI review plan for a completed mock attempt. The
+ * plan is produced by a background job when the mock finishes — the client
+ * never triggers it, it only polls here until the plan is ready.
  */
-export function useAiReviewPlan() {
-  const [state, setState] = useState<AiReviewPlanState>({ kind: "idle" });
+export function useAiReviewPlan(attemptId: string | null): AiReviewPlanView {
+  const { user } = useAuth();
+  const polls = useRef(0);
+  const q = useQuery({
+    queryKey: ["ai-review-plan", attemptId],
+    queryFn: () => {
+      polls.current += 1;
+      return apiFetch<Resp>(
+        `/api/v1/ai/review-plan?mock_attempt_id=${attemptId}`,
+      );
+    },
+    enabled: !!user && !!attemptId,
+    refetchInterval: (query) => {
+      const d = query.state.data;
+      if (!d || d.status !== "pending") return false;
+      return polls.current >= MAX_POLLS ? false : 3000;
+    },
+  });
 
-  async function generate(mockAttemptId: string, language: string) {
-    setState({ kind: "loading" });
-    try {
-      const res = await apiFetch<AiReviewPlanResponse>("/api/v1/ai/review-plan", {
-        method: "POST",
-        body: JSON.stringify({ mock_attempt_id: mockAttemptId, language }),
-      });
-      setState({ kind: "ok", text: res.plan, cached: res.cached });
-    } catch (err) {
-      if (err instanceof ApiError) {
-        setState({ kind: "error", message: err.message, code: err.code });
-      } else {
-        setState({ kind: "error", message: "Network error" });
-      }
-    }
+  if (q.isLoading || (!q.data && q.isFetching)) return { state: "loading" };
+  if (q.data?.status === "ready") return { state: "ready", plan: q.data.plan };
+  if (q.data?.status === "unavailable") return { state: "unavailable" };
+  if (q.data?.status === "pending") {
+    return polls.current >= MAX_POLLS ? { state: "stalled" } : { state: "pending" };
   }
-
-  return { state, generate };
+  return { state: "loading" };
 }

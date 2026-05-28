@@ -5,34 +5,34 @@ import com.dmvmotor.api.common.BusinessException;
 import com.dmvmotor.api.mockexam.infrastructure.MockExamRepository;
 import com.dmvmotor.api.mockexam.infrastructure.MockExamRepository.AttemptRow;
 import com.dmvmotor.api.mockexam.infrastructure.MockExamRepository.WrongAnswerDetail;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Optional;
 
 /**
- * Generates (and caches) an AI review plan for a completed mock-exam attempt.
+ * AI review plan for a completed mock-exam attempt.
  *
- * <p>Guards, in order:
- * <ol>
- *   <li>AI feature flag — {@code app.ai.enabled=false} → AI_UNAVAILABLE.</li>
- *   <li>Ownership — the attempt must belong to the caller (else 403/404 via
- *       the same not-found-for-cross-user semantics as the rest of mockexam).</li>
- *   <li>Completion — only terminal attempts (submitted / ended_by_failure /
- *       ended_by_exit) get a plan; an in-progress exam has nothing to review.</li>
- *   <li>Cache — one plan per attempt, persisted on the attempt row. A second
- *       request returns the saved plan with no DeepSeek cost.</li>
- * </ol>
+ * <p>Generation is system-driven, not user-driven: when a mock reaches a
+ * terminal state, {@code MockReviewPlanListener} calls
+ * {@link #generateAndCache(Long, Long)} on a background thread. There is no
+ * user-facing "generate" trigger — the client only ever <em>reads</em> the
+ * result via {@link #getCachedPlan(Long, Long)}. This keeps the AI on a fixed,
+ * server-controlled payload (no free-text), and the user never waits on the LLM.
  */
 @Service
 public class AiReviewPlanService {
 
+    private static final Logger log = LoggerFactory.getLogger(AiReviewPlanService.class);
     private static final double PASS_THRESHOLD = 0.85;
 
-    private final MockExamRepository  mockExamRepo;
+    private final MockExamRepository   mockExamRepo;
     private final AiReviewPlanProvider provider;
-    private final AiProperties        props;
+    private final AiProperties         props;
 
     public AiReviewPlanService(MockExamRepository mockExamRepo,
                                 AiReviewPlanProvider provider,
@@ -42,13 +42,66 @@ public class AiReviewPlanService {
         this.props        = props;
     }
 
-    public Result generate(Long attemptId, Long userId, String language) {
+    /**
+     * Background job: generate and persist the plan for a finished attempt.
+     * Fire-and-forget — never throws to the caller. Skips when AI is off, the
+     * attempt isn't terminal, or a plan is already cached (idempotent). Provider
+     * failures are logged and swallowed; the client simply keeps seeing
+     * {@code pending} until a later attempt regenerates (it won't auto-retry,
+     * but a failed plan is non-critical).
+     */
+    @Transactional
+    public void generateAndCache(Long attemptId, Long userId) {
         if (!props.enabled()) {
-            throw new BusinessException("AI_UNAVAILABLE",
-                    "AI review plans are currently turned off",
-                    HttpStatus.SERVICE_UNAVAILABLE);
+            return;
+        }
+        Optional<AttemptRow> maybe = mockExamRepo.findAttemptById(attemptId);
+        if (maybe.isEmpty() || !maybe.get().userId().equals(userId)) {
+            log.warn("Skipping review plan: attempt {} missing or not owned by user {}",
+                    attemptId, userId);
+            return;
+        }
+        AttemptRow attempt = maybe.get();
+        if ("in_progress".equals(attempt.status())) {
+            return;
+        }
+        if (mockExamRepo.findReviewPlan(attemptId).isPresent()) {
+            return; // idempotent — already generated
         }
 
+        try {
+            String lang = attempt.language();
+            int correctCount = mockExamRepo.countCorrectAnswers(attemptId);
+            int total = mockExamRepo.findMockExamQuestionCount(attempt.mockExamId());
+            int scorePercent = total == 0 ? 0 : (int) Math.round(100.0 * correctCount / total);
+            boolean passed = scorePercent >= (int) Math.round(PASS_THRESHOLD * 100);
+
+            List<WrongAnswerDetail> wrong = mockExamRepo.findWrongAnswerDetails(attemptId, lang);
+            List<AiReviewPlanProvider.WrongItem> wrongItems = wrong.stream()
+                    .map(w -> new AiReviewPlanProvider.WrongItem(
+                            w.stem(), w.topicLabel(), w.subTopicLabel(),
+                            w.selectedChoiceKey(), w.correctChoiceKey()))
+                    .toList();
+
+            AiReviewPlanProvider.Output out = provider.generate(
+                    new AiReviewPlanProvider.Input(
+                            scorePercent, correctCount, total, passed, wrongItems, lang));
+
+            mockExamRepo.saveReviewPlan(attemptId, out.text(), provider.modelName());
+        } catch (RuntimeException e) {
+            // AI provider error (timeout / 5xx / parse). Non-critical — log and
+            // leave the plan absent so the client shows the neutral state.
+            log.warn("AI review plan generation failed for attempt {}: {}",
+                    attemptId, e.toString());
+        }
+    }
+
+    /**
+     * Read path for the client. Reports whether the plan is ready, still being
+     * generated, or unavailable (AI off). Ownership / existence are still hard
+     * errors (403 / 404) so a status probe can't leak other users' attempts.
+     */
+    public PlanView getCachedPlan(Long attemptId, Long userId) {
         AttemptRow attempt = mockExamRepo.findAttemptById(attemptId)
                 .orElseThrow(() -> new BusinessException("RESOURCE_NOT_FOUND",
                         "Mock attempt not found: " + attemptId, HttpStatus.NOT_FOUND));
@@ -56,40 +109,16 @@ public class AiReviewPlanService {
             throw new BusinessException("FORBIDDEN",
                     "Attempt belongs to a different user", HttpStatus.FORBIDDEN);
         }
-        if ("in_progress".equals(attempt.status())) {
-            throw new BusinessException("MOCK_NOT_COMPLETED",
-                    "Finish the exam before requesting a review plan",
-                    HttpStatus.CONFLICT);
+        if (!props.enabled()) {
+            return new PlanView(Status.UNAVAILABLE, null);
         }
-
-        // Cache hit — return the persisted plan, no provider call.
         Optional<String> cached = mockExamRepo.findReviewPlan(attemptId);
-        if (cached.isPresent()) {
-            return new Result(cached.get(), true);
-        }
-
-        String lang = language != null && !language.isBlank()
-                ? language : attempt.language();
-
-        int correctCount = mockExamRepo.countCorrectAnswers(attemptId);
-        int total = mockExamRepo.findMockExamQuestionCount(attempt.mockExamId());
-        int scorePercent = total == 0 ? 0 : (int) Math.round(100.0 * correctCount / total);
-        boolean passed = scorePercent >= (int) Math.round(PASS_THRESHOLD * 100);
-
-        List<WrongAnswerDetail> wrong = mockExamRepo.findWrongAnswerDetails(attemptId, lang);
-        List<AiReviewPlanProvider.WrongItem> wrongItems = wrong.stream()
-                .map(w -> new AiReviewPlanProvider.WrongItem(
-                        w.stem(), w.topicLabel(), w.subTopicLabel(),
-                        w.selectedChoiceKey(), w.correctChoiceKey()))
-                .toList();
-
-        AiReviewPlanProvider.Output out = provider.generate(
-                new AiReviewPlanProvider.Input(
-                        scorePercent, correctCount, total, passed, wrongItems, lang));
-
-        mockExamRepo.saveReviewPlan(attemptId, out.text(), provider.modelName());
-        return new Result(out.text(), false);
+        return cached
+                .map(plan -> new PlanView(Status.READY, plan))
+                .orElseGet(() -> new PlanView(Status.PENDING, null));
     }
 
-    public record Result(String plan, boolean cached) {}
+    public enum Status { READY, PENDING, UNAVAILABLE }
+
+    public record PlanView(Status status, String plan) {}
 }

@@ -242,8 +242,9 @@
     "aiPlanCached": "(saved)",
     "aiPlanPrompt": "Get a personalized review plan based on this exam.",
     "aiPlanButton": "Generate AI review plan",
-    "aiPlanLoading": "Analyzing…",
+    "aiPlanLoading": "Preparing your review plan…",
     "aiPlanUnavailable": "AI review plans are currently unavailable.",
+    "aiPlanStalled": "Your review plan isn't ready yet — check back in a moment.",
     "aiPlanError": "Couldn't generate a review plan. Try again later."
   },
   "review": {

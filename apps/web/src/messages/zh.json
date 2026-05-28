@@ -242,8 +242,9 @@
     "aiPlanCached": "（已保存）",
     "aiPlanPrompt": "根据这次考试，生成个性化复习计划。",
     "aiPlanButton": "生成 AI 复习计划",
-    "aiPlanLoading": "分析中……",
+    "aiPlanLoading": "正在生成复习计划……",
     "aiPlanUnavailable": "AI 复习计划暂时不可用。",
+    "aiPlanStalled": "复习计划还没生成好，稍后再回来看看。",
     "aiPlanError": "无法生成复习计划，请稍后重试。"
   },
   "review": {

@@ -9,9 +9,11 @@ import com.dmvmotor.api.common.Ids;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import org.springframework.http.HttpStatus;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.Map;
@@ -51,21 +53,24 @@ public class AiExplanationController {
         ));
     }
 
-    @PostMapping("/review-plan")
+    /**
+     * Read-only fetch of the auto-generated review plan. Generation is kicked
+     * off in the background when the mock completes (see MockReviewPlanListener)
+     * — the client never triggers the LLM, it only polls for the result here.
+     * status ∈ {ready, pending, unavailable}.
+     */
+    @GetMapping("/review-plan")
     public ApiResponse<?> reviewPlan(@CurrentUser Long userId,
-                                      @Valid @RequestBody ReviewPlanRequest req) {
+                                      @RequestParam("mock_attempt_id") String mockAttemptId) {
         if (userId == null) {
             throw new BusinessException("UNAUTHORIZED", "Authentication required",
                     HttpStatus.UNAUTHORIZED);
         }
-        long attemptId = Ids.parse(req.mockAttemptId(), "mock_attempt_id");
-        // Pass language through (may be null/blank) — the service falls back to
-        // the attempt's stored language when it's absent.
-        AiReviewPlanService.Result result =
-                reviewPlanService.generate(attemptId, userId, req.language());
+        long attemptId = Ids.parse(mockAttemptId, "mock_attempt_id");
+        AiReviewPlanService.PlanView view = reviewPlanService.getCachedPlan(attemptId, userId);
         return ApiResponse.ok(Map.of(
-                "plan",   result.plan(),
-                "cached", result.cached()
+                "status", view.status().name().toLowerCase(),
+                "plan",   view.plan() != null ? view.plan() : ""
         ));
     }
 
@@ -78,12 +83,5 @@ public class AiExplanationController {
         String questionId()         { return question_id; }
         String variantId()          { return variant_id; }
         String selectedChoiceKey()  { return selected_choice_key; }
-    }
-
-    record ReviewPlanRequest(
-            @NotBlank(message = "must not be blank") String mock_attempt_id,
-            String language
-    ) {
-        String mockAttemptId() { return mock_attempt_id; }
     }
 }

@@ -11,6 +11,7 @@ import com.dmvmotor.api.mockexam.infrastructure.MockExamRepository;
 import com.dmvmotor.api.mockexam.infrastructure.MockExamRepository.AnswerRow;
 import com.dmvmotor.api.mockexam.infrastructure.MockExamRepository.AttemptRow;
 import com.dmvmotor.api.practice.infrastructure.MistakeRepository;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -26,17 +27,20 @@ public class MockExamService {
     private final QuestionRepository questionRepo;
     private final MistakeRepository  mistakeRepo;
     private final UserRepository     userRepo;
+    private final ApplicationEventPublisher events;
 
     public MockExamService(MockExamRepository mockExamRepo,
                            AccessService accessService,
                            QuestionRepository questionRepo,
                            MistakeRepository mistakeRepo,
-                           UserRepository userRepo) {
+                           UserRepository userRepo,
+                           ApplicationEventPublisher events) {
         this.mockExamRepo  = mockExamRepo;
         this.accessService = accessService;
         this.questionRepo  = questionRepo;
         this.mistakeRepo   = mistakeRepo;
         this.userRepo      = userRepo;
+        this.events        = events;
     }
 
     public MockAccessResult checkAccess(Long userId) {
@@ -140,6 +144,7 @@ public class MockExamService {
             int correctCount = mockExamRepo.countCorrectAnswers(attemptId);
             mockExamRepo.finalizeAttempt(attemptId, "ended_by_failure",
                     scorePercent(correctCount, totalQuestions), correctCount, wrongCount);
+            events.publishEvent(new MockAttemptCompletedEvent(attemptId, userId));
         }
 
         return new SaveAnswerResult(
@@ -164,6 +169,7 @@ public class MockExamService {
         int total         = mockExamRepo.findMockExamQuestionCount(attempt.mockExamId());
         mockExamRepo.finalizeAttempt(attemptId, "submitted",
                 scorePercent(correctCount, total), correctCount, wrongCount);
+        events.publishEvent(new MockAttemptCompletedEvent(attemptId, userId));
 
         List<MockExamRepository.WeakTopicRow> weakTopics =
                 mockExamRepo.findWeakTopicsByAttemptId(attemptId);
@@ -184,6 +190,7 @@ public class MockExamService {
                     "Mock exam already submitted or exited", HttpStatus.CONFLICT);
         }
         mockExamRepo.updateAttemptStatus(attemptId, "ended_by_exit");
+        events.publishEvent(new MockAttemptCompletedEvent(attemptId, userId));
         return new ExitResult(attemptId, "ended_by_exit", true, attempt.answeredCount());
     }
 

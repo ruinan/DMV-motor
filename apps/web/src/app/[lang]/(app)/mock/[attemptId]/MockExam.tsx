@@ -173,7 +173,6 @@ export function MockExam({ t, lang, attemptId }: Props) {
     return (
       <FinishedView
         t={t}
-        lang={lang}
         attemptId={attemptId}
         status={attempt.data.status}
         scorePercent={attempt.data.score_percent}
@@ -205,7 +204,7 @@ export function MockExam({ t, lang, attemptId }: Props) {
               .replace("{wrong}", String(wrong))}
           </p>
         </div>
-        <AiReviewPlanBlock t={t} lang={lang} attemptId={attemptId} />
+        <AiReviewPlanBlock t={t} attemptId={attemptId} />
         <div className="flex flex-col gap-3 sm:flex-row sm:justify-center">
           <Button onClick={() => router.push(`/${lang}/mock`)}>
             {t.terminatedTryAgain}
@@ -570,7 +569,7 @@ function ResultView({
         )}
       </section>
 
-      <AiReviewPlanBlock t={t} lang={lang} attemptId={attemptId} />
+      <AiReviewPlanBlock t={t} attemptId={attemptId} />
 
       <div className="flex flex-col gap-3 sm:flex-row sm:justify-end">
         <Button variant="outline" onClick={onBack}>
@@ -591,7 +590,6 @@ function ResultView({
  */
 function FinishedView({
   t,
-  lang,
   attemptId,
   status,
   scorePercent,
@@ -602,7 +600,6 @@ function FinishedView({
   onBack,
 }: {
   t: Dictionary["mock"];
-  lang: Locale;
   attemptId: string;
   status: string;
   scorePercent: number;
@@ -663,7 +660,7 @@ function FinishedView({
         </section>
       )}
 
-      {scored && <AiReviewPlanBlock t={t} lang={lang} attemptId={attemptId} />}
+      {scored && <AiReviewPlanBlock t={t} attemptId={attemptId} />}
 
       <div className="flex flex-col gap-3 sm:flex-row sm:justify-end">
         <Button variant="outline" onClick={onBack}>
@@ -679,66 +676,48 @@ function FinishedView({
 }
 
 /**
- * Post-exam AI review plan — click-to-generate, cached server-side per
- * attempt. Available on both the submitted result and the auto-terminated
- * failure screen. The AI is reached only via this button (no free-text),
- * consistent with the explanation-button locked-payload contract.
+ * Post-exam AI review plan. Generation is automatic — a background job kicks
+ * off when the mock completes — so this block just reflects the job's state:
+ * a spinner while it's running, the plan once ready, a neutral note if AI is
+ * off or the job didn't produce one. The user never triggers it (no free-text,
+ * no button), consistent with the locked-payload AI contract.
  */
 function AiReviewPlanBlock({
   t,
-  lang,
   attemptId,
 }: {
   t: Dictionary["mock"];
-  lang: Locale;
   attemptId: string;
 }) {
-  const ai = useAiReviewPlan();
+  const ai = useAiReviewPlan(attemptId);
 
-  if (ai.state.kind === "ok") {
+  if (ai.state === "ready") {
     return (
       <section className="rounded-xl border border-primary/30 bg-primary/5 p-6 shadow-sm">
         <h2 className="mb-2 flex items-center gap-1.5 text-sm font-semibold uppercase tracking-wider text-primary">
           <Sparkles className="size-4" />
           {t.aiPlanHeading}
-          {ai.state.cached && (
-            <span className="font-normal normal-case tracking-normal text-muted-foreground">
-              {t.aiPlanCached}
-            </span>
-          )}
         </h2>
         <p className="whitespace-pre-line text-sm leading-relaxed text-foreground">
-          {ai.state.text}
+          {ai.plan}
         </p>
       </section>
     );
   }
 
+  if (ai.state === "loading" || ai.state === "pending") {
+    return (
+      <section className="flex items-center justify-center gap-2 rounded-xl border border-dashed border-border bg-card p-6 text-sm text-muted-foreground shadow-sm">
+        <Loader2 className="size-4 animate-spin" />
+        {t.aiPlanLoading}
+      </section>
+    );
+  }
+
+  // stalled (job didn't finish) or unavailable (AI off) — neutral, no action.
   return (
-    <section className="rounded-xl border border-dashed border-border bg-card p-6 text-center shadow-sm">
-      <Sparkles className="mx-auto mb-2 size-6 text-primary" />
-      <p className="mb-4 text-sm text-muted-foreground">{t.aiPlanPrompt}</p>
-      <Button
-        onClick={() => ai.generate(attemptId, lang)}
-        disabled={ai.state.kind === "loading"}
-        className="gap-1.5"
-      >
-        {ai.state.kind === "loading" ? (
-          <>
-            <Loader2 className="size-4 animate-spin" />
-            {t.aiPlanLoading}
-          </>
-        ) : (
-          t.aiPlanButton
-        )}
-      </Button>
-      {ai.state.kind === "error" && (
-        <p className="mt-3 text-xs text-destructive">
-          {ai.state.code === "AI_UNAVAILABLE"
-            ? t.aiPlanUnavailable
-            : t.aiPlanError}
-        </p>
-      )}
+    <section className="rounded-xl border border-dashed border-border bg-card p-6 text-center text-sm text-muted-foreground shadow-sm">
+      {ai.state === "unavailable" ? t.aiPlanUnavailable : t.aiPlanStalled}
     </section>
   );
 }
