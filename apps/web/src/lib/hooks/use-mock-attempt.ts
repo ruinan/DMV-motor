@@ -19,10 +19,21 @@ export type MockSavedAnswer = {
 export type MockAttemptDetail = {
   mock_attempt_id: string;
   mock_exam_id: string;
-  status: "in_progress" | "submitted" | "ended_by_exit" | "expired" | string;
+  status:
+    | "in_progress"
+    | "submitted"
+    | "ended_by_failure"
+    | "ended_by_exit"
+    | "expired"
+    | string;
   language: string;
   questions: MockAttemptQuestion[];
   saved_answers: MockSavedAnswer[];
+  // Score summary — only populated once the attempt is finished. In-progress
+  // attempts return the -1 / 0 sentinels (mirrors /attempts/history).
+  score_percent: number;
+  correct_count: number;
+  wrong_count: number;
 };
 
 /**

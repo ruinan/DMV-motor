@@ -274,7 +274,10 @@ public class MockExamService {
                 attempt.status(),
                 effectiveLang,
                 questions,
-                savedAnswers);
+                savedAnswers,
+                attempt.scorePercent(),
+                attempt.correctCount(),
+                attempt.wrongCount());
     }
 
     public record AttemptDetailResult(
@@ -283,6 +286,9 @@ public class MockExamService {
             String               status,
             String               language,
             List<QuestionDetail> questions,
-            List<AnswerRow>      savedAnswers
+            List<AnswerRow>      savedAnswers,
+            Integer              scorePercent,
+            Integer              correctCount,
+            Integer              wrongCount
     ) {}
 }

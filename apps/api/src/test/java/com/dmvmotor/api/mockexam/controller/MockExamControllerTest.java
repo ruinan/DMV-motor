@@ -541,7 +541,30 @@ class MockExamControllerTest extends IntegrationTestBase {
                 .andExpect(jsonPath("$.data.questions[0].question_id").isString())
                 .andExpect(jsonPath("$.data.questions[0].stem").isString())
                 .andExpect(jsonPath("$.data.saved_answers", org.hamcrest.Matchers.hasSize(1)))
-                .andExpect(jsonPath("$.data.saved_answers[0].selected_choice_key").value("B"));
+                .andExpect(jsonPath("$.data.saved_answers[0].selected_choice_key").value("B"))
+                // In-progress attempts have no score yet — sentinel -1, counts 0.
+                .andExpect(jsonPath("$.data.score_percent").value(-1))
+                .andExpect(jsonPath("$.data.correct_count").value(0))
+                .andExpect(jsonPath("$.data.wrong_count").value(0));
+    }
+
+    @Test
+    void getAttempt_afterSubmit_includesScoreSummary() throws Exception {
+        // A finished attempt, re-opened cold (refresh / mock history click),
+        // must carry its score so the client renders the result view instead
+        // of the answering UI.
+        String attemptId = startMockAndGetId();
+        saveAnswerForAttempt(attemptId, q1, v1, "B"); // correct (q1 key = "B")
+        saveAnswerForAttempt(attemptId, q2, v2, "B"); // wrong (q2 key = "A")
+        submitAttempt(attemptId);
+
+        mockMvc.perform(get("/api/v1/mock-exams/attempts/{id}", attemptId)
+                        .header("Authorization", "Bearer " + userId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.status").value("submitted"))
+                .andExpect(jsonPath("$.data.score_percent").value(50))
+                .andExpect(jsonPath("$.data.correct_count").value(1))
+                .andExpect(jsonPath("$.data.wrong_count").value(1));
     }
 
     @Test

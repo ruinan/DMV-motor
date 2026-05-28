@@ -80,7 +80,10 @@ public class MockExamRepository {
                 r.get(ma.STATUS),
                 r.get(ma.ANSWERED_COUNT),
                 r.get(ma.QUOTA_CONSUMED),
-                r.get(ma.LEARNING_CYCLE)
+                r.get(ma.LEARNING_CYCLE),
+                r.get(ma.SCORE_PERCENT),
+                r.get(ma.CORRECT_COUNT),
+                r.get(ma.WRONG_COUNT)
         ));
     }
 
@@ -298,7 +301,10 @@ public class MockExamRepository {
             String  status,
             int     answeredCount,
             boolean quotaConsumed,
-            int     learningCycle
+            int     learningCycle,
+            Integer scorePercent,
+            Integer correctCount,
+            Integer wrongCount
     ) {}
 
     public record AnswerRow(Long questionId, String selectedKey) {}

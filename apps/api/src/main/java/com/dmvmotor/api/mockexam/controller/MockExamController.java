@@ -61,17 +61,23 @@ public class MockExamController {
     ) {
         requireAuth(userId);
         var result = mockExamService.getAttemptDetail(id, userId, language);
-        return ApiResponse.ok(Map.of(
-                "mock_attempt_id", String.valueOf(result.attemptId()),
-                "mock_exam_id",    String.valueOf(result.mockExamId()),
-                "status",          result.status(),
-                "language",        result.language(),
-                "questions",       result.questions().stream().map(this::toQuestionDto).toList(),
-                "saved_answers",   result.savedAnswers().stream()
+        return ApiResponse.ok(Map.ofEntries(
+                Map.entry("mock_attempt_id", String.valueOf(result.attemptId())),
+                Map.entry("mock_exam_id",    String.valueOf(result.mockExamId())),
+                Map.entry("status",          result.status()),
+                Map.entry("language",        result.language()),
+                // Score summary lets a cold re-open of a finished attempt render
+                // the result view. Same sentinels as /attempts/history: no score
+                // yet ⇒ -1, counts default to 0.
+                Map.entry("score_percent",   result.scorePercent() == null ? -1 : result.scorePercent()),
+                Map.entry("correct_count",   result.correctCount() == null ? 0 : result.correctCount()),
+                Map.entry("wrong_count",     result.wrongCount() == null ? 0 : result.wrongCount()),
+                Map.entry("questions",       result.questions().stream().map(this::toQuestionDto).toList()),
+                Map.entry("saved_answers",   result.savedAnswers().stream()
                         .map(a -> Map.of(
                                 "question_id",         String.valueOf(a.questionId()),
                                 "selected_choice_key", a.selectedKey()))
-                        .toList()
+                        .toList())
         ));
     }
 

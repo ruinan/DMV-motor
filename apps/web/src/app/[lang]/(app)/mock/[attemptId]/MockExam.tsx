@@ -165,6 +165,27 @@ export function MockExam({ t, lang, attemptId }: Props) {
     );
   }
 
+  // Cold re-open of an already-finished attempt: refresh after submitting, or
+  // clicking it in the mock history. The live result/terminated flags are gone,
+  // but the fetched status is terminal — show a read-only result view (score +
+  // cached AI plan + review CTAs) instead of dropping back into answering mode.
+  if (attempt.data && attempt.data.status !== "in_progress") {
+    return (
+      <FinishedView
+        t={t}
+        lang={lang}
+        attemptId={attemptId}
+        status={attempt.data.status}
+        scorePercent={attempt.data.score_percent}
+        correctCount={attempt.data.correct_count}
+        wrongCount={attempt.data.wrong_count}
+        onNewMock={() => router.push(`/${lang}/mock`)}
+        onMistakes={() => router.push(`/${lang}/mistakes`)}
+        onBack={() => router.push(`/${lang}/dashboard`)}
+      />
+    );
+  }
+
   // Wrong-answer cap exceeded — server has finalized the attempt. Show a
   // simple failure summary; the user can either go back or start a new mock.
   if (terminated) {
@@ -556,6 +577,102 @@ function ResultView({
           {t.backToDashboard}
         </Button>
         <Button onClick={onTryAgain}>{t.tryAgain}</Button>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Read-only view for a finished attempt opened cold (refresh after submit, or
+ * from mock history). Shows the persisted score when available + the cached AI
+ * review plan + review CTAs. Detailed per-question review lives in Mistakes —
+ * wrong answers were already folded into the mistake list, so the primary CTA
+ * points there.
+ */
+function FinishedView({
+  t,
+  lang,
+  attemptId,
+  status,
+  scorePercent,
+  correctCount,
+  wrongCount,
+  onNewMock,
+  onMistakes,
+  onBack,
+}: {
+  t: Dictionary["mock"];
+  lang: Locale;
+  attemptId: string;
+  status: string;
+  scorePercent: number;
+  correctCount: number;
+  wrongCount: number;
+  onNewMock: () => void;
+  onMistakes: () => void;
+  onBack: () => void;
+}) {
+  // Exited attempts are never scored (sentinel -1); submitted / failed carry a
+  // real score. Failure status is always a fail regardless of the raw number.
+  const scored = scorePercent >= 0;
+  const passed = scored && status === "submitted" && scorePercent >= PASS_THRESHOLD;
+
+  return (
+    <div className="mx-auto flex w-full max-w-xl flex-col gap-6">
+      <header>
+        <h1 className="text-2xl font-bold tracking-tight text-foreground">
+          {t.resultTitle}
+        </h1>
+      </header>
+
+      {scored ? (
+        <section className="rounded-xl border bg-card p-8 text-center shadow-sm">
+          <p className="text-sm uppercase tracking-wider text-muted-foreground">
+            {t.scorePercent}
+          </p>
+          <p className="mt-2 text-6xl font-bold tabular-nums text-foreground">
+            {scorePercent}%
+          </p>
+          <span
+            className={`mt-4 inline-block rounded-full px-3 py-1 text-sm font-medium ${
+              passed
+                ? "bg-primary/10 text-primary"
+                : "bg-destructive/10 text-destructive"
+            }`}
+          >
+            {passed ? t.passed : t.failed}
+          </span>
+          <div className="mt-6 grid grid-cols-2 gap-4 text-sm">
+            <div className="rounded-lg border border-border bg-background p-3">
+              <p className="text-muted-foreground">{t.correctCount}</p>
+              <p className="mt-1 text-2xl font-semibold tabular-nums text-primary">
+                {correctCount}
+              </p>
+            </div>
+            <div className="rounded-lg border border-border bg-background p-3">
+              <p className="text-muted-foreground">{t.wrongCount}</p>
+              <p className="mt-1 text-2xl font-semibold tabular-nums text-destructive">
+                {wrongCount}
+              </p>
+            </div>
+          </div>
+        </section>
+      ) : (
+        <section className="rounded-xl border border-dashed border-border bg-card p-6 text-center text-sm text-muted-foreground shadow-sm">
+          {t.exitedSummary}
+        </section>
+      )}
+
+      {scored && <AiReviewPlanBlock t={t} lang={lang} attemptId={attemptId} />}
+
+      <div className="flex flex-col gap-3 sm:flex-row sm:justify-end">
+        <Button variant="outline" onClick={onBack}>
+          {t.backToDashboard}
+        </Button>
+        <Button variant="outline" onClick={onMistakes}>
+          {t.reviewMistakes}
+        </Button>
+        <Button onClick={onNewMock}>{t.tryAgain}</Button>
       </div>
     </div>
   );

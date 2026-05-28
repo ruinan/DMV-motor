@@ -233,6 +233,8 @@
     "noWeakTopics": "Even coverage — no specific weak topics flagged.",
     "backToDashboard": "Back to dashboard",
     "tryAgain": "Take another mock",
+    "reviewMistakes": "Review mistakes",
+    "exitedSummary": "You exited this attempt before finishing, so it wasn't scored.",
     "terminatedTitle": "Exam ended — too many wrong answers",
     "terminatedBody": "You answered {answered} questions ({wrong} wrong). The exam ends once wrong answers pass the fail threshold.",
     "terminatedTryAgain": "Take a new mock exam",

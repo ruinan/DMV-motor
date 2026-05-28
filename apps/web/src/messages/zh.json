@@ -233,6 +233,8 @@
     "noWeakTopics": "整体覆盖均衡，未识别明显薄弱点。",
     "backToDashboard": "回到学习中心",
     "tryAgain": "再来一次",
+    "reviewMistakes": "复习错题",
+    "exitedSummary": "你在完成前退出了这次考试，所以没有计分。",
     "terminatedTitle": "考试结束——错题过多",
     "terminatedBody": "你已答 {answered} 题，其中 {wrong} 道错。错题超过失败门槛，考试自动终止。",
     "terminatedTryAgain": "重新开始一次模考",
