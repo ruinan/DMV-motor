@@ -219,6 +219,10 @@
     "exit": "退出考试",
     "exiting": "正在退出…",
     "exitConfirm": "退出后本次次数会被消耗，已答的题会被评分。确认退出？",
+    "exitConfirmTitle": "退出本次考试？",
+    "exitConfirmBody": "本次作答会按现状评分并消耗一次配额，且无法恢复。",
+    "exitConfirmYes": "退出考试",
+    "exitConfirmCancel": "继续考试",
     "resultTitle": "模拟考结果",
     "scorePercent": "得分",
     "correctCount": "答对",
@@ -230,7 +234,7 @@
     "backToDashboard": "回到学习中心",
     "tryAgain": "再来一次",
     "terminatedTitle": "考试结束——错题过多",
-    "terminatedBody": "你已答 {correct}+{wrong} 题，其中 {wrong} 道错。错题超过通过门槛，考试自动终止。",
+    "terminatedBody": "你已答 {answered} 题，其中 {wrong} 道错。错题超过失败门槛，考试自动终止。",
     "terminatedTryAgain": "重新开始一次模考"
   },
   "review": {

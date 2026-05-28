@@ -219,6 +219,10 @@
     "exit": "Exit exam",
     "exiting": "Exiting…",
     "exitConfirm": "Exit and consume this attempt? Your answers so far will be scored.",
+    "exitConfirmTitle": "Exit this exam?",
+    "exitConfirmBody": "This attempt will be scored as-is and counted against your quota. You can't resume it.",
+    "exitConfirmYes": "Exit exam",
+    "exitConfirmCancel": "Keep going",
     "resultTitle": "Mock result",
     "scorePercent": "Score",
     "correctCount": "Correct",
@@ -230,7 +234,7 @@
     "backToDashboard": "Back to dashboard",
     "tryAgain": "Take another mock",
     "terminatedTitle": "Exam ended — too many wrong answers",
-    "terminatedBody": "You had {wrong} wrong out of {correct}+{wrong} answered. The exam ends when wrong answers exceed the pass threshold.",
+    "terminatedBody": "You answered {answered} questions ({wrong} wrong). The exam ends once wrong answers pass the fail threshold.",
     "terminatedTryAgain": "Take a new mock exam"
   },
   "review": {

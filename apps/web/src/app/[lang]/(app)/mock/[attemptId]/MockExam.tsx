@@ -12,6 +12,7 @@ import {
   XCircle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { apiFetch, ApiError } from "@/lib/api-client";
 import { useAuth } from "@/lib/auth-context";
 import { useTopicNameMap } from "@/lib/hooks/use-topics";
@@ -83,6 +84,7 @@ export function MockExam({ t, lang, attemptId }: Props) {
   const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle");
   const [submitting, setSubmitting] = useState(false);
   const [exiting, setExiting] = useState(false);
+  const [exitConfirmOpen, setExitConfirmOpen] = useState(false);
   const [result, setResult] = useState<SubmitResponse | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const savedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -92,6 +94,21 @@ export function MockExam({ t, lang, attemptId }: Props) {
       if (savedTimer.current) clearTimeout(savedTimer.current);
     };
   }, []);
+
+  // Native browser warning when the user tries to close the tab or hit
+  // back/forward mid-exam. Only armed while the exam is live (not after
+  // submit / terminate). Per spec: the in-app "Exit exam" button uses our
+  // own dialog; the tab-close / URL-change path uses Chrome's prompt.
+  const examLive = !result && !terminated;
+  useEffect(() => {
+    if (!examLive) return;
+    function onBeforeUnload(e: BeforeUnloadEvent) {
+      e.preventDefault();
+      e.returnValue = "";
+    }
+    window.addEventListener("beforeunload", onBeforeUnload);
+    return () => window.removeEventListener("beforeunload", onBeforeUnload);
+  }, [examLive]);
 
   // Seed picks from server-persisted saved_answers on first successful fetch.
   if (attempt.data && initialisedFor !== attempt.data.mock_attempt_id) {
@@ -148,8 +165,9 @@ export function MockExam({ t, lang, attemptId }: Props) {
   // Wrong-answer cap exceeded — server has finalized the attempt. Show a
   // simple failure summary; the user can either go back or start a new mock.
   if (terminated) {
-    const wrong = Array.from(feedback.values()).filter((f) => !f.isCorrect).length;
-    const correct = Array.from(feedback.values()).filter((f) => f.isCorrect).length;
+    const verdicts = Array.from(feedback.values());
+    const wrong = verdicts.filter((f) => !f.isCorrect).length;
+    const answered = verdicts.length;
     return (
       <div className="mx-auto flex w-full max-w-xl flex-col gap-6">
         <div className="rounded-xl border border-destructive/40 bg-destructive/5 p-6 text-center shadow-sm">
@@ -159,8 +177,8 @@ export function MockExam({ t, lang, attemptId }: Props) {
           </h2>
           <p className="mt-2 text-sm text-muted-foreground">
             {t.terminatedBody
-              .replace("{wrong}", String(wrong))
-              .replace("{correct}", String(correct))}
+              .replace("{answered}", String(answered))
+              .replace("{wrong}", String(wrong))}
           </p>
         </div>
         <div className="flex flex-col gap-3 sm:flex-row sm:justify-center">
@@ -277,9 +295,8 @@ export function MockExam({ t, lang, attemptId }: Props) {
     }
   }
 
-  async function onExit() {
+  async function confirmExit() {
     if (exiting) return;
-    if (!window.confirm(t.exitConfirm)) return;
     setExiting(true);
     setErrorMsg(null);
     try {
@@ -292,6 +309,7 @@ export function MockExam({ t, lang, attemptId }: Props) {
     } catch (err) {
       setErrorMsg(err instanceof ApiError ? err.message : t.errorGeneric);
       setExiting(false);
+      setExitConfirmOpen(false);
     }
   }
 
@@ -420,13 +438,26 @@ export function MockExam({ t, lang, attemptId }: Props) {
       <div className="flex justify-center">
         <button
           type="button"
-          onClick={onExit}
+          onClick={() => setExitConfirmOpen(true)}
           disabled={submitting || exiting}
           className="text-sm text-muted-foreground hover:text-destructive hover:underline disabled:opacity-60"
         >
           {exiting ? t.exiting : t.exit}
         </button>
       </div>
+
+      <ConfirmDialog
+        open={exitConfirmOpen}
+        title={t.exitConfirmTitle}
+        body={t.exitConfirmBody}
+        confirmLabel={t.exitConfirmYes}
+        cancelLabel={t.exitConfirmCancel}
+        variant="destructive"
+        busy={exiting}
+        busyLabel={t.exiting}
+        onConfirm={confirmExit}
+        onCancel={() => setExitConfirmOpen(false)}
+      />
     </div>
   );
 }

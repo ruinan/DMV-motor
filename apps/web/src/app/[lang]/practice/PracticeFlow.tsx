@@ -12,6 +12,7 @@ import {
   XCircle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { apiFetch, ApiError } from "@/lib/api-client";
 import { useAuth } from "@/lib/auth-context";
 import { useMe } from "@/lib/hooks/use-me";
@@ -668,57 +669,17 @@ export function PracticeFlow({ t, lang }: Props) {
         )}
       </div>
 
-      {exitConfirmOpen && (
-        <ExitConfirmDialog
-          t={t}
-          onCancel={() => setExitConfirmOpen(false)}
-          onConfirm={confirmExit}
-        />
-      )}
+      <ConfirmDialog
+        open={exitConfirmOpen}
+        title={t.exitConfirmTitle}
+        body={t.exitConfirmBody}
+        confirmLabel={t.exitConfirmYes}
+        cancelLabel={t.exitConfirmCancel}
+        variant="destructive"
+        onConfirm={confirmExit}
+        onCancel={() => setExitConfirmOpen(false)}
+      />
     </Container>
-  );
-}
-
-function ExitConfirmDialog({
-  t,
-  onCancel,
-  onConfirm,
-}: {
-  t: Dictionary["practice"];
-  onCancel: () => void;
-  onConfirm: () => void;
-}) {
-  return (
-    <div
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="exit-confirm-title"
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
-      onClick={onCancel}
-    >
-      <div
-        className="w-full max-w-sm rounded-xl border border-border bg-card p-6 shadow-xl"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <h3
-          id="exit-confirm-title"
-          className="text-lg font-semibold text-foreground"
-        >
-          {t.exitConfirmTitle}
-        </h3>
-        <p className="mt-2 text-sm text-muted-foreground">
-          {t.exitConfirmBody}
-        </p>
-        <div className="mt-6 flex justify-end gap-2">
-          <Button variant="outline" onClick={onCancel}>
-            {t.exitConfirmCancel}
-          </Button>
-          <Button variant="destructive" onClick={onConfirm}>
-            {t.exitConfirmYes}
-          </Button>
-        </div>
-      </div>
-    </div>
   );
 }
 
