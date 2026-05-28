@@ -11,7 +11,11 @@ import java.util.Optional;
 
 /**
  * Handles review_packs, review_tasks, and review_task_questions persistence.
+ *
+ * @deprecated Phase B — see {@link com.dmvmotor.api.mistakereview.review.controller.ReviewController}.
+ * Retained for the internal mastery-deactivation path only.
  */
+@Deprecated(forRemoval = true, since = "Phase B")
 @Repository
 public class ReviewRepository {
 

@@ -174,6 +174,20 @@ public class PracticeSessionsRecord extends UpdatableRecordImpl<PracticeSessions
         return (Integer) get(10);
     }
 
+    /**
+     * Setter for <code>public.practice_sessions.topic_filter</code>.
+     */
+    public void setTopicFilter(String value) {
+        set(11, value);
+    }
+
+    /**
+     * Getter for <code>public.practice_sessions.topic_filter</code>.
+     */
+    public String getTopicFilter() {
+        return (String) get(11);
+    }
+
     // -------------------------------------------------------------------------
     // Primary key information
     // -------------------------------------------------------------------------
@@ -197,7 +211,7 @@ public class PracticeSessionsRecord extends UpdatableRecordImpl<PracticeSessions
     /**
      * Create a detached, initialised PracticeSessionsRecord
      */
-    public PracticeSessionsRecord(Long id, Long userId, String status, String entryType, String languageCode, OffsetDateTime startedAt, OffsetDateTime completedAt, OffsetDateTime lastActiveAt, OffsetDateTime createdAt, OffsetDateTime updatedAt, Integer learningCycle) {
+    public PracticeSessionsRecord(Long id, Long userId, String status, String entryType, String languageCode, OffsetDateTime startedAt, OffsetDateTime completedAt, OffsetDateTime lastActiveAt, OffsetDateTime createdAt, OffsetDateTime updatedAt, Integer learningCycle, String topicFilter) {
         super(PracticeSessions.PRACTICE_SESSIONS);
 
         setId(id);
@@ -211,6 +225,7 @@ public class PracticeSessionsRecord extends UpdatableRecordImpl<PracticeSessions
         setCreatedAt(createdAt);
         setUpdatedAt(updatedAt);
         setLearningCycle(learningCycle);
+        setTopicFilter(topicFilter);
         resetChangedOnNotNull();
     }
 }

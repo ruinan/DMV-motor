@@ -27,7 +27,8 @@ public class PracticeSessionController {
     public ApiResponse<?> startSession(@CurrentUser Long userId,
                                         @Valid @RequestBody StartRequest req) {
         var result = practiceService.startSession(userId, req.entryType(),
-                req.language() != null ? req.language() : "en");
+                req.language() != null ? req.language() : "en",
+                req.topicFilter());
         return ApiResponse.ok(Map.of(
                 "session_id",    String.valueOf(result.sessionId()),
                 "entry_type",    result.entryType(),
@@ -170,9 +171,11 @@ public class PracticeSessionController {
 
     record StartRequest(
             @NotBlank(message = "must not be blank") String entry_type,
-            String language
+            String language,
+            java.util.List<Long> topic_filter
     ) {
         String entryType() { return entry_type; }
+        java.util.List<Long> topicFilter() { return topic_filter; }
     }
 
     record AnswerRequest(

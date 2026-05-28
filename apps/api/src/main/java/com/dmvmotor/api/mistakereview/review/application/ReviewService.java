@@ -22,6 +22,12 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
+/**
+ * @deprecated Phase B — see {@link com.dmvmotor.api.mistakereview.review.controller.ReviewController}.
+ * Kept for the mastery-deactivation hook (completeTask) invoked internally;
+ * the manual review-pack flow is gone from the frontend.
+ */
+@Deprecated(forRemoval = true, since = "Phase B")
 @Service
 public class ReviewService {
 

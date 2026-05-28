@@ -76,8 +76,16 @@ public class PracticeService {
             int activeMistakesTopicCount
     ) {}
 
+    private static final int MAX_TOPIC_FILTER = 8;
+
     @Transactional
     public StartSessionResult startSession(Long userId, String entryType, String language) {
+        return startSession(userId, entryType, language, null);
+    }
+
+    @Transactional
+    public StartSessionResult startSession(Long userId, String entryType, String language,
+                                           List<Long> topicFilter) {
         // entry_type=full requires an active access pass
         if ("full".equals(entryType)) {
             if (userId == null) {
@@ -89,6 +97,11 @@ public class PracticeService {
                         "Active access pass required for full practice", HttpStatus.FORBIDDEN);
             }
         }
+
+        // Cap the topic filter server-side (decision #5) so a crafted request
+        // can't pass an unbounded IN-list.
+        List<Long> filter = topicFilter == null ? List.of()
+                : topicFilter.stream().limit(MAX_TOPIC_FILTER).toList();
 
         // Determine learning cycle (anonymous sessions always use cycle 0)
         int cycle = 0;
@@ -103,12 +116,13 @@ public class PracticeService {
                     HttpStatus.UNPROCESSABLE_ENTITY);
         }
 
-        Long sessionId = sessionRepo.create(userId, entryType, language, cycle);
+        Long sessionId = sessionRepo.create(userId, entryType, language, cycle, filter);
 
         QuestionDetail first = sessionRepo
-                .findNextUnansweredQuestion(sessionId, language, entryType, userId, cycle)
+                .findNextUnansweredQuestion(sessionId, language, entryType, userId, cycle, filter)
                 .orElseThrow(() -> new BusinessException("NO_QUESTIONS_AVAILABLE",
-                        "No questions available", HttpStatus.UNPROCESSABLE_ENTITY));
+                        "No questions available for the selected topics",
+                        HttpStatus.UNPROCESSABLE_ENTITY));
 
         return new StartSessionResult(sessionId, entryType, "in_progress", language, first);
     }
@@ -137,7 +151,7 @@ public class PracticeService {
 
         return sessionRepo.findNextUnansweredQuestion(
                         sessionId, effectiveLang, session.entryType(),
-                        session.userId(), cycle)
+                        session.userId(), cycle, session.topicFilter())
                 .orElseThrow(() -> new BusinessException("SESSION_COMPLETED",
                         "No more questions in this session",
                         HttpStatus.NOT_FOUND));

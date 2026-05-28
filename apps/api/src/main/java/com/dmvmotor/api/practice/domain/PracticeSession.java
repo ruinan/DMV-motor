@@ -2,6 +2,8 @@ package com.dmvmotor.api.practice.domain;
 
 import java.time.OffsetDateTime;
 
+import java.util.List;
+
 public record PracticeSession(
         Long id,
         Long userId,
@@ -9,7 +11,8 @@ public record PracticeSession(
         String entryType,
         String languageCode,
         OffsetDateTime startedAt,
-        OffsetDateTime completedAt
+        OffsetDateTime completedAt,
+        List<Long> topicFilter
 ) {
     public boolean isInProgress() { return "in_progress".equals(status); }
     public boolean isCompleted()  { return "completed".equals(status); }

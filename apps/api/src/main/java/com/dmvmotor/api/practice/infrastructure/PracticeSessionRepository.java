@@ -13,6 +13,7 @@ import org.jooq.impl.DSL;
 import org.springframework.stereotype.Repository;
 
 import java.time.OffsetDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
@@ -27,16 +28,41 @@ public class PracticeSessionRepository {
         this.objectMapper = objectMapper;
     }
 
-    public Long create(Long userId, String entryType, String languageCode, int learningCycle) {
+    /**
+     * Creates a practice session. {@code topicFilter} is the (already
+     * server-capped, non-null) list of topic ids to scope the pool to; pass
+     * an empty list for the normal full pool.
+     */
+    public Long create(Long userId, String entryType, String languageCode,
+                        int learningCycle, List<Long> topicFilter) {
         var ps = Tables.PRACTICE_SESSIONS;
         return dsl.insertInto(ps)
                 .set(ps.USER_ID,        userId)
                 .set(ps.ENTRY_TYPE,     entryType)
                 .set(ps.LANGUAGE_CODE,  languageCode)
                 .set(ps.LEARNING_CYCLE, learningCycle)
+                .set(ps.TOPIC_FILTER,   encodeTopicFilter(topicFilter))
                 .returningResult(ps.ID)
                 .fetchOne()
                 .value1();
+    }
+
+    /** Comma-joined topic ids, or null for "no filter" (empty list). */
+    static String encodeTopicFilter(List<Long> topicFilter) {
+        if (topicFilter.isEmpty()) return null;
+        return topicFilter.stream().map(String::valueOf)
+                .collect(java.util.stream.Collectors.joining(","));
+    }
+
+    static List<Long> decodeTopicFilter(String raw) {
+        // encodeTopicFilter only ever writes null or a non-empty CSV, so a
+        // null check is the only guard needed.
+        if (raw == null) return List.of();
+        List<Long> out = new ArrayList<>();
+        for (String part : raw.split(",")) {
+            out.add(Long.valueOf(part.trim()));
+        }
+        return out;
     }
 
     public Optional<PracticeSession> findById(Long sessionId) {
@@ -78,6 +104,13 @@ public class PracticeSessionRepository {
     public Optional<QuestionDetail> findNextUnansweredQuestion(
             Long sessionId, String languageCode, String entryType,
             Long userId, int learningCycle) {
+        return findNextUnansweredQuestion(sessionId, languageCode, entryType,
+                userId, learningCycle, List.of());
+    }
+
+    public Optional<QuestionDetail> findNextUnansweredQuestion(
+            Long sessionId, String languageCode, String entryType,
+            Long userId, int learningCycle, List<Long> topicFilter) {
         var q  = Tables.QUESTIONS;
         var qv = Tables.QUESTION_VARIANTS;
         var t  = Tables.TOPICS;
@@ -96,6 +129,11 @@ public class PracticeSessionRepository {
             condition = condition.and(
                     DSL.field(DSL.name("allow_in_free_trial"),
                             Boolean.class).isTrue());
+        }
+        // Topic-scoped session (the /mistakes "Practice these" CTA): restrict
+        // the pool to the chosen topics. Empty filter = no restriction.
+        if (!topicFilter.isEmpty()) {
+            condition = condition.and(q.PRIMARY_TOPIC_ID.in(topicFilter));
         }
 
         // -------- priority 0: active mistake on this topic --------
@@ -407,7 +445,8 @@ public class PracticeSessionRepository {
                 r.get(ps.ENTRY_TYPE),
                 r.get(ps.LANGUAGE_CODE),
                 r.get(ps.STARTED_AT),
-                r.get(ps.COMPLETED_AT)
+                r.get(ps.COMPLETED_AT),
+                decodeTopicFilter(r.get(ps.TOPIC_FILTER))
         );
     }
 

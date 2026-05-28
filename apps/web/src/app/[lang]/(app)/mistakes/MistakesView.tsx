@@ -1,10 +1,14 @@
 "use client";
 
 import { useState } from "react";
-import { Bookmark, ArrowRight, ChevronLeft, ChevronRight } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { useQueryClient } from "@tanstack/react-query";
+import { Bookmark, ArrowRight, ChevronLeft, ChevronRight, Target } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useMistakes, type MistakeItem } from "@/lib/hooks/use-mistakes";
+import { useMe } from "@/lib/hooks/use-me";
 import { useTopicNameMap } from "@/lib/hooks/use-topics";
+import { apiFetch, ApiError } from "@/lib/api-client";
 import type { Dictionary, Locale } from "@/lib/dictionaries";
 
 type Props = {
@@ -18,8 +22,44 @@ export function MistakesView({ t, lang }: Props) {
   const [page, setPage] = useState(1);
   const { data, isLoading, error } = useMistakes(page, PAGE_SIZE);
   const topicMap = useTopicNameMap(lang);
+  const me = useMe();
+  const router = useRouter();
+  const queryClient = useQueryClient();
+  const [starting, setStarting] = useState(false);
+  const [startError, setStartError] = useState<string | null>(null);
 
   const totalPages = data ? Math.max(1, Math.ceil(data.total / data.pageSize)) : 1;
+
+  // Distinct topic ids across the loaded mistakes, capped at 8 (server caps
+  // too). Drives the "Practice these" CTA — starts a topic-scoped practice
+  // session, then /practice auto-resumes into it.
+  const mistakeTopicIds = data
+    ? Array.from(new Set(data.items.map((m) => Number(m.topic_id)))).slice(0, 8)
+    : [];
+
+  async function practiceThese() {
+    if (starting || mistakeTopicIds.length === 0) return;
+    setStarting(true);
+    setStartError(null);
+    const entryType = me.data?.access.has_active_pass ? "full" : "free_trial";
+    try {
+      await apiFetch("/api/v1/practice/sessions", {
+        method: "POST",
+        body: JSON.stringify({
+          entry_type: entryType,
+          language: lang,
+          topic_filter: mistakeTopicIds,
+        }),
+      });
+      // PracticeFlow auto-resumes the most-recent in-progress session on mount,
+      // so just refresh /me and navigate.
+      queryClient.invalidateQueries({ queryKey: ["me"] });
+      router.push(`/${lang}/practice`);
+    } catch (err) {
+      setStartError(err instanceof ApiError ? err.message : t.errorGeneric);
+      setStarting(false);
+    }
+  }
 
   return (
     <div className="flex flex-col gap-6">
@@ -31,6 +71,21 @@ export function MistakesView({ t, lang }: Props) {
           {t.subtitle}
         </p>
       </header>
+
+      {data && data.items.length > 0 && (
+        <div className="flex flex-col gap-2 rounded-xl border border-primary/30 bg-primary/5 p-4 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-sm text-muted-foreground">
+            {t.practiceTheseHint.replace("{n}", String(mistakeTopicIds.length))}
+          </p>
+          <Button onClick={practiceThese} disabled={starting} className="gap-1.5">
+            <Target className="size-4" />
+            {starting ? t.practiceTheseStarting : t.practiceThese}
+          </Button>
+        </div>
+      )}
+      {startError && (
+        <p className="text-sm text-destructive">{startError}</p>
+      )}
 
       {isLoading && (
         <p className="text-sm text-muted-foreground">{t.loading}</p>

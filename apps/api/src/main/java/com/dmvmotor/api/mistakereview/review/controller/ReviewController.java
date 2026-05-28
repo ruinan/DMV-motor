@@ -14,6 +14,14 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.Map;
 
+/**
+ * @deprecated Phase B removed the manual review-pack UX from the frontend
+ * (Study Hub absorbs review via T1.2 weighted practice). These endpoints
+ * remain only so the backend mastery-deactivation hook keeps working; no
+ * external caller should target them. Slated for removal in a follow-up
+ * cleanup migration once the deactivation logic is relocated.
+ */
+@Deprecated(forRemoval = true, since = "Phase B")
 @RestController
 @RequestMapping("/api/v1/review")
 public class ReviewController {

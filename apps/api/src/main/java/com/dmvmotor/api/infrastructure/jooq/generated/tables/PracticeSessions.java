@@ -119,6 +119,11 @@ public class PracticeSessions extends TableImpl<PracticeSessionsRecord> {
      */
     public final TableField<PracticeSessionsRecord, Integer> LEARNING_CYCLE = createField(DSL.name("learning_cycle"), SQLDataType.INTEGER.nullable(false).defaultValue(DSL.field(DSL.raw("0"), SQLDataType.INTEGER)), this, "");
 
+    /**
+     * The column <code>public.practice_sessions.topic_filter</code>.
+     */
+    public final TableField<PracticeSessionsRecord, String> TOPIC_FILTER = createField(DSL.name("topic_filter"), SQLDataType.CLOB, this, "");
+
     private PracticeSessions(Name alias, Table<PracticeSessionsRecord> aliased) {
         this(alias, aliased, (Field<?>[]) null, null);
     }

@@ -293,7 +293,10 @@
     "previous": "上一页",
     "next": "下一页",
     "loading": "加载中…",
-    "errorGeneric": "无法加载错题列表。"
+    "errorGeneric": "无法加载错题列表。",
+    "practiceThese": "针对性练习",
+    "practiceTheseStarting": "正在开始…",
+    "practiceTheseHint": "开一轮只练这 {n} 个错题知识点的练习。"
   },
   "progress": {
     "title": "学习进度",

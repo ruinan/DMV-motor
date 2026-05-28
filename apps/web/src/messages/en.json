@@ -293,7 +293,10 @@
     "previous": "Previous",
     "next": "Next",
     "loading": "Loading…",
-    "errorGeneric": "Could not load mistakes."
+    "errorGeneric": "Could not load mistakes.",
+    "practiceThese": "Practice these",
+    "practiceTheseStarting": "Starting…",
+    "practiceTheseHint": "Drill a session focused on the {n} topics from your active mistakes."
   },
   "progress": {
     "title": "Progress",

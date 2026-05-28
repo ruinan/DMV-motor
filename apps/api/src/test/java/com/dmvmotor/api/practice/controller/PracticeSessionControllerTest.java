@@ -71,6 +71,60 @@ class PracticeSessionControllerTest extends IntegrationTestBase {
     }
 
     @Test
+    void startSession_withTopicFilter_restrictsPoolToThoseTopics() throws Exception {
+        // A second topic + free-trial question. A session filtered to topic 1
+        // must only ever serve topic 1's question.
+        Long topic2 = fixtures.insertTopic("SPEED", "Speed", "速度", false, 2);
+        Long q2 = fixtures.insertQuestion(topic2, "A");
+        fixtures.insertVariantReturningId(q2, "en", "Speed limit?",
+                "[{\"key\":\"A\",\"text\":\"25\"},{\"key\":\"B\",\"text\":\"35\"},{\"key\":\"C\",\"text\":\"45\"}]",
+                "25 mph.");
+
+        String startBody = mockMvc.perform(post("/api/v1/practice/sessions")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"entry_type":"free_trial","language":"en","topic_filter":[%d]}
+                                """.formatted(topicId)))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.data.next_question.question_id")
+                        .value(questionId.toString()))
+                .andReturn().getResponse().getContentAsString();
+
+        String sessionId = extractSessionId(startBody);
+
+        // Answer topic-1's only question, then ask for the next one. The filter
+        // is persisted on the session (decoded on read-back), so topic-2's
+        // question must NOT be served — pool is exhausted → SESSION_COMPLETED.
+        mockMvc.perform(post("/api/v1/practice/sessions/{id}/answers", sessionId)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                        {"question_id":"%s","variant_id":"%s","selected_choice_key":"B"}
+                        """.formatted(questionId, variantEnId)));
+
+        mockMvc.perform(get("/api/v1/practice/sessions/{id}/next-question", sessionId))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.error.code").value("SESSION_COMPLETED"));
+    }
+
+    private static String extractSessionId(String json) {
+        String key = "\"session_id\":\"";
+        int s = json.indexOf(key) + key.length();
+        return json.substring(s, json.indexOf("\"", s));
+    }
+
+    @Test
+    void startSession_topicFilterNoMatchingQuestions_returns422() throws Exception {
+        // Filter to a topic id that has no questions → empty pool → 422.
+        mockMvc.perform(post("/api/v1/practice/sessions")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"entry_type":"free_trial","language":"en","topic_filter":[999999]}
+                                """))
+                .andExpect(status().isUnprocessableEntity())
+                .andExpect(jsonPath("$.error.code").value("NO_QUESTIONS_AVAILABLE"));
+    }
+
+    @Test
     void startSession_missingEntryType_returns400() throws Exception {
         mockMvc.perform(post("/api/v1/practice/sessions")
                         .contentType(MediaType.APPLICATION_JSON)
