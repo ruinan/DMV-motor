@@ -1,6 +1,7 @@
 package com.dmvmotor.api.aisupport.controller;
 
 import com.dmvmotor.api.aisupport.application.AiExplanationService;
+import com.dmvmotor.api.aisupport.application.AiReviewPlanService;
 import com.dmvmotor.api.common.ApiResponse;
 import com.dmvmotor.api.common.BusinessException;
 import com.dmvmotor.api.common.CurrentUser;
@@ -20,9 +21,12 @@ import java.util.Map;
 public class AiExplanationController {
 
     private final AiExplanationService service;
+    private final AiReviewPlanService  reviewPlanService;
 
-    public AiExplanationController(AiExplanationService service) {
-        this.service = service;
+    public AiExplanationController(AiExplanationService service,
+                                   AiReviewPlanService reviewPlanService) {
+        this.service           = service;
+        this.reviewPlanService = reviewPlanService;
     }
 
     @PostMapping("/explain")
@@ -47,6 +51,24 @@ public class AiExplanationController {
         ));
     }
 
+    @PostMapping("/review-plan")
+    public ApiResponse<?> reviewPlan(@CurrentUser Long userId,
+                                      @Valid @RequestBody ReviewPlanRequest req) {
+        if (userId == null) {
+            throw new BusinessException("UNAUTHORIZED", "Authentication required",
+                    HttpStatus.UNAUTHORIZED);
+        }
+        long attemptId = Ids.parse(req.mockAttemptId(), "mock_attempt_id");
+        // Pass language through (may be null/blank) — the service falls back to
+        // the attempt's stored language when it's absent.
+        AiReviewPlanService.Result result =
+                reviewPlanService.generate(attemptId, userId, req.language());
+        return ApiResponse.ok(Map.of(
+                "plan",   result.plan(),
+                "cached", result.cached()
+        ));
+    }
+
     record ExplainRequest(
             @NotBlank(message = "must not be blank") String question_id,
             String variant_id,
@@ -56,5 +78,12 @@ public class AiExplanationController {
         String questionId()         { return question_id; }
         String variantId()          { return variant_id; }
         String selectedChoiceKey()  { return selected_choice_key; }
+    }
+
+    record ReviewPlanRequest(
+            @NotBlank(message = "must not be blank") String mock_attempt_id,
+            String language
+    ) {
+        String mockAttemptId() { return mock_attempt_id; }
     }
 }

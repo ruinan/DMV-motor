@@ -9,6 +9,7 @@ import {
   CheckCircle2,
   ChevronRight,
   Loader2,
+  Sparkles,
   XCircle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -17,6 +18,7 @@ import { apiFetch, ApiError } from "@/lib/api-client";
 import { useAuth } from "@/lib/auth-context";
 import { useTopicNameMap } from "@/lib/hooks/use-topics";
 import { useMockAttempt } from "@/lib/hooks/use-mock-attempt";
+import { useAiReviewPlan } from "@/lib/hooks/use-ai-review-plan";
 import type { Dictionary, Locale } from "@/lib/dictionaries";
 
 type SubmitResponse = {
@@ -156,6 +158,7 @@ export function MockExam({ t, lang, attemptId }: Props) {
         lang={lang}
         result={result}
         topicMap={topicMap}
+        attemptId={attemptId}
         onTryAgain={() => router.push(`/${lang}/mock`)}
         onBack={() => router.push(`/${lang}/dashboard`)}
       />
@@ -181,6 +184,7 @@ export function MockExam({ t, lang, attemptId }: Props) {
               .replace("{wrong}", String(wrong))}
           </p>
         </div>
+        <AiReviewPlanBlock t={t} lang={lang} attemptId={attemptId} />
         <div className="flex flex-col gap-3 sm:flex-row sm:justify-center">
           <Button onClick={() => router.push(`/${lang}/mock`)}>
             {t.terminatedTryAgain}
@@ -467,6 +471,7 @@ function ResultView({
   lang,
   result,
   topicMap,
+  attemptId,
   onTryAgain,
   onBack,
 }: {
@@ -474,6 +479,7 @@ function ResultView({
   lang: Locale;
   result: SubmitResponse;
   topicMap: Map<string, string>;
+  attemptId: string;
   onTryAgain: () => void;
   onBack: () => void;
 }) {
@@ -543,6 +549,8 @@ function ResultView({
         )}
       </section>
 
+      <AiReviewPlanBlock t={t} lang={lang} attemptId={attemptId} />
+
       <div className="flex flex-col gap-3 sm:flex-row sm:justify-end">
         <Button variant="outline" onClick={onBack}>
           {t.backToDashboard}
@@ -550,5 +558,70 @@ function ResultView({
         <Button onClick={onTryAgain}>{t.tryAgain}</Button>
       </div>
     </div>
+  );
+}
+
+/**
+ * Post-exam AI review plan — click-to-generate, cached server-side per
+ * attempt. Available on both the submitted result and the auto-terminated
+ * failure screen. The AI is reached only via this button (no free-text),
+ * consistent with the explanation-button locked-payload contract.
+ */
+function AiReviewPlanBlock({
+  t,
+  lang,
+  attemptId,
+}: {
+  t: Dictionary["mock"];
+  lang: Locale;
+  attemptId: string;
+}) {
+  const ai = useAiReviewPlan();
+
+  if (ai.state.kind === "ok") {
+    return (
+      <section className="rounded-xl border border-primary/30 bg-primary/5 p-6 shadow-sm">
+        <h2 className="mb-2 flex items-center gap-1.5 text-sm font-semibold uppercase tracking-wider text-primary">
+          <Sparkles className="size-4" />
+          {t.aiPlanHeading}
+          {ai.state.cached && (
+            <span className="font-normal normal-case tracking-normal text-muted-foreground">
+              {t.aiPlanCached}
+            </span>
+          )}
+        </h2>
+        <p className="whitespace-pre-line text-sm leading-relaxed text-foreground">
+          {ai.state.text}
+        </p>
+      </section>
+    );
+  }
+
+  return (
+    <section className="rounded-xl border border-dashed border-border bg-card p-6 text-center shadow-sm">
+      <Sparkles className="mx-auto mb-2 size-6 text-primary" />
+      <p className="mb-4 text-sm text-muted-foreground">{t.aiPlanPrompt}</p>
+      <Button
+        onClick={() => ai.generate(attemptId, lang)}
+        disabled={ai.state.kind === "loading"}
+        className="gap-1.5"
+      >
+        {ai.state.kind === "loading" ? (
+          <>
+            <Loader2 className="size-4 animate-spin" />
+            {t.aiPlanLoading}
+          </>
+        ) : (
+          t.aiPlanButton
+        )}
+      </Button>
+      {ai.state.kind === "error" && (
+        <p className="mt-3 text-xs text-destructive">
+          {ai.state.code === "AI_UNAVAILABLE"
+            ? t.aiPlanUnavailable
+            : t.aiPlanError}
+        </p>
+      )}
+    </section>
   );
 }

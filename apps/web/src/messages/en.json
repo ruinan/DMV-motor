@@ -235,7 +235,14 @@
     "tryAgain": "Take another mock",
     "terminatedTitle": "Exam ended — too many wrong answers",
     "terminatedBody": "You answered {answered} questions ({wrong} wrong). The exam ends once wrong answers pass the fail threshold.",
-    "terminatedTryAgain": "Take a new mock exam"
+    "terminatedTryAgain": "Take a new mock exam",
+    "aiPlanHeading": "AI review plan",
+    "aiPlanCached": "(saved)",
+    "aiPlanPrompt": "Get a personalized review plan based on this exam.",
+    "aiPlanButton": "Generate AI review plan",
+    "aiPlanLoading": "Analyzing…",
+    "aiPlanUnavailable": "AI review plans are currently unavailable.",
+    "aiPlanError": "Couldn't generate a review plan. Try again later."
   },
   "review": {
     "title": "Review pack",

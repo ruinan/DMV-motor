@@ -233,6 +233,25 @@ public class TestFixtures {
                 scorePercent / 10, scorePercent / 10, learningCycle);
     }
 
+    public Long insertInProgressMockAttempt(Long userId, Long mockExamId) {
+        return jdbc.queryForObject("""
+                INSERT INTO mock_attempts
+                    (user_id, mock_exam_id, status, answered_count, quota_consumed, learning_cycle)
+                VALUES (?, ?, 'in_progress', 0, true, 0)
+                RETURNING id
+                """, Long.class, userId, mockExamId);
+    }
+
+    public void insertMockAttemptResult(Long attemptId, Long questionId, Long variantId,
+                                         String selectedKey, boolean isCorrect) {
+        jdbc.update("""
+                INSERT INTO mock_attempt_results
+                    (mock_attempt_id, question_id, question_variant_id,
+                     selected_choice_key, is_correct)
+                VALUES (?, ?, ?, ?, ?)
+                """, attemptId, questionId, variantId, selectedKey, isCorrect);
+    }
+
     // ---------------------------------------------------------------
     // Mistake Records
     // ---------------------------------------------------------------

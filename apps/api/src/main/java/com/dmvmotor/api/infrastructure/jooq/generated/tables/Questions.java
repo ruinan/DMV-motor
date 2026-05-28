@@ -148,7 +148,7 @@ public class Questions extends TableImpl<QuestionsRecord> {
     /**
      * The column <code>public.questions.sub_topic_id</code>.
      */
-    public final TableField<QuestionsRecord, Long> SUB_TOPIC_ID = createField(DSL.name("sub_topic_id"), SQLDataType.BIGINT, this, "");
+    public final TableField<QuestionsRecord, Long> SUB_TOPIC_ID = createField(DSL.name("sub_topic_id"), SQLDataType.BIGINT.nullable(false), this, "");
 
     private Questions(Name alias, Table<QuestionsRecord> aliased) {
         this(alias, aliased, (Field<?>[]) null, null);

@@ -230,6 +230,34 @@ public class MockAttemptsRecord extends UpdatableRecordImpl<MockAttemptsRecord> 
         return (Integer) get(14);
     }
 
+    /**
+     * Setter for <code>public.mock_attempts.ai_review_plan</code>.
+     */
+    public void setAiReviewPlan(String value) {
+        set(15, value);
+    }
+
+    /**
+     * Getter for <code>public.mock_attempts.ai_review_plan</code>.
+     */
+    public String getAiReviewPlan() {
+        return (String) get(15);
+    }
+
+    /**
+     * Setter for <code>public.mock_attempts.ai_review_plan_model</code>.
+     */
+    public void setAiReviewPlanModel(String value) {
+        set(16, value);
+    }
+
+    /**
+     * Getter for <code>public.mock_attempts.ai_review_plan_model</code>.
+     */
+    public String getAiReviewPlanModel() {
+        return (String) get(16);
+    }
+
     // -------------------------------------------------------------------------
     // Primary key information
     // -------------------------------------------------------------------------
@@ -253,7 +281,7 @@ public class MockAttemptsRecord extends UpdatableRecordImpl<MockAttemptsRecord> 
     /**
      * Create a detached, initialised MockAttemptsRecord
      */
-    public MockAttemptsRecord(Long id, Long userId, Long mockExamId, String languageCode, String status, Integer scorePercent, Integer correctCount, Integer wrongCount, Integer answeredCount, Boolean quotaConsumed, OffsetDateTime startedAt, OffsetDateTime submittedAt, OffsetDateTime createdAt, OffsetDateTime updatedAt, Integer learningCycle) {
+    public MockAttemptsRecord(Long id, Long userId, Long mockExamId, String languageCode, String status, Integer scorePercent, Integer correctCount, Integer wrongCount, Integer answeredCount, Boolean quotaConsumed, OffsetDateTime startedAt, OffsetDateTime submittedAt, OffsetDateTime createdAt, OffsetDateTime updatedAt, Integer learningCycle, String aiReviewPlan, String aiReviewPlanModel) {
         super(MockAttempts.MOCK_ATTEMPTS);
 
         setId(id);
@@ -271,6 +299,8 @@ public class MockAttemptsRecord extends UpdatableRecordImpl<MockAttemptsRecord> 
         setCreatedAt(createdAt);
         setUpdatedAt(updatedAt);
         setLearningCycle(learningCycle);
+        setAiReviewPlan(aiReviewPlan);
+        setAiReviewPlanModel(aiReviewPlanModel);
         resetChangedOnNotNull();
     }
 }

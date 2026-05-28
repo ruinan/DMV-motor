@@ -159,6 +159,61 @@ public class MockExamRepository {
                 .fetchOne(0, Integer.class);
     }
 
+    /** Cached AI review plan for an attempt, or empty if not yet generated. */
+    public Optional<String> findReviewPlan(Long attemptId) {
+        var ma = Tables.MOCK_ATTEMPTS;
+        Record r = dsl.select(ma.AI_REVIEW_PLAN)
+                .from(ma)
+                .where(ma.ID.eq(attemptId))
+                .fetchOne();
+        if (r == null) return Optional.empty();
+        String plan = r.get(ma.AI_REVIEW_PLAN);
+        return plan == null || plan.isBlank() ? Optional.empty() : Optional.of(plan);
+    }
+
+    public void saveReviewPlan(Long attemptId, String plan, String model) {
+        var ma = Tables.MOCK_ATTEMPTS;
+        dsl.update(ma)
+                .set(ma.AI_REVIEW_PLAN, plan)
+                .set(ma.AI_REVIEW_PLAN_MODEL, model)
+                .where(ma.ID.eq(attemptId))
+                .execute();
+    }
+
+    /**
+     * Wrong-answer detail for the review-plan prompt: each wrong answer joined
+     * to its question's stem + topic + sub-topic in the requested language.
+     */
+    public List<WrongAnswerDetail> findWrongAnswerDetails(Long attemptId, String language) {
+        var mar = Tables.MOCK_ATTEMPT_RESULTS;
+        var q   = Tables.QUESTIONS;
+        var qv  = Tables.QUESTION_VARIANTS;
+        var t   = Tables.TOPICS;
+        var st  = Tables.SUB_TOPICS;
+        return dsl.select(qv.STEM_TEXT, t.NAME_EN, st.NAME_EN,
+                          mar.SELECTED_CHOICE_KEY, q.CORRECT_CHOICE_KEY)
+                .from(mar)
+                .join(q).on(q.ID.eq(mar.QUESTION_ID))
+                .join(qv).on(qv.QUESTION_ID.eq(q.ID).and(qv.LANGUAGE_CODE.eq(language)))
+                .join(t).on(t.ID.eq(q.PRIMARY_TOPIC_ID))
+                .leftJoin(st).on(st.ID.eq(q.SUB_TOPIC_ID))
+                .where(mar.MOCK_ATTEMPT_ID.eq(attemptId).and(mar.IS_CORRECT.isFalse()))
+                .fetch(r -> new WrongAnswerDetail(
+                        r.get(qv.STEM_TEXT),
+                        r.get(t.NAME_EN),
+                        r.get(st.NAME_EN),
+                        r.get(mar.SELECTED_CHOICE_KEY),
+                        r.get(q.CORRECT_CHOICE_KEY)));
+    }
+
+    public record WrongAnswerDetail(
+            String stem,
+            String topicLabel,
+            String subTopicLabel,
+            String selectedChoiceKey,
+            String correctChoiceKey
+    ) {}
+
     /** Flip attempt to a terminal status with a computed score + summary. */
     public void finalizeAttempt(Long attemptId, String status,
                                  int scorePercent, int correctCount, int wrongCount) {

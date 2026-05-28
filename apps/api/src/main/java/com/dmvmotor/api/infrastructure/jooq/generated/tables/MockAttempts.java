@@ -140,6 +140,16 @@ public class MockAttempts extends TableImpl<MockAttemptsRecord> {
      */
     public final TableField<MockAttemptsRecord, Integer> LEARNING_CYCLE = createField(DSL.name("learning_cycle"), SQLDataType.INTEGER.nullable(false).defaultValue(DSL.field(DSL.raw("0"), SQLDataType.INTEGER)), this, "");
 
+    /**
+     * The column <code>public.mock_attempts.ai_review_plan</code>.
+     */
+    public final TableField<MockAttemptsRecord, String> AI_REVIEW_PLAN = createField(DSL.name("ai_review_plan"), SQLDataType.CLOB, this, "");
+
+    /**
+     * The column <code>public.mock_attempts.ai_review_plan_model</code>.
+     */
+    public final TableField<MockAttemptsRecord, String> AI_REVIEW_PLAN_MODEL = createField(DSL.name("ai_review_plan_model"), SQLDataType.VARCHAR(100), this, "");
+
     private MockAttempts(Name alias, Table<MockAttemptsRecord> aliased) {
         this(alias, aliased, (Field<?>[]) null, null);
     }
@@ -275,7 +285,7 @@ public class MockAttempts extends TableImpl<MockAttemptsRecord> {
     @Override
     public List<Check<MockAttemptsRecord>> getChecks() {
         return Arrays.asList(
-            Internal.createCheck(this, DSL.name("mock_attempts_status_check"), "(((status)::text = ANY ((ARRAY['in_progress'::character varying, 'submitted'::character varying, 'ended_by_exit'::character varying, 'expired'::character varying])::text[])))", true)
+            Internal.createCheck(this, DSL.name("mock_attempts_status_check"), "(((status)::text = ANY ((ARRAY['in_progress'::character varying, 'submitted'::character varying, 'ended_by_exit'::character varying, 'expired'::character varying, 'ended_by_failure'::character varying])::text[])))", true)
         );
     }
 

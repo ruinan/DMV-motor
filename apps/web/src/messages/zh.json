@@ -235,7 +235,14 @@
     "tryAgain": "再来一次",
     "terminatedTitle": "考试结束——错题过多",
     "terminatedBody": "你已答 {answered} 题，其中 {wrong} 道错。错题超过失败门槛，考试自动终止。",
-    "terminatedTryAgain": "重新开始一次模考"
+    "terminatedTryAgain": "重新开始一次模考",
+    "aiPlanHeading": "AI 复习计划",
+    "aiPlanCached": "（已保存）",
+    "aiPlanPrompt": "根据这次考试，生成个性化复习计划。",
+    "aiPlanButton": "生成 AI 复习计划",
+    "aiPlanLoading": "分析中……",
+    "aiPlanUnavailable": "AI 复习计划暂时不可用。",
+    "aiPlanError": "无法生成复习计划，请稍后重试。"
   },
   "review": {
     "title": "复习包",
