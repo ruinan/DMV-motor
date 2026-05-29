@@ -8,6 +8,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 
+import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -110,9 +111,9 @@ class PracticeSessionControllerTest extends IntegrationTestBase {
     }
 
     @Test
-    void session_totalCountCappedAt20() throws Exception {
-        // setUp's 1 question + 24 more = 26 active free-trial questions, but a
-        // session is capped at 20.
+    void freeTrialSession_cappedAt15() throws Exception {
+        // setUp's 1 + 24 more = 25 active questions, but a free-trial session
+        // is the smaller 15-question taster.
         seedExtraFreeTrialQuestions(24);
 
         String startBody = mockMvc.perform(post("/api/v1/practice/sessions")
@@ -126,12 +127,37 @@ class PracticeSessionControllerTest extends IntegrationTestBase {
 
         mockMvc.perform(get("/api/v1/practice/sessions/{id}", sessionId))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.total_count").value(20))
+                .andExpect(jsonPath("$.data.total_count").value(15))
                 .andExpect(jsonPath("$.data.answered_count").value(0));
     }
 
     @Test
-    void session_completesAfter20Answers() throws Exception {
+    void fullSession_cappedAt30() throws Exception {
+        // 35 active questions; a paid full-practice session gives the bigger
+        // 30-question round (more than the free taster).
+        seedExtraFreeTrialQuestions(34);
+        Long paidUser = fixtures.insertUser("full-practice@example.com");
+        fixtures.insertAccessPass(paidUser, "active",
+                OffsetDateTime.now().minusDays(1), OffsetDateTime.now().plusDays(30), 3, 0);
+
+        String startBody = mockMvc.perform(post("/api/v1/practice/sessions")
+                        .header("Authorization", "Bearer " + paidUser)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"entry_type":"full","language":"en"}
+                                """))
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString();
+        String sessionId = extractSessionId(startBody);
+
+        mockMvc.perform(get("/api/v1/practice/sessions/{id}", sessionId)
+                        .header("Authorization", "Bearer " + paidUser))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.total_count").value(30));
+    }
+
+    @Test
+    void freeTrialSession_completesAfter15Answers() throws Exception {
         QuestionPool pool = seedExtraFreeTrialQuestions(24);
 
         String startBody = mockMvc.perform(post("/api/v1/practice/sessions")
@@ -143,8 +169,8 @@ class PracticeSessionControllerTest extends IntegrationTestBase {
                 .andReturn().getResponse().getContentAsString();
         String sessionId = extractSessionId(startBody);
 
-        // Answer exactly 20 distinct questions.
-        for (int i = 0; i < 20; i++) {
+        // Answer exactly 15 distinct questions (the free-trial cap).
+        for (int i = 0; i < 15; i++) {
             mockMvc.perform(post("/api/v1/practice/sessions/{id}/answers", sessionId)
                             .contentType(MediaType.APPLICATION_JSON)
                             .content("""
@@ -153,7 +179,7 @@ class PracticeSessionControllerTest extends IntegrationTestBase {
                     .andExpect(status().isOk());
         }
 
-        // The 21st request is refused — the session is full.
+        // The 16th request is refused — the free-trial session is full.
         mockMvc.perform(get("/api/v1/practice/sessions/{id}/next-question", sessionId))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.error.code").value("SESSION_COMPLETED"));

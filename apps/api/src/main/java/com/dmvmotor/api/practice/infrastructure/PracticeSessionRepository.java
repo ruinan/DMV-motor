@@ -260,12 +260,18 @@ public class PracticeSessionRepository {
     }
 
     /**
-     * Max questions served per practice session. A session is a bounded study
-     * chunk, not a sweep of the whole bank — once this many are answered the
-     * session completes. The displayed total is min(cap, bank) so a small pool
-     * (free trial / narrow topic filter) still shows its real size.
+     * Max questions served per practice session, by entry type. A session is a
+     * bounded study chunk; once this many are answered it completes. Paid full
+     * practice gives more per round (30) than the free taste (15) — free is
+     * deliberately the smaller sampler. Displayed total is min(cap, pool) so a
+     * small pool (narrow topic filter) still shows its real size.
      */
-    public static final int SESSION_QUESTION_CAP = 20;
+    public static final int FREE_TRIAL_QUESTION_CAP = 15;
+    public static final int FULL_QUESTION_CAP       = 30;
+
+    public static int capFor(String entryType) {
+        return "free_trial".equals(entryType) ? FREE_TRIAL_QUESTION_CAP : FULL_QUESTION_CAP;
+    }
 
     public int countAnswered(Long sessionId) {
         var pa = Tables.PRACTICE_ATTEMPTS;
@@ -359,7 +365,7 @@ public class PracticeSessionRepository {
                 .fetchOne();
         if (r == null) return Optional.empty();
         int answeredCount = r.get(answered);
-        int total = Math.min(SESSION_QUESTION_CAP,
+        int total = Math.min(capFor(r.get(ps.ENTRY_TYPE)),
                 countTotal(r.get(ps.LANGUAGE_CODE), r.get(ps.ENTRY_TYPE)));
         return Optional.of(new InProgressSession(
                 r.get(ps.ID),

@@ -853,7 +853,8 @@ MVP 阶段如果列表很短，也允许某些接口先不分页，
 
 说明：
 
-- 崩溃/断网场景：后端 attempt 保持 `in_progress`，已上报的逐题答案完整保留；超时后系统将 attempt 标记为 `expired`，已有答案仍可回流到 review 系统
+- 崩溃/断网场景：后端 attempt 保持 `in_progress`，已上报的逐题答案完整保留；超时后系统将 attempt 标记为 `ended_by_timeout`（见 §21.3），已有答案仍可回流到 review 系统。
+- `quota_consumed`：**配额在 `POST /attempts`（开考）时即已扣除**，所以无论是 submit、exit 还是 timeout 退出，该字段对该 attempt 都是 `true`——表示"这次尝试占用了一个配额名额"，而不是"退出操作消耗了额外配额"。
 
 ## 17. Summary / Progress / Readiness 接口
 
@@ -902,10 +903,14 @@ MVP 阶段如果列表很短，也允许某些接口先不分页，
   "is_ready_candidate": false,
   "missing_gates": [
     "MOCK_SCORE_NOT_STABLE",
-    "KEY_TOPIC_COVERAGE_LOW"
+    "KEY_COVERAGE_INCOMPLETE",
+    "HIGH_RISK_REVIEW_LOW",
+    "PERSISTENT_WEAK_POINT"
   ]
 }
 ```
+
+> Gate 取值（实现权威，与 `parameters.md §7-§8` 一致）：`MOCK_SCORE_NOT_STABLE`（近 2 次 mock 均分未达 85%）、`KEY_COVERAGE_INCOMPLETE`（key 题覆盖 < 90%）、`HIGH_RISK_REVIEW_LOW`（高风险复习完成 < 80%）、`PERSISTENT_WEAK_POINT`（仍有未解决的持续薄弱点）。
 
 ## 18. Language 接口
 
@@ -970,7 +975,7 @@ MVP API 合同当前应采用：
 - **Session 题量上限 = 20**：`GET /sessions/{id}` 的 `total_count = min(20, 题池大小)`；答满 20 题后 `GET /sessions/{id}/next-question` 返 `404 SESSION_COMPLETED`（前端按"已完成"处理）。
 - **`GET /api/v1/practice/sessions/history?limit=N`**（默认 10，max 50）→ `{ sessions: [{session_id, entry_type, language, status, started_at, completed_at, answered_count, correct_count, accuracy_percent}], total_in_db }`。
 - **`GET /api/v1/practice/sessions/stats`** → `{ total_sessions, total_questions_answered, total_correct, overall_accuracy_percent, active_mistakes_count, active_mistakes_topic_count }`。
-- **`GET /api/v1/practice/sessions/{id}/attempts?language=`** → 逐题复盘 `items: [{question_id, variant_id, topic_id, language, stem, choices, correct_choice_key, selected_choice_key, explanation, is_correct, submitted_at}]`。
+- **`GET /api/v1/practice/sessions/{id}/attempts?language=`** → 逐题复盘。响应包成 `data:{items:[...]}` + `meta:{total}`（沿用统一分页/列表壳，详见 §8）。每个 item：`{question_id, variant_id, topic_id, language, stem, choices, correct_choice_key, selected_choice_key, explanation, is_correct, submitted_at}`。
 
 ### 21.2 Mistakes 增量
 
