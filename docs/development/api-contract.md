@@ -351,7 +351,9 @@ MVP 阶段如果列表很短，也允许某些接口先不分页，
 
 ## 12. Access 接口
 
-### `GET /api/v1/access`
+> ⚠️ **路径更正（2026-05-29）**：实际实现的路径是 **`GET /api/v1/me/access`**（`AccountController`），不是 `/access`。响应体如下不变。
+
+### `GET /api/v1/me/access`
 
 作用：
 
@@ -691,6 +693,8 @@ MVP 阶段如果列表很短，也允许某些接口先不分页，
 
 ## 16. Mock Exam 接口
 
+> ⚠️ **本节的考试 UX 已整体改版（2026-05-29），见 §21.3。** 旧版"逐题对错统计 / 可回看"已不适用。现版：linear（不可回退、手动下一题）、答题只标对错不解释、答错超 `ceil(总题×0.15)` 自动终止（`ended_by_failure`）、**倒计时 + 到点自动交卷**（`ended_by_timeout`）、考后自动生成 AI 复习计划 + 逐题复盘。`/attempts/{id}`、`/attempts/history`、`/attempts/stats` 等新端点见 §21。
+
 ### `GET /api/v1/mock-exams/access`
 
 作用：
@@ -955,3 +959,42 @@ MVP API 合同当前应采用：
 - 统一成功 / 失败响应结构
 - 匿名体验与登录闭环明确分开
 - 先把 Practice、Review、Mock、Summary 这些主链路接口定稳
+
+## 21. Phase B 增量契约（2026-05-29 同步实现）
+
+> 本节集中记录 Phase B（Study Hub）以来新增 / 变更、且上面旧章节未覆盖的契约。以本节为准。
+
+### 21.1 Practice 增量
+
+- **`POST /api/v1/practice/sessions`** body 新增可选 `topic_filter: number[]`（按 topic 收窄题池，server 端 cap 8 个 topic）。
+- **Session 题量上限 = 20**：`GET /sessions/{id}` 的 `total_count = min(20, 题池大小)`；答满 20 题后 `GET /sessions/{id}/next-question` 返 `404 SESSION_COMPLETED`（前端按"已完成"处理）。
+- **`GET /api/v1/practice/sessions/history?limit=N`**（默认 10，max 50）→ `{ sessions: [{session_id, entry_type, language, status, started_at, completed_at, answered_count, correct_count, accuracy_percent}], total_in_db }`。
+- **`GET /api/v1/practice/sessions/stats`** → `{ total_sessions, total_questions_answered, total_correct, overall_accuracy_percent, active_mistakes_count, active_mistakes_topic_count }`。
+- **`GET /api/v1/practice/sessions/{id}/attempts?language=`** → 逐题复盘 `items: [{question_id, variant_id, topic_id, language, stem, choices, correct_choice_key, selected_choice_key, explanation, is_correct, submitted_at}]`。
+
+### 21.2 Mistakes 增量
+
+- **`GET /api/v1/mistakes/{questionId}/review?language=`** → 该错题的复盘详情 `{question_id, variant_id, stem, choices, correct_choice_key, explanation}`。**Gate**：仅当该题是调用者当前周期的 active mistake 才返回（否则 404）——公开的 `/questions/{id}` 仍不暴露答案。
+
+### 21.3 Mock Exam 改版 + 新端点
+
+- **考试 UX**：linear（不可回退、手动进下一题）；答题即时只标"对/错"，**不给解释**；答错数超过 `ceil(总题数 × 0.15)` 自动终止（status `ended_by_failure`）；**倒计时**（`time_limit_seconds`，默认 60s/题）到点**自动交卷**（status `ended_by_timeout`，服务端按 `started_at + limit` 强制，客户端时钟不可信）；考后**自动**生成 AI 复习计划（见 21.5）+ 逐题复盘。
+- **状态集**：`in_progress | submitted | ended_by_exit | ended_by_failure | ended_by_timeout | expired`。其中 `submitted` 与 `ended_by_timeout` 都是"已计分"，计入 best / latest / recent_3_avg 与 readiness。
+- **`POST /attempts/{id}/answers`** 响应：`{ saved, answered_count, is_correct, correct_choice_key, wrong_count, max_allowed_wrong, should_terminate }`。考试已过期时返 `409 MOCK_EXPIRED`（服务端已把该 attempt 落为 `ended_by_timeout`，客户端应 refetch 进结果）。
+- **`POST /attempts/{id}/submit`** 响应：`{ mock_attempt_id, status(submitted|ended_by_timeout), score_percent, correct_count, wrong_count, weak_topics:[{topic_id,label}], next_action:{type,label} }`。
+- **`GET /api/v1/mock-exams/attempts/{id}?language=`** → `{ mock_attempt_id, mock_exam_id, status, language, score_percent(-1 未计分), correct_count, wrong_count, time_limit_seconds, started_at, time_used_seconds(-1 未结束), questions:[{question_id,variant_id,stem,choices}], saved_answers:[{question_id, selected_choice_key, correct_choice_key, is_correct, explanation}] }`。**注意**：`saved_answers[].explanation` 在 `in_progress` 时为空字符串（考中不泄露"为什么"），attempt 终态后才返回。
+- **`GET /api/v1/mock-exams/attempts/history?limit=N`** → `{ attempts:[{attempt_id, mock_exam_id, mock_exam_code, status, score_percent(-1), correct_count, answered_count, started_at, submitted_at}], total_in_db }`。
+- **`GET /api/v1/mock-exams/attempts/stats`** → `{ total_attempts, submitted_count, exited_count, recent_3_avg_score_percent(-1), best_score_percent(-1), latest_score_percent(-1) }`。
+
+### 21.4 Topics / Mastery
+
+- **`GET /api/v1/topics/mastery`** → 驱动 Study Hub 覆盖度 donut：`{ summary:{mastered_sub_topics, total_sub_topics}, topics:[{topic_id, label, mastery_percent, is_mastered, sub_topics:[{sub_topic_id, label, attempted_count, mastery_percent, is_mastered}]}] }`。
+
+### 21.5 AI 接口
+
+- **`POST /api/v1/ai/explain`** body `{question_id, variant_id?, selected_choice_key?, language?}` → `{explanation, cached, model, language}`。匿名 401；免费用户访问付费题 404（防枚举）；超频 429；AI 关闭返 `AI_UNAVAILABLE`。仅按钮点击触发、payload 固定结构（无自由文本，防 hijack）。
+- **`GET /api/v1/ai/review-plan?mock_attempt_id=`** → `{ status: ready|pending|unavailable, plan }`。**只读**：mock 完成时后端**自动异步**生成并缓存（用户不触发、不等待）；客户端轮询直到 `ready`。归属不符 403、未知 404、AI 关闭 `unavailable`。
+
+### 21.6 `/me` 扩展
+
+- `GET /api/v1/me` 的 `learning` 增加 `in_progress_practice: {session_id, entry_type, language, answered_count, total_count(≤20), last_activity_at} | null` —— 驱动 Study Hub 的 Resume 卡。

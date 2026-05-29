@@ -356,6 +356,9 @@
 
 ## 10. 进度与状态快照实体
 
+> ⚠️ **MVP 决策（2026-05-29）：暂不物化 ProgressSnapshot / ReadinessSnapshot 表。**
+> 二者本质是"避免每次重算"的性能/缓存优化（见本节末尾动机），而非功能需求；`mvp.md` 未列入。当前 `/summary`、`/readiness`、`/topics/mastery` 全部用 **live read model**（每次按 attempts/mistakes 实时聚合，jOOQ 查询），MVP 单用户低流量下完全够用且更简单。等出现历史趋势展示或聚合查询成为性能瓶颈时再引入快照表 + 刷新服务。审计如发现"无快照物理实现"——这是刻意决策，不是缺口。
+
 ### ProgressSnapshot
 
 表示某一时刻的学习进度汇总。
