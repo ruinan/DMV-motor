@@ -3,6 +3,7 @@ package com.dmvmotor.api.mistakereview.controller;
 import com.dmvmotor.api.common.ApiResponse;
 import com.dmvmotor.api.common.BusinessException;
 import com.dmvmotor.api.common.CurrentUser;
+import com.dmvmotor.api.content.domain.QuestionDetail;
 import com.dmvmotor.api.mistakereview.application.MistakeService;
 import com.dmvmotor.api.mistakereview.application.MistakeService.MistakeListResult;
 import com.dmvmotor.api.mistakereview.domain.MistakeRecord;
@@ -48,6 +49,32 @@ public class MistakeController {
                         "total",     result.total()
                 )
         );
+    }
+
+    /**
+     * Review detail for one of the user's mistakes — the question plus its
+     * correct answer + explanation, so the Mistakes page can be a real review
+     * surface (not just a list of ids). Gated to the caller's active mistakes.
+     */
+    @GetMapping("/{questionId}/review")
+    public ApiResponse<?> reviewMistake(
+            @CurrentUser Long userId,
+            @PathVariable Long questionId,
+            @RequestParam(value = "language", required = false) String language
+    ) {
+        if (userId == null) {
+            throw new BusinessException("UNAUTHORIZED", "Authentication required",
+                    HttpStatus.UNAUTHORIZED);
+        }
+        QuestionDetail q = mistakeService.getReview(userId, questionId, language);
+        return ApiResponse.ok(Map.of(
+                "question_id",        String.valueOf(q.questionId()),
+                "variant_id",         String.valueOf(q.variantId()),
+                "stem",               q.stem(),
+                "choices",            q.choices(),
+                "correct_choice_key", q.correctChoiceKey(),
+                "explanation",        q.explanation() != null ? q.explanation() : ""
+        ));
     }
 
     private Map<String, Object> toItemDto(MistakeRecord r) {

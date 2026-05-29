@@ -299,7 +299,16 @@
     "errorGeneric": "无法加载错题列表。",
     "practiceThese": "针对性练习",
     "practiceTheseStarting": "正在开始…",
-    "practiceTheseHint": "开一轮只练这 {n} 个错题知识点的练习。"
+    "practiceTheseHint": "开一轮只练这 {n} 个错题知识点的练习。",
+    "explanation": "解析",
+    "aiExplainButton": "问 AI 为什么",
+    "aiExplainLoading": "思考中……",
+    "aiExplainHeading": "AI 解析",
+    "aiExplainCached": "（已保存）",
+    "aiExplainError": "暂时无法获取解析，请稍后重试。",
+    "aiExplainCooldown": "稍等一下再问。",
+    "aiExplainUnavailable": "AI 解析当前不可用。",
+    "aiExplainAuthRequired": "登录后可获取 AI 解析。"
   },
   "progress": {
     "title": "学习进度",

@@ -109,4 +109,55 @@ class MistakeControllerTest extends IntegrationTestBase {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.items", hasSize(0)));
     }
+
+    // ===== GET /api/v1/mistakes/{questionId}/review =====
+
+    @Test
+    void reviewMistake_anonymous_returns401() throws Exception {
+        mockMvc.perform(get("/api/v1/mistakes/{q}/review", questionId1))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void reviewMistake_ownActiveMistake_returnsQuestionWithAnswer() throws Exception {
+        fixtures.insertVariantReturningId(questionId1, "en", "What does a stop sign mean?",
+                "[{\"key\":\"A\",\"text\":\"Stop\"},{\"key\":\"B\",\"text\":\"Go\"}]",
+                "A stop sign means come to a full stop.");
+        fixtures.insertMistakeRecord(userId, questionId1, topicId, 2, "practice");
+
+        mockMvc.perform(get("/api/v1/mistakes/{q}/review", questionId1)
+                        .header("Authorization", "Bearer " + userId)
+                        .param("language", "en"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.question_id").value(String.valueOf(questionId1)))
+                .andExpect(jsonPath("$.data.variant_id").isString())
+                .andExpect(jsonPath("$.data.stem").value("What does a stop sign mean?"))
+                .andExpect(jsonPath("$.data.choices", hasSize(2)))
+                .andExpect(jsonPath("$.data.correct_choice_key").value("A"))
+                .andExpect(jsonPath("$.data.explanation").value(containsString("full stop")));
+    }
+
+    @Test
+    void reviewMistake_notAMistake_returns404() throws Exception {
+        // Question exists with a variant, but the user has no active mistake on
+        // it — answers must not be revealed.
+        fixtures.insertVariantReturningId(questionId1, "en", "stem",
+                "[{\"key\":\"A\",\"text\":\"a\"},{\"key\":\"B\",\"text\":\"b\"}]", "expl");
+
+        mockMvc.perform(get("/api/v1/mistakes/{q}/review", questionId1)
+                        .header("Authorization", "Bearer " + userId))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void reviewMistake_otherUsersMistake_returns404() throws Exception {
+        fixtures.insertVariantReturningId(questionId1, "en", "stem",
+                "[{\"key\":\"A\",\"text\":\"a\"},{\"key\":\"B\",\"text\":\"b\"}]", "expl");
+        Long otherUser = fixtures.insertUser("ghost@example.com");
+        fixtures.insertMistakeRecord(otherUser, questionId1, topicId, 1, "practice");
+
+        mockMvc.perform(get("/api/v1/mistakes/{q}/review", questionId1)
+                        .header("Authorization", "Bearer " + userId))
+                .andExpect(status().isNotFound());
+    }
 }

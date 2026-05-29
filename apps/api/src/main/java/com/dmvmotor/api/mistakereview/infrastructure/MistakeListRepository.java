@@ -66,6 +66,18 @@ public class MistakeListRepository {
                 .fetchOne(0, Integer.class);
     }
 
+    /** Whether (question) is one of the user's currently-active mistakes in this
+     *  cycle. Gates the mistake-review endpoint so answers are only revealed for
+     *  questions the user has actually gotten wrong. */
+    public boolean existsActiveMistake(Long userId, Long questionId, int learningCycle) {
+        var mr = Tables.MISTAKE_RECORDS;
+        return dsl.fetchExists(mr,
+                mr.USER_ID.eq(userId)
+                        .and(mr.QUESTION_ID.eq(questionId))
+                        .and(mr.IS_ACTIVE.isTrue())
+                        .and(mr.LEARNING_CYCLE.eq(learningCycle)));
+    }
+
     public void setActive(Long userId, Long questionId, boolean isActive, int learningCycle) {
         var mr = Tables.MISTAKE_RECORDS;
         dsl.update(mr)

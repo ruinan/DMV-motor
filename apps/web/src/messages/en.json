@@ -299,7 +299,16 @@
     "errorGeneric": "Could not load mistakes.",
     "practiceThese": "Practice these",
     "practiceTheseStarting": "Starting…",
-    "practiceTheseHint": "Drill a session focused on the {n} topics from your active mistakes."
+    "practiceTheseHint": "Drill a session focused on the {n} topics from your active mistakes.",
+    "explanation": "Explanation",
+    "aiExplainButton": "Ask AI why",
+    "aiExplainLoading": "Thinking…",
+    "aiExplainHeading": "AI explanation",
+    "aiExplainCached": "(saved)",
+    "aiExplainError": "Couldn't get an explanation. Try again later.",
+    "aiExplainCooldown": "Give it a moment before asking again.",
+    "aiExplainUnavailable": "AI explanations are currently unavailable.",
+    "aiExplainAuthRequired": "Sign in to get an AI explanation."
   },
   "progress": {
     "title": "Progress",
