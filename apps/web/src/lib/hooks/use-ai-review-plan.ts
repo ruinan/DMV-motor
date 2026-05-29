@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef } from "react";
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { apiFetch } from "@/lib/api-client";
 import { useAuth } from "@/lib/auth-context";
@@ -25,11 +25,11 @@ const MAX_POLLS = 10;
  */
 export function useAiReviewPlan(attemptId: string | null): AiReviewPlanView {
   const { user } = useAuth();
-  const polls = useRef(0);
+  const [polls, setPolls] = useState(0);
   const q = useQuery({
     queryKey: ["ai-review-plan", attemptId],
     queryFn: () => {
-      polls.current += 1;
+      setPolls((n) => n + 1);
       return apiFetch<Resp>(
         `/api/v1/ai/review-plan?mock_attempt_id=${attemptId}`,
       );
@@ -38,7 +38,7 @@ export function useAiReviewPlan(attemptId: string | null): AiReviewPlanView {
     refetchInterval: (query) => {
       const d = query.state.data;
       if (!d || d.status !== "pending") return false;
-      return polls.current >= MAX_POLLS ? false : 3000;
+      return query.state.dataUpdateCount >= MAX_POLLS ? false : 3000;
     },
   });
 
@@ -46,7 +46,7 @@ export function useAiReviewPlan(attemptId: string | null): AiReviewPlanView {
   if (q.data?.status === "ready") return { state: "ready", plan: q.data.plan };
   if (q.data?.status === "unavailable") return { state: "unavailable" };
   if (q.data?.status === "pending") {
-    return polls.current >= MAX_POLLS ? { state: "stalled" } : { state: "pending" };
+    return polls >= MAX_POLLS ? { state: "stalled" } : { state: "pending" };
   }
   return { state: "loading" };
 }
