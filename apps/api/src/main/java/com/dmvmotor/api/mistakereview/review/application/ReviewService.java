@@ -12,7 +12,7 @@ import com.dmvmotor.api.mistakereview.review.domain.MasteryEvaluator;
 import com.dmvmotor.api.mistakereview.review.infrastructure.PracticeHistoryRepository;
 import com.dmvmotor.api.mistakereview.review.infrastructure.ReviewRepository;
 import com.dmvmotor.api.mistakereview.review.infrastructure.ReviewRepository.TaskRow;
-import com.dmvmotor.api.practice.infrastructure.MistakeRepository;
+import com.dmvmotor.api.mistakereview.infrastructure.MistakeRepository;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;

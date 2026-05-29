@@ -10,7 +10,7 @@ import com.dmvmotor.api.content.infrastructure.QuestionRepository;
 import com.dmvmotor.api.mockexam.infrastructure.MockExamRepository;
 import com.dmvmotor.api.mockexam.infrastructure.MockExamRepository.AnswerDetail;
 import com.dmvmotor.api.mockexam.infrastructure.MockExamRepository.AttemptRow;
-import com.dmvmotor.api.practice.infrastructure.MistakeRepository;
+import com.dmvmotor.api.mistakereview.infrastructure.MistakeRepository;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;

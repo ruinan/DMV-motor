@@ -8,6 +8,7 @@ import jakarta.annotation.PostConstruct;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.context.annotation.Profile;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -26,9 +27,14 @@ import java.util.Map;
  * <p>Use case today: grant the authenticated user a 30-day access pass so they
  * can exercise the paid surfaces (full practice + mock exam) before the real
  * checkout / billing flow exists.
+ *
+ * <p>Defense in depth: {@code @Profile("!prod")} means that even if the
+ * {@code app.dev.endpoints} flag were ever set in production by mistake, the
+ * bean still would not register under the prod profile.
  */
 @RestController
 @RequestMapping("/api/v1/dev")
+@Profile("!prod")
 @ConditionalOnProperty(name = "app.dev.endpoints", havingValue = "true")
 public class DevController {
 

@@ -1,4 +1,4 @@
-package com.dmvmotor.api.practice.infrastructure;
+package com.dmvmotor.api.mistakereview.infrastructure;
 
 import com.dmvmotor.api.IntegrationTestBase;
 import com.dmvmotor.api.TestFixtures;

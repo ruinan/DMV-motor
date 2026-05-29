@@ -9,7 +9,7 @@ import com.dmvmotor.api.content.infrastructure.QuestionRepository;
 import com.dmvmotor.api.mistakereview.infrastructure.MistakeListRepository;
 import com.dmvmotor.api.practice.domain.AnswerResult;
 import com.dmvmotor.api.practice.domain.PracticeSession;
-import com.dmvmotor.api.practice.infrastructure.MistakeRepository;
+import com.dmvmotor.api.mistakereview.infrastructure.MistakeRepository;
 import com.dmvmotor.api.practice.infrastructure.PracticeSessionRepository;
 import com.dmvmotor.api.practice.infrastructure.PracticeSessionRepository.AttemptTotals;
 import com.dmvmotor.api.practice.infrastructure.PracticeSessionRepository.SessionHistoryRow;
