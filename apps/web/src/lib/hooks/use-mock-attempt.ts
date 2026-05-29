@@ -34,6 +34,11 @@ export type MockAttemptDetail = {
   score_percent: number;
   correct_count: number;
   wrong_count: number;
+  // Timer: the countdown is anchored to started_at + time_limit_seconds so a
+  // refresh resumes the same clock. time_used_seconds is -1 until finished.
+  time_limit_seconds: number;
+  started_at: string;
+  time_used_seconds: number;
 };
 
 /**

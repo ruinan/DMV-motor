@@ -16,6 +16,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Duration;
+import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Map;
 
@@ -99,6 +101,25 @@ public class MockExamService {
         return (int) Math.round(100.0 * correctCount / totalQuestions);
     }
 
+    private static int elapsedSeconds(AttemptRow attempt) {
+        return (int) Duration.between(attempt.startedAt(), OffsetDateTime.now()).getSeconds();
+    }
+
+    private static boolean isExpired(AttemptRow attempt, int limitSeconds) {
+        return elapsedSeconds(attempt) >= limitSeconds;
+    }
+
+    /** Score and close out an attempt whose clock has run out. The score
+     *  reflects whatever was answered; time_used is the full limit. */
+    private void finalizeTimedOut(AttemptRow attempt, int limitSeconds) {
+        int correctCount = mockExamRepo.countCorrectAnswers(attempt.id());
+        int wrongCount   = mockExamRepo.countWrongAnswers(attempt.id());
+        int total        = mockExamRepo.findMockExamQuestionCount(attempt.mockExamId());
+        mockExamRepo.finalizeAttempt(attempt.id(), "ended_by_timeout",
+                scorePercent(correctCount, total), correctCount, wrongCount, limitSeconds);
+        events.publishEvent(new MockAttemptCompletedEvent(attempt.id(), attempt.userId()));
+    }
+
     @Transactional
     public SaveAnswerResult saveAnswer(Long attemptId, Long userId,
                                        Long questionId, Long variantId, String selectedKey) {
@@ -107,6 +128,18 @@ public class MockExamService {
         if (!"in_progress".equals(attempt.status())) {
             throw new BusinessException("MOCK_ALREADY_ENDED",
                     "Mock attempt is no longer accepting answers", HttpStatus.CONFLICT);
+        }
+
+        // Server-enforced timer: a late answer is refused and the attempt is
+        // auto-finalized as a timeout. We return an `expired` result (which
+        // commits the finalize) rather than throwing here — a thrown exception
+        // would roll back this @Transactional method, undoing the finalize. The
+        // controller maps expired → 409 and the client refetches into the result.
+        int limitSeconds = mockExamRepo.findTimeLimitSeconds(attempt.mockExamId());
+        if (isExpired(attempt, limitSeconds)) {
+            finalizeTimedOut(attempt, limitSeconds);
+            return new SaveAnswerResult(false, attempt.answeredCount(),
+                    false, "", 0, 0, false, true);
         }
 
         if (!mockExamRepo.existsInMockExam(attempt.mockExamId(), questionId)) {
@@ -143,13 +176,14 @@ public class MockExamService {
         if (shouldTerminate) {
             int correctCount = mockExamRepo.countCorrectAnswers(attemptId);
             mockExamRepo.finalizeAttempt(attemptId, "ended_by_failure",
-                    scorePercent(correctCount, totalQuestions), correctCount, wrongCount);
+                    scorePercent(correctCount, totalQuestions), correctCount, wrongCount,
+                    Math.min(elapsedSeconds(attempt), limitSeconds));
             events.publishEvent(new MockAttemptCompletedEvent(attemptId, userId));
         }
 
         return new SaveAnswerResult(
                 true, answeredCount, isCorrect,
-                question.correctChoiceKey(), wrongCount, maxWrong, shouldTerminate);
+                question.correctChoiceKey(), wrongCount, maxWrong, shouldTerminate, false);
     }
 
     @Transactional
@@ -167,8 +201,14 @@ public class MockExamService {
         int correctCount  = mockExamRepo.countCorrectAnswers(attemptId);
         int wrongCount    = mockExamRepo.countWrongAnswers(attemptId);
         int total         = mockExamRepo.findMockExamQuestionCount(attempt.mockExamId());
-        mockExamRepo.finalizeAttempt(attemptId, "submitted",
-                scorePercent(correctCount, total), correctCount, wrongCount);
+
+        // If the clock already ran out, record this as a timeout rather than a
+        // clean submit — it's still scored either way.
+        int limitSeconds = mockExamRepo.findTimeLimitSeconds(attempt.mockExamId());
+        String status = isExpired(attempt, limitSeconds) ? "ended_by_timeout" : "submitted";
+        int timeUsed = Math.min(elapsedSeconds(attempt), limitSeconds);
+        mockExamRepo.finalizeAttempt(attemptId, status,
+                scorePercent(correctCount, total), correctCount, wrongCount, timeUsed);
         events.publishEvent(new MockAttemptCompletedEvent(attemptId, userId));
 
         List<MockExamRepository.WeakTopicRow> weakTopics =
@@ -178,7 +218,7 @@ public class MockExamService {
                 ? Map.of("type", "review", "label", "Review weak topics first")
                 : Map.of("type", "practice", "label", "Keep practicing");
 
-        return new SubmitResult(attemptId, "submitted", scorePercent(correctCount, total),
+        return new SubmitResult(attemptId, status, scorePercent(correctCount, total),
                 correctCount, wrongCount, weakTopics, nextAction);
     }
 
@@ -211,7 +251,8 @@ public class MockExamService {
             String  correctChoiceKey,
             int     wrongCountSoFar,
             int     maxAllowedWrong,
-            boolean shouldTerminate
+            boolean shouldTerminate,
+            boolean expired
     ) {}
 
     public record SubmitResult(
@@ -284,7 +325,10 @@ public class MockExamService {
                 savedAnswers,
                 attempt.scorePercent(),
                 attempt.correctCount(),
-                attempt.wrongCount());
+                attempt.wrongCount(),
+                mockExamRepo.findTimeLimitSeconds(attempt.mockExamId()),
+                attempt.startedAt(),
+                mockExamRepo.findTimeUsedSeconds(attemptId));
     }
 
     public record AttemptDetailResult(
@@ -296,6 +340,9 @@ public class MockExamService {
             List<AnswerRow>      savedAnswers,
             Integer              scorePercent,
             Integer              correctCount,
-            Integer              wrongCount
+            Integer              wrongCount,
+            int                  timeLimitSeconds,
+            OffsetDateTime       startedAt,
+            Integer              timeUsedSeconds
     ) {}
 }

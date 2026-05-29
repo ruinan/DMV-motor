@@ -168,8 +168,10 @@ public class SummaryService {
         var ma = Tables.MOCK_ATTEMPTS;
         List<Integer> recent = dsl.select(ma.SCORE_PERCENT)
                 .from(ma)
+                // Scored attempts: clean submits + timeouts (both produce a real
+                // score). Fail-outs / exits don't count toward readiness.
                 .where(ma.USER_ID.eq(userId)
-                        .and(ma.STATUS.eq("submitted"))
+                        .and(ma.STATUS.in("submitted", "ended_by_timeout"))
                         .and(ma.LEARNING_CYCLE.eq(cycle))
                         .and(ma.SCORE_PERCENT.isNotNull()))
                 .orderBy(ma.CREATED_AT.desc())

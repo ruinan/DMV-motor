@@ -72,6 +72,11 @@ public class MockExamController {
                 Map.entry("score_percent",   result.scorePercent() == null ? -1 : result.scorePercent()),
                 Map.entry("correct_count",   result.correctCount() == null ? 0 : result.correctCount()),
                 Map.entry("wrong_count",     result.wrongCount() == null ? 0 : result.wrongCount()),
+                // Timer: client anchors the countdown to started_at + limit so a
+                // refresh resumes the same clock. time_used is set once finished.
+                Map.entry("time_limit_seconds", result.timeLimitSeconds()),
+                Map.entry("started_at",         result.startedAt().toString()),
+                Map.entry("time_used_seconds",  result.timeUsedSeconds() == null ? -1 : result.timeUsedSeconds()),
                 Map.entry("questions",       result.questions().stream().map(this::toQuestionDto).toList()),
                 Map.entry("saved_answers",   result.savedAnswers().stream()
                         .map(a -> Map.of(
@@ -93,6 +98,12 @@ public class MockExamController {
                 Ids.parse(req.questionId(), "question_id"),
                 Ids.parse(req.variantId(), "variant_id"),
                 req.selectedKey());
+        // Clock ran out: the service already finalized the attempt as a timeout
+        // (committed). Signal the client to refetch into the result view.
+        if (result.expired()) {
+            throw new BusinessException("MOCK_EXPIRED",
+                    "Time is up — the exam has ended", HttpStatus.CONFLICT);
+        }
         return ApiResponse.ok(Map.ofEntries(
                 Map.entry("saved",              result.saved()),
                 Map.entry("answered_count",     result.answeredCount()),

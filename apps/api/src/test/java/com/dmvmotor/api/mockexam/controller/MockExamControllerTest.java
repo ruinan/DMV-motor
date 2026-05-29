@@ -567,6 +567,71 @@ class MockExamControllerTest extends IntegrationTestBase {
                 .andExpect(jsonPath("$.data.wrong_count").value(1));
     }
 
+    // ===== Mock timer =====
+
+    @Test
+    void getAttempt_includesTimerFields() throws Exception {
+        Long attemptId = fixtures.insertInProgressMockAttempt(userId, mockExamId);
+
+        mockMvc.perform(get("/api/v1/mock-exams/attempts/{id}", attemptId)
+                        .header("Authorization", "Bearer " + userId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.time_limit_seconds").isNumber())
+                .andExpect(jsonPath("$.data.started_at").isString())
+                .andExpect(jsonPath("$.data.time_used_seconds").value(-1));
+    }
+
+    @Test
+    void submitMockExam_afterTimeLimit_endsByTimeout() throws Exception {
+        // Default limit is 1800s; this attempt started 2000s ago → expired.
+        Long attemptId = fixtures.insertInProgressMockAttemptStartedSecondsAgo(
+                userId, mockExamId, 2000);
+
+        mockMvc.perform(post("/api/v1/mock-exams/attempts/{id}/submit", attemptId)
+                        .header("Authorization", "Bearer " + userId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.status").value("ended_by_timeout"))
+                .andExpect(jsonPath("$.data.score_percent").isNumber());
+    }
+
+    @Test
+    void saveAnswer_afterTimeLimit_expiresWith409() throws Exception {
+        Long attemptId = fixtures.insertInProgressMockAttemptStartedSecondsAgo(
+                userId, mockExamId, 2000);
+
+        mockMvc.perform(post("/api/v1/mock-exams/attempts/{id}/answers", attemptId)
+                        .header("Authorization", "Bearer " + userId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"question_id":"%s","variant_id":"%s","selected_choice_key":"B"}
+                                """.formatted(q1, v1)))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.error.code").value("MOCK_EXPIRED"));
+
+        // The late answer auto-finalized the attempt as a timeout.
+        mockMvc.perform(get("/api/v1/mock-exams/attempts/{id}", attemptId)
+                        .header("Authorization", "Bearer " + userId))
+                .andExpect(jsonPath("$.data.status").value("ended_by_timeout"));
+    }
+
+    @Test
+    void timeoutAttempt_isScoredAndCountsInStats() throws Exception {
+        Long attemptId = fixtures.insertInProgressMockAttemptStartedSecondsAgo(
+                userId, mockExamId, 2000);
+        fixtures.insertMockAttemptResult(attemptId, q1, v1, "B", true); // 1 of 2 correct
+
+        mockMvc.perform(post("/api/v1/mock-exams/attempts/{id}/submit", attemptId)
+                        .header("Authorization", "Bearer " + userId))
+                .andExpect(jsonPath("$.data.status").value("ended_by_timeout"))
+                .andExpect(jsonPath("$.data.score_percent").value(50));
+
+        // A timeout is a real score — it must feed best/latest stats.
+        mockMvc.perform(get("/api/v1/mock-exams/attempts/stats")
+                        .header("Authorization", "Bearer " + userId))
+                .andExpect(jsonPath("$.data.best_score_percent").value(50))
+                .andExpect(jsonPath("$.data.latest_score_percent").value(50));
+    }
+
     @Test
     void getAttempt_withLanguageOverride_returnsRequestedVariant() throws Exception {
         fixtures.insertAccessPass(userId, "active",

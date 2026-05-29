@@ -83,7 +83,8 @@ public class MockExamRepository {
                 r.get(ma.LEARNING_CYCLE),
                 r.get(ma.SCORE_PERCENT),
                 r.get(ma.CORRECT_COUNT),
-                r.get(ma.WRONG_COUNT)
+                r.get(ma.WRONG_COUNT),
+                r.get(ma.STARTED_AT)
         ));
     }
 
@@ -217,9 +218,11 @@ public class MockExamRepository {
             String correctChoiceKey
     ) {}
 
-    /** Flip attempt to a terminal status with a computed score + summary. */
+    /** Flip attempt to a terminal status with a computed score + summary +
+     *  how long it took. */
     public void finalizeAttempt(Long attemptId, String status,
-                                 int scorePercent, int correctCount, int wrongCount) {
+                                 int scorePercent, int correctCount, int wrongCount,
+                                 int timeUsedSeconds) {
         var ma = Tables.MOCK_ATTEMPTS;
         dsl.update(ma)
                 .set(ma.STATUS, status)
@@ -227,8 +230,35 @@ public class MockExamRepository {
                 .set(ma.CORRECT_COUNT, correctCount)
                 .set(ma.WRONG_COUNT, wrongCount)
                 .set(ma.SUBMITTED_AT, OffsetDateTime.now())
+                // time_used_seconds is a V21 column not in the generated schema;
+                // reference it dynamically (same pattern as allow_in_free_trial).
+                .set(org.jooq.impl.DSL.field(org.jooq.impl.DSL.name("time_used_seconds"),
+                        Integer.class), timeUsedSeconds)
                 .where(ma.ID.eq(attemptId))
                 .execute();
+    }
+
+    /** Per-exam countdown length (V21 column, referenced dynamically). */
+    public int findTimeLimitSeconds(Long mockExamId) {
+        var me = Tables.MOCK_EXAMS;
+        Integer v = dsl.select(
+                        org.jooq.impl.DSL.field(
+                                org.jooq.impl.DSL.name("time_limit_seconds"), Integer.class))
+                .from(me)
+                .where(me.ID.eq(mockExamId))
+                .fetchOne(0, Integer.class);
+        return v == null ? 1800 : v;
+    }
+
+    /** Persisted time-used for a finished attempt (V21 column). */
+    public Integer findTimeUsedSeconds(Long attemptId) {
+        var ma = Tables.MOCK_ATTEMPTS;
+        return dsl.select(
+                        org.jooq.impl.DSL.field(
+                                org.jooq.impl.DSL.name("time_used_seconds"), Integer.class))
+                .from(ma)
+                .where(ma.ID.eq(attemptId))
+                .fetchOne(0, Integer.class);
     }
 
     public List<AnswerRow> findAnswersByAttemptId(Long attemptId) {
@@ -304,7 +334,8 @@ public class MockExamRepository {
             int     learningCycle,
             Integer scorePercent,
             Integer correctCount,
-            Integer wrongCount
+            Integer wrongCount,
+            OffsetDateTime startedAt
     ) {}
 
     public record AnswerRow(Long questionId, String selectedKey) {}
@@ -348,17 +379,20 @@ public class MockExamRepository {
         int exited = dsl.selectCount().from(ma)
                 .where(ma.USER_ID.eq(userId).and(ma.STATUS.eq("ended_by_exit")))
                 .fetchOne(0, Integer.class);
-        // best/latest CAN legitimately be null (no submitted attempts yet).
+        // Scored attempts = clean submits + timeouts (a timeout still produces a
+        // real score). Fail-outs / exits are excluded from best/avg/latest.
+        var scored = ma.STATUS.in("submitted", "ended_by_timeout");
+        // best/latest CAN legitimately be null (no scored attempts yet).
         Integer best = dsl.select(org.jooq.impl.DSL.max(ma.SCORE_PERCENT)).from(ma)
-                .where(ma.USER_ID.eq(userId).and(ma.STATUS.eq("submitted")))
+                .where(ma.USER_ID.eq(userId).and(scored))
                 .fetchOne(0, Integer.class);
         Integer latest = dsl.select(ma.SCORE_PERCENT).from(ma)
-                .where(ma.USER_ID.eq(userId).and(ma.STATUS.eq("submitted")))
+                .where(ma.USER_ID.eq(userId).and(scored))
                 .orderBy(ma.SUBMITTED_AT.desc(), ma.ID.desc())
                 .limit(1)
                 .fetchOne(0, Integer.class);
         List<Integer> recent3 = dsl.select(ma.SCORE_PERCENT).from(ma)
-                .where(ma.USER_ID.eq(userId).and(ma.STATUS.eq("submitted")))
+                .where(ma.USER_ID.eq(userId).and(scored))
                 .orderBy(ma.SUBMITTED_AT.desc(), ma.ID.desc())
                 .limit(3)
                 .fetch(ma.SCORE_PERCENT);

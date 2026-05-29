@@ -2,12 +2,13 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   AlertCircle,
   CheckCircle2,
   ChevronRight,
+  Clock,
   Loader2,
   Sparkles,
   XCircle,
@@ -89,7 +90,10 @@ export function MockExam({ t, lang, attemptId }: Props) {
   const [exitConfirmOpen, setExitConfirmOpen] = useState(false);
   const [result, setResult] = useState<SubmitResponse | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [remainingSec, setRemainingSec] = useState<number | null>(null);
   const savedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const submittingRef = useRef(false);
+  const autoSubmittedRef = useRef(false);
 
   useEffect(() => {
     return () => {
@@ -111,6 +115,55 @@ export function MockExam({ t, lang, attemptId }: Props) {
     window.addEventListener("beforeunload", onBeforeUnload);
     return () => window.removeEventListener("beforeunload", onBeforeUnload);
   }, [examLive]);
+
+  // Submit the attempt — manual on the last question, or auto when the timer
+  // hits zero. Hoisted as a callback so the countdown effect can fire it.
+  // The server records a timeout as ended_by_timeout if the limit truly elapsed.
+  const submitNow = useCallback(async () => {
+    if (submittingRef.current) return;
+    submittingRef.current = true;
+    setSubmitting(true);
+    setErrorMsg(null);
+    try {
+      const res = await apiFetch<SubmitResponse>(
+        `/api/v1/mock-exams/attempts/${attemptId}/submit`,
+        { method: "POST" },
+      );
+      queryClient.invalidateQueries({ queryKey: ["mock-access"] });
+      queryClient.invalidateQueries({ queryKey: ["mistakes"] });
+      queryClient.invalidateQueries({ queryKey: ["mistakes-count"] });
+      queryClient.invalidateQueries({ queryKey: ["summary"] });
+      queryClient.invalidateQueries({ queryKey: ["mock-history"] });
+      queryClient.invalidateQueries({ queryKey: ["mock-stats"] });
+      setResult(res);
+    } catch (err) {
+      setErrorMsg(err instanceof ApiError ? err.message : t.errorGeneric);
+      setSubmitting(false);
+      submittingRef.current = false;
+    }
+  }, [attemptId, queryClient, t]);
+
+  // Server-anchored countdown: deadline = started_at + time_limit. Re-derived
+  // (not restarted) on refresh. At zero we auto-submit.
+  const deadlineMs =
+    attempt.data && attempt.data.status === "in_progress"
+      ? new Date(attempt.data.started_at).getTime() +
+        attempt.data.time_limit_seconds * 1000
+      : null;
+  useEffect(() => {
+    if (deadlineMs == null || result || terminated) return;
+    const tick = () => {
+      const rem = Math.max(0, Math.round((deadlineMs - Date.now()) / 1000));
+      setRemainingSec(rem);
+      if (rem <= 0 && !autoSubmittedRef.current) {
+        autoSubmittedRef.current = true;
+        void submitNow();
+      }
+    };
+    tick();
+    const id = setInterval(tick, 1000);
+    return () => clearInterval(id);
+  }, [deadlineMs, result, terminated, submitNow]);
 
   // Seed picks from server-persisted saved_answers on first successful fetch.
   if (attempt.data && initialisedFor !== attempt.data.mock_attempt_id) {
@@ -281,6 +334,12 @@ export function MockExam({ t, lang, attemptId }: Props) {
         setTerminated(true);
       }
     } catch (err) {
+      // Time ran out mid-answer: the server finalized the attempt as a timeout.
+      // Refetch so the view transitions to the read-only result.
+      if (err instanceof ApiError && err.code === "MOCK_EXPIRED") {
+        queryClient.invalidateQueries({ queryKey: ["mock-attempt", attemptId] });
+        return;
+      }
       setSaveStatus("error");
       setErrorMsg(err instanceof ApiError ? err.message : t.errorGeneric);
       // Roll back the pick so the user can try again with a different choice.
@@ -294,29 +353,6 @@ export function MockExam({ t, lang, attemptId }: Props) {
 
   function goNext() {
     if (index + 1 < total) setIndex((i) => i + 1);
-  }
-
-  async function onSubmit() {
-    if (submitting) return;
-    setSubmitting(true);
-    setErrorMsg(null);
-    try {
-      const res = await apiFetch<SubmitResponse>(
-        `/api/v1/mock-exams/attempts/${attemptId}/submit`,
-        { method: "POST" },
-      );
-      // Mock outcome shifts mistakes / readiness — invalidate so other pages refetch
-      queryClient.invalidateQueries({ queryKey: ["mock-access"] });
-      queryClient.invalidateQueries({ queryKey: ["mistakes"] });
-      queryClient.invalidateQueries({ queryKey: ["mistakes-count"] });
-      queryClient.invalidateQueries({ queryKey: ["summary"] });
-      queryClient.invalidateQueries({ queryKey: ["mock-history"] });
-      queryClient.invalidateQueries({ queryKey: ["mock-stats"] });
-      setResult(res);
-    } catch (err) {
-      setErrorMsg(err instanceof ApiError ? err.message : t.errorGeneric);
-      setSubmitting(false);
-    }
   }
 
   async function confirmExit() {
@@ -341,6 +377,18 @@ export function MockExam({ t, lang, attemptId }: Props) {
 
   return (
     <div className="mx-auto flex w-full max-w-2xl flex-col gap-6">
+      {/* Countdown — turns red in the final minute. */}
+      {remainingSec !== null && (
+        <div
+          className={`flex items-center justify-center gap-1.5 text-sm font-semibold tabular-nums ${
+            remainingSec <= 60 ? "text-destructive" : "text-muted-foreground"
+          }`}
+        >
+          <Clock className="size-4" />
+          {formatMMSS(remainingSec)}
+        </div>
+      )}
+
       {/* Progress header */}
       <div>
         <div className="mb-2 flex items-baseline justify-between text-sm">
@@ -449,7 +497,7 @@ export function MockExam({ t, lang, attemptId }: Props) {
           </Button>
         ) : (
           <Button
-            onClick={onSubmit}
+            onClick={() => void submitNow()}
             disabled={!feedback.has(question.question_id) || submitting || exiting}
             size="lg"
           >
@@ -720,4 +768,10 @@ function AiReviewPlanBlock({
       {ai.state === "unavailable" ? t.aiPlanUnavailable : t.aiPlanStalled}
     </section>
   );
+}
+
+function formatMMSS(totalSeconds: number): string {
+  const m = Math.floor(totalSeconds / 60);
+  const s = totalSeconds % 60;
+  return `${m}:${s.toString().padStart(2, "0")}`;
 }

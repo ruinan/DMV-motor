@@ -242,6 +242,20 @@ public class TestFixtures {
                 """, Long.class, userId, mockExamId);
     }
 
+    /** In-progress attempt whose clock started {@code ageSeconds} ago — used to
+     *  exercise mock-timer expiry without real waiting. */
+    public Long insertInProgressMockAttemptStartedSecondsAgo(Long userId, Long mockExamId,
+                                                             int ageSeconds) {
+        return jdbc.queryForObject("""
+                INSERT INTO mock_attempts
+                    (user_id, mock_exam_id, status, answered_count, quota_consumed,
+                     learning_cycle, started_at)
+                VALUES (?, ?, 'in_progress', 0, true, 0,
+                        CURRENT_TIMESTAMP - make_interval(secs => ?))
+                RETURNING id
+                """, Long.class, userId, mockExamId, ageSeconds);
+    }
+
     public void insertMockAttemptResult(Long attemptId, Long questionId, Long variantId,
                                          String selectedKey, boolean isCorrect) {
         jdbc.update("""
