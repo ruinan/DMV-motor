@@ -1,6 +1,6 @@
 "use client";
 
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { AppSidebar } from "@/components/app-sidebar";
 import { MobileTabBar } from "@/components/mobile-tab-bar";
 import { MobileAppBar } from "@/components/mobile-app-bar";
@@ -15,17 +15,22 @@ type Props = {
 
 /**
  * Wraps the (app) shell so we can selectively drop chrome on focus surfaces.
- * A mock-exam attempt page (`/<lang>/mock/<attemptId>`) renders full-bleed —
- * no sidebar, no top bar, no bottom tabs — so the user can concentrate on
- * the questions and only leaves via the dedicated Exit button or by
- * navigating the URL. Everything else renders the normal chrome.
+ * A mock-exam attempt page (`/<lang>/mock/<attemptId>`) renders full-bleed
+ * while the exam is being taken — no sidebar, no top bar, no bottom tabs — so
+ * the user concentrates on the questions. Opening a finished attempt in review
+ * mode (`?review=1`, e.g. from the Study Hub) keeps the normal chrome so it
+ * reads like the rest of the app. Everything else renders the normal chrome.
  */
 export function AppChrome({ t, lang, children }: Props) {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const isReview = searchParams.get("review") === "1";
   // Match /<lang>/mock/<anything-not-just-mock> — i.e. an attempt page, not
-  // the mock landing. Path normaliser tolerates trailing slash.
+  // the mock landing. Path normaliser tolerates trailing slash. Review mode
+  // keeps the chrome.
   const stripped = pathname.replace(/\/$/, "");
-  const inExamAttempt = new RegExp(`^/${lang}/mock/[^/]+`).test(stripped);
+  const inExamAttempt =
+    new RegExp(`^/${lang}/mock/[^/]+`).test(stripped) && !isReview;
 
   if (inExamAttempt) {
     return (

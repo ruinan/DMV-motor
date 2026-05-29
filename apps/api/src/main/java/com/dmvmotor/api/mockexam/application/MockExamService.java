@@ -8,7 +8,7 @@ import com.dmvmotor.api.common.ResourceNotFoundException;
 import com.dmvmotor.api.content.domain.QuestionDetail;
 import com.dmvmotor.api.content.infrastructure.QuestionRepository;
 import com.dmvmotor.api.mockexam.infrastructure.MockExamRepository;
-import com.dmvmotor.api.mockexam.infrastructure.MockExamRepository.AnswerRow;
+import com.dmvmotor.api.mockexam.infrastructure.MockExamRepository.AnswerDetail;
 import com.dmvmotor.api.mockexam.infrastructure.MockExamRepository.AttemptRow;
 import com.dmvmotor.api.practice.infrastructure.MistakeRepository;
 import org.springframework.context.ApplicationEventPublisher;
@@ -315,7 +315,18 @@ public class MockExamService {
                                 "Question not found: " + qId)))
                 .toList();
 
-        List<AnswerRow> savedAnswers = mockExamRepo.findAnswersByAttemptId(attemptId);
+        // Per-question review detail. While the exam is in progress the "why"
+        // stays hidden (only right/wrong is shown live) — strip explanations
+        // until the attempt is terminal.
+        boolean terminal = !"in_progress".equals(attempt.status());
+        List<AnswerDetail> savedAnswers =
+                mockExamRepo.findAnswerDetailsByAttemptId(attemptId, effectiveLang);
+        if (!terminal) {
+            savedAnswers = savedAnswers.stream()
+                    .map(a -> new AnswerDetail(a.questionId(), a.selectedKey(),
+                            a.correctKey(), a.isCorrect(), null))
+                    .toList();
+        }
         return new AttemptDetailResult(
                 attempt.id(),
                 attempt.mockExamId(),
@@ -337,7 +348,7 @@ public class MockExamService {
             String               status,
             String               language,
             List<QuestionDetail> questions,
-            List<AnswerRow>      savedAnswers,
+            List<AnswerDetail>   savedAnswers,
             Integer              scorePercent,
             Integer              correctCount,
             Integer              wrongCount,

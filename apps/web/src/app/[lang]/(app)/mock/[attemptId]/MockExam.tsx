@@ -18,8 +18,13 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { apiFetch, ApiError } from "@/lib/api-client";
 import { useAuth } from "@/lib/auth-context";
 import { useTopicNameMap } from "@/lib/hooks/use-topics";
-import { useMockAttempt } from "@/lib/hooks/use-mock-attempt";
+import {
+  useMockAttempt,
+  type MockAttemptQuestion,
+  type MockSavedAnswer,
+} from "@/lib/hooks/use-mock-attempt";
 import { useAiReviewPlan } from "@/lib/hooks/use-ai-review-plan";
+import { MockReview } from "./MockReview";
 import type { Dictionary, Locale } from "@/lib/dictionaries";
 
 type SubmitResponse = {
@@ -226,11 +231,15 @@ export function MockExam({ t, lang, attemptId }: Props) {
     return (
       <FinishedView
         t={t}
+        lang={lang}
         attemptId={attemptId}
         status={attempt.data.status}
         scorePercent={attempt.data.score_percent}
         correctCount={attempt.data.correct_count}
         wrongCount={attempt.data.wrong_count}
+        questions={attempt.data.questions}
+        answers={attempt.data.saved_answers}
+        isLoggedIn={!!user}
         onNewMock={() => router.push(`/${lang}/mock`)}
         onMistakes={() => router.push(`/${lang}/mistakes`)}
         onBack={() => router.push(`/${lang}/dashboard`)}
@@ -631,28 +640,35 @@ function ResultView({
 
 /**
  * Read-only view for a finished attempt opened cold (refresh after submit, or
- * from mock history). Shows the persisted score when available + the cached AI
- * review plan + review CTAs. Detailed per-question review lives in Mistakes —
- * wrong answers were already folded into the mistake list, so the primary CTA
- * points there.
+ * from mock history). Shows the persisted score, the cached AI review plan, the
+ * per-question review (each answered question marked right/wrong + explanation +
+ * AI explain), and review CTAs.
  */
 function FinishedView({
   t,
+  lang,
   attemptId,
   status,
   scorePercent,
   correctCount,
   wrongCount,
+  questions,
+  answers,
+  isLoggedIn,
   onNewMock,
   onMistakes,
   onBack,
 }: {
   t: Dictionary["mock"];
+  lang: Locale;
   attemptId: string;
   status: string;
   scorePercent: number;
   correctCount: number;
   wrongCount: number;
+  questions: MockAttemptQuestion[];
+  answers: MockSavedAnswer[];
+  isLoggedIn: boolean;
   onNewMock: () => void;
   onMistakes: () => void;
   onBack: () => void;
@@ -663,7 +679,7 @@ function FinishedView({
   const passed = scored && status === "submitted" && scorePercent >= PASS_THRESHOLD;
 
   return (
-    <div className="mx-auto flex w-full max-w-xl flex-col gap-6">
+    <div className="mx-auto flex w-full max-w-2xl flex-col gap-6">
       <header>
         <h1 className="text-2xl font-bold tracking-tight text-foreground">
           {t.resultTitle}
@@ -709,6 +725,14 @@ function FinishedView({
       )}
 
       {scored && <AiReviewPlanBlock t={t} attemptId={attemptId} />}
+
+      <MockReview
+        t={t}
+        lang={lang}
+        questions={questions}
+        answers={answers}
+        isLoggedIn={isLoggedIn}
+      />
 
       <div className="flex flex-col gap-3 sm:flex-row sm:justify-end">
         <Button variant="outline" onClick={onBack}>

@@ -272,6 +272,37 @@ public class MockExamRepository {
                 ));
     }
 
+    /** Per-answered-question review detail (correct key + correctness +
+     *  explanation in the requested language). Used by the post-exam review. */
+    public List<AnswerDetail> findAnswerDetailsByAttemptId(Long attemptId, String language) {
+        var mar = Tables.MOCK_ATTEMPT_RESULTS;
+        var q   = Tables.QUESTIONS;
+        var qv  = Tables.QUESTION_VARIANTS;
+        return dsl.select(mar.QUESTION_ID, mar.SELECTED_CHOICE_KEY, mar.IS_CORRECT,
+                        q.CORRECT_CHOICE_KEY, qv.EXPLANATION_TEXT)
+                .from(mar)
+                .join(q).on(q.ID.eq(mar.QUESTION_ID))
+                .leftJoin(qv).on(qv.QUESTION_ID.eq(q.ID).and(qv.LANGUAGE_CODE.eq(language)))
+                .where(mar.MOCK_ATTEMPT_ID.eq(attemptId))
+                .orderBy(mar.ID.asc())
+                .fetch()
+                .map(r -> new AnswerDetail(
+                        r.get(mar.QUESTION_ID),
+                        r.get(mar.SELECTED_CHOICE_KEY),
+                        r.get(q.CORRECT_CHOICE_KEY),
+                        r.get(mar.IS_CORRECT),
+                        r.get(qv.EXPLANATION_TEXT)
+                ));
+    }
+
+    public record AnswerDetail(
+            Long    questionId,
+            String  selectedKey,
+            String  correctKey,
+            Boolean isCorrect,
+            String  explanation
+    ) {}
+
     public void markAnswerCorrectness(Long attemptId, Long questionId, boolean isCorrect) {
         var mar = Tables.MOCK_ATTEMPT_RESULTS;
         dsl.update(mar)

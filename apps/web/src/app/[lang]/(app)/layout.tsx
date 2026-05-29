@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { notFound } from "next/navigation";
 import { getDictionary, hasLocale } from "@/lib/dictionaries";
 import { AppChrome } from "@/components/app-chrome";
@@ -19,7 +20,11 @@ export default async function AppLayout({
 
   return (
     <RequireAuth lang={lang} t={t.auth}>
-      <AppChrome t={t} lang={lang}>{children}</AppChrome>
+      {/* AppChrome reads ?review=1 via useSearchParams — wrap in Suspense so
+          static prerender of these shells doesn't deopt at build. */}
+      <Suspense>
+        <AppChrome t={t} lang={lang}>{children}</AppChrome>
+      </Suspense>
     </RequireAuth>
   );
 }

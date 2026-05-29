@@ -567,6 +567,39 @@ class MockExamControllerTest extends IntegrationTestBase {
                 .andExpect(jsonPath("$.data.wrong_count").value(1));
     }
 
+    @Test
+    void getAttempt_afterSubmit_savedAnswersCarryReviewDetail() throws Exception {
+        String attemptId = startMockAndGetId();
+        saveAnswerForAttempt(attemptId, q1, v1, "B"); // correct (q1 key = B)
+        saveAnswerForAttempt(attemptId, q2, v2, "B"); // wrong (q2 key = A)
+        submitAttempt(attemptId);
+
+        mockMvc.perform(get("/api/v1/mock-exams/attempts/{id}", attemptId)
+                        .header("Authorization", "Bearer " + userId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.saved_answers", hasSize(2)))
+                .andExpect(jsonPath("$.data.saved_answers[0].question_id").value(q1.toString()))
+                .andExpect(jsonPath("$.data.saved_answers[0].correct_choice_key").value("B"))
+                .andExpect(jsonPath("$.data.saved_answers[0].is_correct").value(true))
+                .andExpect(jsonPath("$.data.saved_answers[1].question_id").value(q2.toString()))
+                .andExpect(jsonPath("$.data.saved_answers[1].is_correct").value(false))
+                .andExpect(jsonPath("$.data.saved_answers[1].explanation")
+                        .value(containsString("Explanation 2")));
+    }
+
+    @Test
+    void getAttempt_inProgress_savedAnswersOmitExplanation() throws Exception {
+        // During the live exam the "why" stays hidden — only right/wrong is
+        // shown. The review's explanation must not leak until the exam ends.
+        String attemptId = startMockAndGetId();
+        saveAnswerForAttempt(attemptId, q1, v1, "B");
+
+        mockMvc.perform(get("/api/v1/mock-exams/attempts/{id}", attemptId)
+                        .header("Authorization", "Bearer " + userId))
+                .andExpect(jsonPath("$.data.status").value("in_progress"))
+                .andExpect(jsonPath("$.data.saved_answers[0].explanation").value(""));
+    }
+
     // ===== Mock timer =====
 
     @Test

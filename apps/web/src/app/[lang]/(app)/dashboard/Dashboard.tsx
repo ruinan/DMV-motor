@@ -29,10 +29,10 @@ export function Dashboard({ t, lang }: Props) {
   const me = useMe();
   const mastery = useTopicMastery();
   const practiceStats = usePracticeStats();
-  // History is a review convenience, not an archive: keep the recent few
-  // practices and the last 3 mocks (mocks cost a pass). Everything older still
-  // feeds readiness + mastery aggregates, just not these strips.
-  const practiceHistory = usePracticeHistory(6);
+  // History is a review convenience, not an archive: keep the last 3 practices
+  // and the last 3 mocks (mocks cost a pass). Everything older still feeds
+  // readiness + mastery aggregates, just not these strips.
+  const practiceHistory = usePracticeHistory(3);
   const mockStats = useMockStats();
   const mockHistory = useMockHistory(3);
 
@@ -383,10 +383,11 @@ function MockBadge({
           : "border-destructive/40 bg-destructive/10 text-destructive";
   const label = attempt.score_percent < 0 ? "—" : `${attempt.score_percent}%`;
   const date = formatRelative(attempt.submitted_at || attempt.started_at);
-  // Tap a past mock to reopen its result + cached AI review plan.
+  // Tap a past mock to reopen it in review mode (sidebar stays; ?review=1) —
+  // score + AI plan + per-question review.
   return (
     <Link
-      href={`/${lang}/mock/${attempt.attempt_id}`}
+      href={`/${lang}/mock/${attempt.attempt_id}?review=1`}
       className={`flex flex-col items-center gap-1 rounded-lg border px-3 py-2 transition-shadow hover:shadow-sm ${tone}`}
       title={`${date} · ${attempt.status}`}
     >

@@ -81,7 +81,10 @@ public class MockExamController {
                 Map.entry("saved_answers",   result.savedAnswers().stream()
                         .map(a -> Map.of(
                                 "question_id",         String.valueOf(a.questionId()),
-                                "selected_choice_key", a.selectedKey()))
+                                "selected_choice_key", a.selectedKey(),
+                                "correct_choice_key",  a.correctKey() != null ? a.correctKey() : "",
+                                "is_correct",          a.isCorrect() != null ? a.isCorrect() : false,
+                                "explanation",         a.explanation() != null ? a.explanation() : ""))
                         .toList())
         ));
     }

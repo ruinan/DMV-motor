@@ -14,6 +14,12 @@ export type MockAttemptQuestion = {
 export type MockSavedAnswer = {
   question_id: string;
   selected_choice_key: string;
+  // Review detail — populated once the attempt is finished. During the live
+  // exam correct_choice_key/is_correct are present (already shown post-answer)
+  // but explanation is blank (the "why" stays hidden until the exam ends).
+  correct_choice_key: string;
+  is_correct: boolean;
+  explanation: string;
 };
 
 export type MockAttemptDetail = {
