@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import {
@@ -64,6 +64,10 @@ type Props = {
 
 export function MockExam({ t, lang, attemptId }: Props) {
   const router = useRouter();
+  // Opened from the Study Hub history with ?review=1 → force a read-only
+  // per-question review (same experience as the practice session review).
+  // Never resume answering, even if the attempt is somehow still in_progress.
+  const reviewMode = useSearchParams().get("review") === "1";
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const topicMap = useTopicNameMap(lang);
@@ -110,7 +114,7 @@ export function MockExam({ t, lang, attemptId }: Props) {
   // back/forward mid-exam. Only armed while the exam is live (not after
   // submit / terminate). Per spec: the in-app "Exit exam" button uses our
   // own dialog; the tab-close / URL-change path uses Chrome's prompt.
-  const examLive = !result && !terminated;
+  const examLive = !reviewMode && !result && !terminated;
   useEffect(() => {
     if (!examLive) return;
     function onBeforeUnload(e: BeforeUnloadEvent) {
@@ -151,7 +155,7 @@ export function MockExam({ t, lang, attemptId }: Props) {
   // Server-anchored countdown: deadline = started_at + time_limit. Re-derived
   // (not restarted) on refresh. At zero we auto-submit.
   const deadlineMs =
-    attempt.data && attempt.data.status === "in_progress"
+    !reviewMode && attempt.data && attempt.data.status === "in_progress"
       ? new Date(attempt.data.started_at).getTime() +
         attempt.data.time_limit_seconds * 1000
       : null;
@@ -220,6 +224,45 @@ export function MockExam({ t, lang, attemptId }: Props) {
         onTryAgain={() => router.push(`/${lang}/mock`)}
         onBack={() => router.push(`/${lang}/dashboard`)}
       />
+    );
+  }
+
+  // Review mode (opened from Study Hub history): read-only per-question review,
+  // same shape as the practice session review — score summary line + cached AI
+  // plan + per-question list. No score-card / retake focus, no answering UI,
+  // no resume. Takes precedence over status so a not-yet-finished attempt
+  // reached from history still shows review instead of resuming the exam.
+  if (reviewMode && attempt.data) {
+    const total = attempt.data.correct_count + attempt.data.wrong_count;
+    return (
+      <div className="mx-auto flex w-full max-w-2xl flex-col gap-6">
+        <header className="flex items-center justify-between gap-3">
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight text-foreground">
+              {t.reviewTitle}
+            </h1>
+            {attempt.data.score_percent >= 0 && (
+              <p className="mt-1 text-sm text-muted-foreground">
+                {attempt.data.score_percent}% · {attempt.data.correct_count}/{total}
+              </p>
+            )}
+          </div>
+          <Link
+            href={`/${lang}/dashboard`}
+            className="shrink-0 text-sm text-muted-foreground hover:text-foreground hover:underline"
+          >
+            ← {t.backToDashboard}
+          </Link>
+        </header>
+        <AiReviewPlanBlock t={t} attemptId={attemptId} />
+        <MockReview
+          t={t}
+          lang={lang}
+          questions={attempt.data.questions}
+          answers={attempt.data.saved_answers}
+          isLoggedIn={!!user}
+        />
+      </div>
     );
   }
 
