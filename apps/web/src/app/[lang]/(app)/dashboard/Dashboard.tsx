@@ -1,7 +1,9 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
-import { ArrowRight, PlayCircle, Sparkles } from "lucide-react";
+import { ArrowRight, ChevronDown, PlayCircle, Sparkles } from "lucide-react";
+import { AttemptHistory } from "../../practice/AttemptHistory";
 import { useMe } from "@/lib/hooks/use-me";
 import { useReadiness } from "@/lib/hooks/use-readiness";
 import { useTopicMastery } from "@/lib/hooks/use-topic-mastery";
@@ -101,6 +103,7 @@ export function Dashboard({ t, lang }: Props) {
       {/* Section 2: Practice history */}
       <PracticeHistorySection
         t={t}
+        lang={lang}
         sessions={practiceHistory.data?.sessions ?? []}
         totalInDb={practiceHistory.data?.total_in_db ?? 0}
         stats={practiceStats.data}
@@ -210,11 +213,13 @@ function ResumeOrStartCard({
 
 function PracticeHistorySection({
   t,
+  lang,
   sessions,
   totalInDb,
   stats,
 }: {
   t: Dictionary;
+  lang: Locale;
   sessions: PracticeSessionHistoryItem[];
   totalInDb: number;
   stats:
@@ -237,7 +242,7 @@ function PracticeHistorySection({
       ) : (
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {sessions.map((s) => (
-            <SessionCard key={s.session_id} t={t} session={s} />
+            <SessionCard key={s.session_id} t={t} lang={lang} session={s} />
           ))}
         </div>
       )}
@@ -251,13 +256,19 @@ function PracticeHistorySection({
   );
 }
 
+// A history card. Tap to expand an inline per-question review of that session
+// (reuses the same AttemptHistory component the practice page uses). When
+// expanded it spans the full row so the review isn't cramped into a grid cell.
 function SessionCard({
   t,
+  lang,
   session,
 }: {
   t: Dictionary;
+  lang: Locale;
   session: PracticeSessionHistoryItem;
 }) {
+  const [expanded, setExpanded] = useState(false);
   const dateLabel = formatRelative(session.completed_at || session.started_at);
   const accuracyTone =
     session.accuracy_percent >= 85
@@ -266,33 +277,62 @@ function SessionCard({
         ? "text-amber-600"
         : "text-destructive";
   return (
-    <article className="flex flex-col gap-2 rounded-xl border border-border/40 bg-card p-4 text-sm shadow-sm">
-      <div className="flex items-center justify-between">
-        <span className="text-xs font-medium text-muted-foreground">
-          {dateLabel}
-        </span>
-        <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
-          {session.entry_type === "full"
-            ? t.studyHub.entryFull
-            : t.studyHub.entryFreeTrial}
-        </span>
-      </div>
-      <div className="flex items-end justify-between">
-        <div>
-          <p className={`text-2xl font-bold tabular-nums ${accuracyTone}`}>
-            {session.accuracy_percent}%
-          </p>
-          <p className="text-xs text-muted-foreground">
-            {session.correct_count} / {session.answered_count}{" "}
-            {t.studyHub.correct}
-          </p>
-        </div>
-        {session.status === "in_progress" && (
-          <span className="rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">
-            {t.studyHub.inProgressBadge}
+    <article
+      className={`rounded-xl border border-border/40 bg-card text-sm shadow-sm ${
+        expanded ? "sm:col-span-2 lg:col-span-3" : ""
+      }`}
+    >
+      <button
+        type="button"
+        onClick={() => setExpanded((e) => !e)}
+        aria-expanded={expanded}
+        className="flex w-full flex-col gap-2 p-4 text-left transition-colors hover:bg-muted/40"
+      >
+        <div className="flex items-center justify-between">
+          <span className="text-xs font-medium text-muted-foreground">
+            {dateLabel}
           </span>
-        )}
-      </div>
+          <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
+            {session.entry_type === "full"
+              ? t.studyHub.entryFull
+              : t.studyHub.entryFreeTrial}
+          </span>
+        </div>
+        <div className="flex items-end justify-between">
+          <div>
+            <p className={`text-2xl font-bold tabular-nums ${accuracyTone}`}>
+              {session.accuracy_percent}%
+            </p>
+            <p className="text-xs text-muted-foreground">
+              {session.correct_count} / {session.answered_count}{" "}
+              {t.studyHub.correct}
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            {session.status === "in_progress" && (
+              <span className="rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">
+                {t.studyHub.inProgressBadge}
+              </span>
+            )}
+            <ChevronDown
+              className={`size-4 text-muted-foreground transition-transform ${
+                expanded ? "rotate-180" : ""
+              }`}
+              aria-hidden
+            />
+          </div>
+        </div>
+      </button>
+      {expanded && (
+        <div className="border-t px-4 py-4">
+          <AttemptHistory
+            sessionId={session.session_id}
+            lang={lang}
+            t={t.practice}
+            onBack={() => setExpanded(false)}
+          />
+        </div>
+      )}
     </article>
   );
 }
