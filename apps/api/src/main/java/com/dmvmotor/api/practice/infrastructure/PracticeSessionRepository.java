@@ -279,6 +279,17 @@ public class PracticeSessionRepository {
     }
 
     public int countTotal(String languageCode, String entryType) {
+        return countTotal(languageCode, entryType, List.of());
+    }
+
+    /**
+     * Size of the session pool, optionally scoped to a topic filter. The pool
+     * condition mirrors {@link #findNextUnansweredQuestion} (active +
+     * allow_in_practice, plus allow_in_free_trial for free-trial, plus the
+     * topic filter) so the displayed total matches what can actually be served.
+     * An empty {@code topicFilter} means the full pool.
+     */
+    public int countTotal(String languageCode, String entryType, List<Long> topicFilter) {
         var q  = Tables.QUESTIONS;
         var qv = Tables.QUESTION_VARIANTS;
 
@@ -288,6 +299,9 @@ public class PracticeSessionRepository {
                     org.jooq.impl.DSL.field(
                             org.jooq.impl.DSL.name("allow_in_free_trial"),
                             Boolean.class).isTrue());
+        }
+        if (!topicFilter.isEmpty()) {
+            condition = condition.and(q.PRIMARY_TOPIC_ID.in(topicFilter));
         }
 
         return dsl.fetchCount(
@@ -353,7 +367,7 @@ public class PracticeSessionRepository {
         var pa = Tables.PRACTICE_ATTEMPTS;
         Field<Integer> answered = DSL.count(pa.ID).as("answered");
         Record r = dsl.select(ps.ID, ps.ENTRY_TYPE, ps.LANGUAGE_CODE,
-                              ps.LAST_ACTIVE_AT, answered)
+                              ps.TOPIC_FILTER, ps.LAST_ACTIVE_AT, answered)
                 .from(ps)
                 .leftJoin(pa).on(pa.PRACTICE_SESSION_ID.eq(ps.ID))
                 .where(ps.USER_ID.eq(userId)
@@ -365,8 +379,11 @@ public class PracticeSessionRepository {
                 .fetchOne();
         if (r == null) return Optional.empty();
         int answeredCount = r.get(answered);
+        // Topic-scoped sessions ("Practice these") report the filtered pool
+        // size, not min(cap, full bank).
         int total = Math.min(capFor(r.get(ps.ENTRY_TYPE)),
-                countTotal(r.get(ps.LANGUAGE_CODE), r.get(ps.ENTRY_TYPE)));
+                countTotal(r.get(ps.LANGUAGE_CODE), r.get(ps.ENTRY_TYPE),
+                        decodeTopicFilter(r.get(ps.TOPIC_FILTER))));
         return Optional.of(new InProgressSession(
                 r.get(ps.ID),
                 r.get(ps.ENTRY_TYPE),

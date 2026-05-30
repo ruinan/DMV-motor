@@ -349,6 +349,19 @@ public class TestFixtures {
                 """, Long.class, userId, entryType, language, learningCycle);
     }
 
+    /** In-progress session scoped to a comma-joined topic_filter CSV (or null
+     *  for the full pool) — mirrors how PracticeSessionRepository persists it. */
+    public Long insertInProgressPracticeSession(Long userId, int learningCycle,
+                                                 String entryType, String language,
+                                                 String topicFilterCsv) {
+        return jdbc.queryForObject("""
+                INSERT INTO practice_sessions
+                    (user_id, status, entry_type, language_code, learning_cycle, topic_filter)
+                VALUES (?, 'in_progress', ?, ?, ?, ?)
+                RETURNING id
+                """, Long.class, userId, entryType, language, learningCycle, topicFilterCsv);
+    }
+
     public void insertPracticeAttempt(Long userId, Long practiceSessionId,
                                        Long questionId, Long variantId,
                                        String selectedKey, boolean isCorrect) {

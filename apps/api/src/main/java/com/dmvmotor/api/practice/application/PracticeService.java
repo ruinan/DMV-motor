@@ -170,8 +170,12 @@ public class PracticeService {
     public SessionStatus getSessionStatus(Long sessionId, Long requestUserId) {
         PracticeSession session = requireSession(sessionId, requestUserId);
         int answered = sessionRepo.countAnswered(sessionId);
+        // A topic-scoped session ("Practice these") shows its filtered pool size
+        // — the same filter findNextUnansweredQuestion serves from — not the
+        // whole bank capped, which would over-report the total.
         int total    = Math.min(PracticeSessionRepository.capFor(session.entryType()),
-                sessionRepo.countTotal(session.languageCode(), session.entryType()));
+                sessionRepo.countTotal(session.languageCode(), session.entryType(),
+                        session.topicFilter()));
         return new SessionStatus(sessionId, session.status(), answered, total);
     }
 

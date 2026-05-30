@@ -71,6 +71,39 @@ class AccountControllerTest extends IntegrationTestBase {
     }
 
     @Test
+    void getMe_inProgressTopicFilteredPractice_totalReflectsFilteredPool() throws Exception {
+        // Dev-quality audit #1 (correctness): the /me Resume CTA must show the
+        // FILTERED pool size for a topic-scoped in-progress session, not
+        // min(cap, full bank).
+        Long topicId = fixtures.insertTopic("LANES", "Lane", "车道", false, 10);
+        // The filtered topic holds 3 questions (each with an en variant, so each
+        // is counted by countTotal which joins on the language variant).
+        Long q1 = fixtures.insertQuestion(topicId, "A");
+        Long v1 = fixtures.insertEnVariantReturningId(q1, "stem 1", "expl 1");
+        Long q2 = fixtures.insertQuestion(topicId, "B");
+        fixtures.insertEnVariantReturningId(q2, "stem 2", "expl 2");
+        Long q3 = fixtures.insertQuestion(topicId, "A");
+        fixtures.insertEnVariantReturningId(q3, "stem 3", "expl 3");
+
+        // Pad the bank with 40 questions in another topic so an unfiltered
+        // count would hit the cap.
+        Long otherTopic = fixtures.insertTopic("BANK", "Bank", "题库", false, 11);
+        for (int i = 0; i < 40; i++) {
+            Long qid = fixtures.insertQuestion(otherTopic, "A");
+            fixtures.insertEnVariantReturningId(qid, "bank " + i, "x");
+        }
+
+        Long sessionId = fixtures.insertInProgressPracticeSession(
+                userId, 0, "full", "en", String.valueOf(topicId));
+        fixtures.insertPracticeAttempt(userId, sessionId, q1, v1, "A", true);
+
+        mockMvc.perform(get("/api/v1/me")
+                        .header("Authorization", "Bearer " + userId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.learning.in_progress_practice.total_count").value(3));
+    }
+
+    @Test
     void getMe_anonymous_returns401() throws Exception {
         mockMvc.perform(get("/api/v1/me"))
                 .andExpect(status().isUnauthorized())

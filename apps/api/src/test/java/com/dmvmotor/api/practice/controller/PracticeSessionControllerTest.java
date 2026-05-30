@@ -157,6 +157,44 @@ class PracticeSessionControllerTest extends IntegrationTestBase {
     }
 
     @Test
+    void getSessionStatus_topicFilteredSession_totalReflectsFilteredPoolNotFullBank()
+            throws Exception {
+        // Dev-quality audit #1 (correctness): a topic-scoped "Practice these"
+        // session must report total_count = its FILTERED pool size, not
+        // min(cap, full bank). topic1 (setUp) already holds 1 free-trial
+        // question; add 2 more so the filtered pool is 3.
+        Long fq1 = fixtures.insertQuestion(topicId, "B");
+        fixtures.insertVariantReturningId(fq1, "en", "Topic1 Q-b",
+                "[{\"key\":\"A\",\"text\":\"a\"},{\"key\":\"B\",\"text\":\"b\"}]", "x");
+        Long fq2 = fixtures.insertQuestion(topicId, "B");
+        fixtures.insertVariantReturningId(fq2, "en", "Topic1 Q-c",
+                "[{\"key\":\"A\",\"text\":\"a\"},{\"key\":\"B\",\"text\":\"b\"}]", "x");
+
+        // Pad the full bank with 20 questions in a DIFFERENT topic so an
+        // unfiltered count would (wrongly) hit the 15 free-trial cap.
+        Long otherTopic = fixtures.insertTopic("OTHER_BANK", "Other", "其他", false, 9);
+        for (int i = 0; i < 20; i++) {
+            Long qid = fixtures.insertQuestion(otherTopic, "B");
+            fixtures.insertVariantReturningId(qid, "en", "Bank Q" + i,
+                    "[{\"key\":\"A\",\"text\":\"a\"},{\"key\":\"B\",\"text\":\"b\"}]", "x");
+        }
+
+        String startBody = mockMvc.perform(post("/api/v1/practice/sessions")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"entry_type":"free_trial","language":"en","topic_filter":[%d]}
+                                """.formatted(topicId)))
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString();
+        String sessionId = extractSessionId(startBody);
+
+        mockMvc.perform(get("/api/v1/practice/sessions/{id}", sessionId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.total_count").value(3))
+                .andExpect(jsonPath("$.data.answered_count").value(0));
+    }
+
+    @Test
     void freeTrialSession_completesAfter15Answers() throws Exception {
         QuestionPool pool = seedExtraFreeTrialQuestions(24);
 
