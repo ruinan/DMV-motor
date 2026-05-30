@@ -6,11 +6,12 @@ import org.springframework.boot.context.properties.bind.DefaultValue;
 /**
  * AI explanation parameters — sourced from progress §27 (decision points 1, 6).
  *
- * <p>Cooldown algorithm (decision point #6, "thinking-time" semantics):
- * given {@code N} = AI calls in the past 24h, the cooldown required before
- * the next call is {@code min(base + N * increment, max)} seconds. A bot
- * scanning the bank trips the cap quickly; a human pacing through real
- * questions never even brushes the floor.
+ * <p>Cooldown algorithm: given {@code N} = AI calls in the past 24h, the
+ * cooldown required before the next call is {@code min(base + N * increment,
+ * max)} seconds. With the relaxed defaults (base 10 / increment 0) this is a
+ * flat ~10s floor that only blocks double-click / machine-gun bursts; the
+ * daily cap is the real cost ceiling. (The original 120s + 60s ramp punished
+ * real learners reviewing several wrong answers in a row.)
  *
  * <p>Cache hits ({@code UNIQUE(user_id, question_id, language)} match) skip
  * the rate-limit check entirely — no LLM call, no cost.
@@ -19,9 +20,9 @@ import org.springframework.boot.context.properties.bind.DefaultValue;
 public record AiProperties(
         @DefaultValue("true")  boolean   enabled,
         @DefaultValue("stub")  String    provider,
-        @DefaultValue("120")   int       baseCooldownSeconds,
-        @DefaultValue("60")    int       cooldownIncrementSeconds,
-        @DefaultValue("300")   int       maxCooldownSeconds,
+        @DefaultValue("10")    int       baseCooldownSeconds,
+        @DefaultValue("0")     int       cooldownIncrementSeconds,
+        @DefaultValue("30")    int       maxCooldownSeconds,
         @DefaultValue("50")    int       maxCallsPerDay,
         @DefaultValue          Deepseek  deepseek
 ) {

@@ -51,9 +51,16 @@ app:
     # provider: stub (default for dev/test — StubAiExplanationProvider with matchIfMissing=true)
     # Cloud Run flips this to "deepseek" via APP_AI_PROVIDER env (cloudrun.tf).
     provider: ${APP_AI_PROVIDER:stub}
-    base-cooldown-seconds: 120
-    cooldown-increment-seconds: 60
-    max-cooldown-seconds: 300
+    # Cooldown gates the *pace* of uncached AI calls (cache hits skip it). The
+    # daily cap is the real cost ceiling; cooldown only stops machine-gun /
+    # double-click bursts. The original 120s + 60s-per-call ramp made reviewing
+    # several wrong answers in a row painful (wait 2-5 min between questions),
+    # so it's relaxed to a flat ~10s with no ramp. Cost ceiling unchanged
+    # (max-calls-per-day still 50). Abuse-by-mass-signup is handled later by the
+    # anti-abuse / human-verification work, not by punishing real learners here.
+    base-cooldown-seconds: 10
+    cooldown-increment-seconds: 0
+    max-cooldown-seconds: 30
     max-calls-per-day: 50
     deepseek:
       # Local dev: drop the key into apps/api/.env (gitignored) as APP_AI_DEEPSEEK_API_KEY.

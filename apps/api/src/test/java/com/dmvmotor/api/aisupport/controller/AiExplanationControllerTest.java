@@ -7,6 +7,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
+import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.time.OffsetDateTime;
@@ -20,6 +21,15 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+// Pin the cooldown params to the original 120/60/300 so the time-offset
+// assertions below (e.g. "30s ago → still cooling") test the rate-limit LOGIC
+// independent of the production defaults, which were later relaxed to 10/0/30
+// for UX. The logic is what matters here; the live values live in application.yml.
+@TestPropertySource(properties = {
+        "app.ai.base-cooldown-seconds=120",
+        "app.ai.cooldown-increment-seconds=60",
+        "app.ai.max-cooldown-seconds=300"
+})
 class AiExplanationControllerTest extends IntegrationTestBase {
 
     @Autowired MockMvc                    mockMvc;
