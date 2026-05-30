@@ -20,9 +20,9 @@ import org.springframework.boot.context.properties.bind.DefaultValue;
 public record AiProperties(
         @DefaultValue("true")  boolean   enabled,
         @DefaultValue("stub")  String    provider,
-        @DefaultValue("10")    int       baseCooldownSeconds,
+        @DefaultValue("3")     int       baseCooldownSeconds,
         @DefaultValue("0")     int       cooldownIncrementSeconds,
-        @DefaultValue("30")    int       maxCooldownSeconds,
+        @DefaultValue("10")    int       maxCooldownSeconds,
         @DefaultValue("50")    int       maxCallsPerDay,
         @DefaultValue          Deepseek  deepseek
 ) {

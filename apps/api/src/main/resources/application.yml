@@ -58,9 +58,9 @@ app:
     # so it's relaxed to a flat ~10s with no ramp. Cost ceiling unchanged
     # (max-calls-per-day still 50). Abuse-by-mass-signup is handled later by the
     # anti-abuse / human-verification work, not by punishing real learners here.
-    base-cooldown-seconds: 10
+    base-cooldown-seconds: 3
     cooldown-increment-seconds: 0
-    max-cooldown-seconds: 30
+    max-cooldown-seconds: 10
     max-calls-per-day: 50
     deepseek:
       # Local dev: drop the key into apps/api/.env (gitignored) as APP_AI_DEEPSEEK_API_KEY.
