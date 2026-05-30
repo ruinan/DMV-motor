@@ -1,15 +1,20 @@
 package com.dmvmotor.api.practice.controller;
 
 import com.dmvmotor.api.common.ApiResponse;
+import com.dmvmotor.api.common.BusinessException;
 import com.dmvmotor.api.common.CurrentUser;
 import com.dmvmotor.api.common.Ids;
+import com.dmvmotor.api.content.domain.Choice;
 import com.dmvmotor.api.content.domain.QuestionDetail;
 import com.dmvmotor.api.practice.application.PracticeService;
+import com.dmvmotor.api.practice.domain.AnswerResult;
+import com.dmvmotor.api.practice.infrastructure.PracticeSessionRepository;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
 import java.util.Map;
 
 @RestController
@@ -29,13 +34,7 @@ public class PracticeSessionController {
         var result = practiceService.startSession(userId, req.entryType(),
                 req.language() != null ? req.language() : "en",
                 req.topicFilter());
-        return ApiResponse.ok(Map.of(
-                "session_id",    String.valueOf(result.sessionId()),
-                "entry_type",    result.entryType(),
-                "status",        result.status(),
-                "language",      result.language(),
-                "next_question", toQuestionDto(result.nextQuestion())
-        ));
+        return ApiResponse.ok(StartSessionDto.from(result));
     }
 
     @GetMapping("/{id}/next-question")
@@ -46,24 +45,13 @@ public class PracticeSessionController {
     ) {
         QuestionDetail q = practiceService.getNextQuestion(id, userId, language);
         int answered = practiceService.getSessionStatus(id, userId).answeredCount();
-        return ApiResponse.ok(Map.of(
-                "question_id", String.valueOf(q.questionId()),
-                "variant_id",  String.valueOf(q.variantId()),
-                "stem",        q.stem(),
-                "choices",     q.choices(),
-                "progress",    Map.of("answered_count", answered)
-        ));
+        return ApiResponse.ok(NextQuestionDto.from(q, answered));
     }
 
     @GetMapping("/{id}")
     public ApiResponse<?> getSession(@CurrentUser Long userId, @PathVariable Long id) {
         var status = practiceService.getSessionStatus(id, userId);
-        return ApiResponse.ok(Map.of(
-                "session_id",    String.valueOf(status.sessionId()),
-                "status",        status.status(),
-                "answered_count", status.answeredCount(),
-                "total_count",   status.totalCount()
-        ));
+        return ApiResponse.ok(SessionStatusDto.from(status));
     }
 
     @PostMapping("/{id}/answers")
@@ -74,22 +62,13 @@ public class PracticeSessionController {
                 Ids.parse(req.questionId(), "question_id"),
                 Ids.parse(req.variantId(), "variant_id"),
                 req.selectedChoiceKey());
-        return ApiResponse.ok(Map.of(
-                "question_id",        String.valueOf(result.questionId()),
-                "is_correct",         result.isCorrect(),
-                "correct_choice_key", result.correctChoiceKey(),
-                "explanation",        result.explanation() != null ? result.explanation() : "",
-                "progress",           Map.of("answered_count", result.answeredCount())
-        ));
+        return ApiResponse.ok(SubmitAnswerDto.from(result));
     }
 
     @PostMapping("/{id}/complete")
     public ApiResponse<?> completeSession(@CurrentUser Long userId, @PathVariable Long id) {
         var result = practiceService.completeSession(id, userId);
-        return ApiResponse.ok(Map.of(
-                "session_id", String.valueOf(result.sessionId()),
-                "status",     result.status()
-        ));
+        return ApiResponse.ok(CompleteSessionDto.from(result));
     }
 
     @GetMapping("/{id}/attempts")
@@ -98,21 +77,9 @@ public class PracticeSessionController {
             @PathVariable Long id,
             @RequestParam(required = false) String language
     ) {
-        var attempts = practiceService.listAttempts(id, userId, language);
-        var items = attempts.stream().map(a -> Map.ofEntries(
-                Map.entry("question_id",         String.valueOf(a.questionId())),
-                Map.entry("variant_id",          String.valueOf(a.variantId())),
-                Map.entry("topic_id",            String.valueOf(a.topicId())),
-                Map.entry("language",            a.language()),
-                Map.entry("stem",                a.stem()),
-                Map.entry("choices",             a.choices()),
-                Map.entry("correct_choice_key",  a.correctChoiceKey()),
-                Map.entry("selected_choice_key", a.selectedChoiceKey()),
-                Map.entry("explanation",         a.explanation() != null ? a.explanation() : ""),
-                Map.entry("is_correct",          a.isCorrect()),
-                Map.entry("submitted_at",        a.submittedAt().toString())
-        )).toList();
-        return ApiResponse.okWithMeta(Map.of("items", items),
+        var items = practiceService.listAttempts(id, userId, language).stream()
+                .map(AttemptItemDto::from).toList();
+        return ApiResponse.okWithMeta(new AttemptsDto(items),
                 Map.of("total", items.size()));
     }
 
@@ -121,61 +88,36 @@ public class PracticeSessionController {
             @CurrentUser Long userId,
             @RequestParam(required = false, defaultValue = "10") int limit
     ) {
-        if (userId == null) {
-            throw new com.dmvmotor.api.common.BusinessException("UNAUTHORIZED",
-                    "Authentication required", HttpStatus.UNAUTHORIZED);
-        }
+        requireAuth(userId);
         var result = practiceService.listHistory(userId, limit);
-        var sessions = result.sessions().stream().map(r -> {
-            int accuracy = r.answeredCount() == 0
-                    ? 0
-                    : (int) Math.round(r.correctCount() * 100.0 / r.answeredCount());
-            return Map.ofEntries(
-                    Map.entry("session_id",       String.valueOf(r.id())),
-                    Map.entry("entry_type",       r.entryType()),
-                    Map.entry("language",         r.languageCode()),
-                    Map.entry("status",           r.status()),
-                    Map.entry("started_at",       r.startedAt().toString()),
-                    Map.entry("completed_at",     r.completedAt() != null ? r.completedAt().toString() : ""),
-                    Map.entry("answered_count",   r.answeredCount()),
-                    Map.entry("correct_count",    r.correctCount()),
-                    Map.entry("accuracy_percent", accuracy)
-            );
-        }).toList();
-        return ApiResponse.ok(Map.of(
-                "sessions",    sessions,
-                "total_in_db", result.totalInDb()
-        ));
+        var sessions = result.sessions().stream().map(HistoryItemDto::from).toList();
+        return ApiResponse.ok(new HistoryDto(sessions, result.totalInDb()));
     }
 
     @GetMapping("/stats")
     public ApiResponse<?> getStats(@CurrentUser Long userId) {
+        requireAuth(userId);
+        return ApiResponse.ok(StatsDto.from(practiceService.getStats(userId)));
+    }
+
+    private void requireAuth(Long userId) {
         if (userId == null) {
-            throw new com.dmvmotor.api.common.BusinessException("UNAUTHORIZED",
+            throw new BusinessException("UNAUTHORIZED",
                     "Authentication required", HttpStatus.UNAUTHORIZED);
         }
-        var s = practiceService.getStats(userId);
-        return ApiResponse.ok(Map.of(
-                "total_sessions",             s.totalSessions(),
-                "total_questions_answered",   s.totalQuestionsAnswered(),
-                "total_correct",              s.totalCorrect(),
-                "overall_accuracy_percent",   s.overallAccuracyPercent(),
-                "active_mistakes_count",      s.activeMistakesCount(),
-                "active_mistakes_topic_count", s.activeMistakesTopicCount()
-        ));
     }
 
     // ---------------------------------------------------------------
-    // DTOs
+    // Request DTOs
     // ---------------------------------------------------------------
 
     record StartRequest(
             @NotBlank(message = "must not be blank") String entry_type,
             String language,
-            java.util.List<Long> topic_filter
+            List<Long> topic_filter
     ) {
         String entryType() { return entry_type; }
-        java.util.List<Long> topicFilter() { return topic_filter; }
+        List<Long> topicFilter() { return topic_filter; }
     }
 
     record AnswerRequest(
@@ -188,12 +130,100 @@ public class PracticeSessionController {
         String selectedChoiceKey() { return selected_choice_key; }
     }
 
-    private Map<String, Object> toQuestionDto(QuestionDetail q) {
-        return Map.of(
-                "question_id", String.valueOf(q.questionId()),
-                "variant_id",  String.valueOf(q.variantId()),
-                "stem",        q.stem(),
-                "choices",     q.choices()
-        );
+    // ---------------------------------------------------------------
+    // Response DTOs — explicit records (snake_case via Jackson) so the wire
+    // contract is type-checked instead of stringly-keyed inline maps. Each
+    // `from` factory owns the id-stringification and null-defaulting that the
+    // old Map.of ternaries did.
+    // ---------------------------------------------------------------
+
+    record QuestionDto(String questionId, String variantId, String stem, List<Choice> choices) {
+        static QuestionDto from(QuestionDetail q) {
+            return new QuestionDto(String.valueOf(q.questionId()), String.valueOf(q.variantId()),
+                    q.stem(), q.choices());
+        }
+    }
+
+    record ProgressDto(int answeredCount) {}
+
+    record StartSessionDto(String sessionId, String entryType, String status,
+                           String language, QuestionDto nextQuestion) {
+        static StartSessionDto from(PracticeService.StartSessionResult r) {
+            return new StartSessionDto(String.valueOf(r.sessionId()), r.entryType(),
+                    r.status(), r.language(), QuestionDto.from(r.nextQuestion()));
+        }
+    }
+
+    record NextQuestionDto(String questionId, String variantId, String stem,
+                           List<Choice> choices, ProgressDto progress) {
+        static NextQuestionDto from(QuestionDetail q, int answered) {
+            return new NextQuestionDto(String.valueOf(q.questionId()),
+                    String.valueOf(q.variantId()), q.stem(), q.choices(),
+                    new ProgressDto(answered));
+        }
+    }
+
+    record SessionStatusDto(String sessionId, String status, int answeredCount, int totalCount) {
+        static SessionStatusDto from(PracticeService.SessionStatus s) {
+            return new SessionStatusDto(String.valueOf(s.sessionId()), s.status(),
+                    s.answeredCount(), s.totalCount());
+        }
+    }
+
+    record SubmitAnswerDto(String questionId, boolean isCorrect, String correctChoiceKey,
+                           String explanation, ProgressDto progress) {
+        static SubmitAnswerDto from(AnswerResult r) {
+            return new SubmitAnswerDto(String.valueOf(r.questionId()), r.isCorrect(),
+                    r.correctChoiceKey(), r.explanation() != null ? r.explanation() : "",
+                    new ProgressDto(r.answeredCount()));
+        }
+    }
+
+    record CompleteSessionDto(String sessionId, String status) {
+        static CompleteSessionDto from(PracticeService.CompletedSession r) {
+            return new CompleteSessionDto(String.valueOf(r.sessionId()), r.status());
+        }
+    }
+
+    record AttemptsDto(List<AttemptItemDto> items) {}
+
+    record AttemptItemDto(String questionId, String variantId, String topicId, String language,
+                          String stem, List<Choice> choices, String correctChoiceKey,
+                          String selectedChoiceKey, String explanation, boolean isCorrect,
+                          String submittedAt) {
+        static AttemptItemDto from(PracticeSessionRepository.AttemptDetail a) {
+            return new AttemptItemDto(
+                    String.valueOf(a.questionId()), String.valueOf(a.variantId()),
+                    String.valueOf(a.topicId()), a.language(), a.stem(), a.choices(),
+                    a.correctChoiceKey(), a.selectedChoiceKey(),
+                    a.explanation() != null ? a.explanation() : "",
+                    a.isCorrect(), a.submittedAt().toString());
+        }
+    }
+
+    record HistoryDto(List<HistoryItemDto> sessions, int totalInDb) {}
+
+    record HistoryItemDto(String sessionId, String entryType, String language, String status,
+                          String startedAt, String completedAt, int answeredCount,
+                          int correctCount, int accuracyPercent) {
+        static HistoryItemDto from(PracticeSessionRepository.SessionHistoryRow r) {
+            int accuracy = r.answeredCount() == 0 ? 0
+                    : (int) Math.round(r.correctCount() * 100.0 / r.answeredCount());
+            return new HistoryItemDto(
+                    String.valueOf(r.id()), r.entryType(), r.languageCode(), r.status(),
+                    r.startedAt().toString(),
+                    r.completedAt() != null ? r.completedAt().toString() : "",
+                    r.answeredCount(), r.correctCount(), accuracy);
+        }
+    }
+
+    record StatsDto(int totalSessions, int totalQuestionsAnswered, int totalCorrect,
+                    int overallAccuracyPercent, int activeMistakesCount,
+                    int activeMistakesTopicCount) {
+        static StatsDto from(PracticeService.PracticeStats s) {
+            return new StatsDto(s.totalSessions(), s.totalQuestionsAnswered(), s.totalCorrect(),
+                    s.overallAccuracyPercent(), s.activeMistakesCount(),
+                    s.activeMistakesTopicCount());
+        }
     }
 }

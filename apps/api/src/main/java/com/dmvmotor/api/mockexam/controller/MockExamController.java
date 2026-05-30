@@ -4,15 +4,21 @@ import com.dmvmotor.api.common.ApiResponse;
 import com.dmvmotor.api.common.BusinessException;
 import com.dmvmotor.api.common.CurrentUser;
 import com.dmvmotor.api.common.Ids;
+import com.dmvmotor.api.content.domain.Choice;
 import com.dmvmotor.api.content.domain.QuestionDetail;
 import com.dmvmotor.api.mockexam.application.MockExamService;
 import com.dmvmotor.api.mockexam.application.MockExamService.*;
+import com.dmvmotor.api.mockexam.infrastructure.MockExamRepository.AnswerDetail;
+import com.dmvmotor.api.mockexam.infrastructure.MockExamRepository.AttemptHistoryRow;
+import com.dmvmotor.api.mockexam.infrastructure.MockExamRepository.AttemptStats;
 import com.dmvmotor.api.mockexam.infrastructure.MockExamRepository.WeakTopicRow;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
 import java.util.Map;
 
 @RestController
@@ -28,12 +34,7 @@ public class MockExamController {
     @GetMapping("/access")
     public ApiResponse<?> getMockAccess(@CurrentUser Long userId) {
         requireAuth(userId);
-        MockAccessResult result = mockExamService.checkAccess(userId);
-        return ApiResponse.ok(Map.of(
-                "allowed",        result.allowed(),
-                "mock_remaining", result.mockRemaining(),
-                "reason",         result.reason() != null ? result.reason() : ""
-        ));
+        return ApiResponse.ok(MockAccessDto.from(mockExamService.checkAccess(userId)));
     }
 
     @PostMapping("/attempts")
@@ -45,12 +46,7 @@ public class MockExamController {
         requireAuth(userId);
         StartAttemptResult result = mockExamService.startAttempt(
                 userId, req.language() != null ? req.language() : "en");
-        return ApiResponse.ok(Map.of(
-                "mock_attempt_id",             String.valueOf(result.attemptId()),
-                "status",                      result.status(),
-                "mock_remaining_after_start",  result.mockRemainingAfterStart(),
-                "questions", result.questions().stream().map(this::toQuestionDto).toList()
-        ));
+        return ApiResponse.ok(StartAttemptDto.from(result));
     }
 
     @GetMapping("/attempts/{id}")
@@ -60,33 +56,8 @@ public class MockExamController {
             @RequestParam(required = false) String language
     ) {
         requireAuth(userId);
-        var result = mockExamService.getAttemptDetail(id, userId, language);
-        return ApiResponse.ok(Map.ofEntries(
-                Map.entry("mock_attempt_id", String.valueOf(result.attemptId())),
-                Map.entry("mock_exam_id",    String.valueOf(result.mockExamId())),
-                Map.entry("status",          result.status()),
-                Map.entry("language",        result.language()),
-                // Score summary lets a cold re-open of a finished attempt render
-                // the result view. Same sentinels as /attempts/history: no score
-                // yet ⇒ -1, counts default to 0.
-                Map.entry("score_percent",   result.scorePercent() == null ? -1 : result.scorePercent()),
-                Map.entry("correct_count",   result.correctCount() == null ? 0 : result.correctCount()),
-                Map.entry("wrong_count",     result.wrongCount() == null ? 0 : result.wrongCount()),
-                // Timer: client anchors the countdown to started_at + limit so a
-                // refresh resumes the same clock. time_used is set once finished.
-                Map.entry("time_limit_seconds", result.timeLimitSeconds()),
-                Map.entry("started_at",         result.startedAt().toString()),
-                Map.entry("time_used_seconds",  result.timeUsedSeconds() == null ? -1 : result.timeUsedSeconds()),
-                Map.entry("questions",       result.questions().stream().map(this::toQuestionDto).toList()),
-                Map.entry("saved_answers",   result.savedAnswers().stream()
-                        .map(a -> Map.of(
-                                "question_id",         String.valueOf(a.questionId()),
-                                "selected_choice_key", a.selectedKey(),
-                                "correct_choice_key",  a.correctKey() != null ? a.correctKey() : "",
-                                "is_correct",          a.isCorrect() != null ? a.isCorrect() : false,
-                                "explanation",         a.explanation() != null ? a.explanation() : ""))
-                        .toList())
-        ));
+        return ApiResponse.ok(
+                AttemptDetailDto.from(mockExamService.getAttemptDetail(id, userId, language)));
     }
 
     @PostMapping("/attempts/{id}/answers")
@@ -107,15 +78,7 @@ public class MockExamController {
             throw new BusinessException("MOCK_EXPIRED",
                     "Time is up — the exam has ended", HttpStatus.CONFLICT);
         }
-        return ApiResponse.ok(Map.ofEntries(
-                Map.entry("saved",              result.saved()),
-                Map.entry("answered_count",     result.answeredCount()),
-                Map.entry("is_correct",         result.isCorrect()),
-                Map.entry("correct_choice_key", result.correctChoiceKey()),
-                Map.entry("wrong_count",        result.wrongCountSoFar()),
-                Map.entry("max_allowed_wrong",  result.maxAllowedWrong()),
-                Map.entry("should_terminate",   result.shouldTerminate())
-        ));
+        return ApiResponse.ok(SaveAnswerDto.from(result));
     }
 
     @PostMapping("/attempts/{id}/submit")
@@ -124,20 +87,7 @@ public class MockExamController {
             @PathVariable Long id
     ) {
         requireAuth(userId);
-        SubmitResult result = mockExamService.submitAttempt(id, userId);
-        return ApiResponse.ok(Map.of(
-                "mock_attempt_id", String.valueOf(result.attemptId()),
-                "status",          result.status(),
-                "score_percent",   result.scorePercent(),
-                "correct_count",   result.correctCount(),
-                "wrong_count",     result.wrongCount(),
-                "weak_topics",     result.weakTopics().stream()
-                        .map(t -> Map.of(
-                                "topic_id", String.valueOf(t.topicId()),
-                                "label",    t.label()))
-                        .toList(),
-                "next_action",     result.nextAction()
-        ));
+        return ApiResponse.ok(SubmitDto.from(mockExamService.submitAttempt(id, userId)));
     }
 
     @PostMapping("/attempts/{id}/exit")
@@ -146,17 +96,35 @@ public class MockExamController {
             @PathVariable Long id
     ) {
         requireAuth(userId);
-        ExitResult result = mockExamService.exitAttempt(id, userId);
-        return ApiResponse.ok(Map.of(
-                "mock_attempt_id", String.valueOf(result.attemptId()),
-                "status",          result.status(),
-                "quota_consumed",  result.quotaConsumed(),
-                "answered_count",  result.answeredCount()
-        ));
+        return ApiResponse.ok(ExitDto.from(mockExamService.exitAttempt(id, userId)));
+    }
+
+    @GetMapping("/attempts/history")
+    public ApiResponse<?> listAttemptHistory(
+            @CurrentUser Long userId,
+            @RequestParam(required = false, defaultValue = "10") int limit
+    ) {
+        requireAuth(userId);
+        var result = mockExamService.listHistory(userId, limit);
+        var attempts = result.attempts().stream().map(AttemptHistoryItemDto::from).toList();
+        return ApiResponse.ok(new AttemptHistoryDto(attempts, result.totalInDb()));
+    }
+
+    @GetMapping("/attempts/stats")
+    public ApiResponse<?> getAttemptStats(@CurrentUser Long userId) {
+        requireAuth(userId);
+        return ApiResponse.ok(AttemptStatsDto.from(mockExamService.getStats(userId)));
+    }
+
+    private void requireAuth(Long userId) {
+        if (userId == null) {
+            throw new BusinessException("UNAUTHORIZED", "Authentication required",
+                    HttpStatus.UNAUTHORIZED);
+        }
     }
 
     // ---------------------------------------------------------------
-    // DTOs
+    // Request DTOs
     // ---------------------------------------------------------------
 
     record StartRequest(String language) {}
@@ -171,57 +139,121 @@ public class MockExamController {
         String selectedKey() { return selected_choice_key; }
     }
 
-    @GetMapping("/attempts/history")
-    public ApiResponse<?> listAttemptHistory(
-            @CurrentUser Long userId,
-            @RequestParam(required = false, defaultValue = "10") int limit
-    ) {
-        requireAuth(userId);
-        var result = mockExamService.listHistory(userId, limit);
-        var attempts = result.attempts().stream().map(r -> Map.ofEntries(
-                Map.entry("attempt_id",      String.valueOf(r.id())),
-                Map.entry("mock_exam_id",    String.valueOf(r.mockExamId())),
-                Map.entry("mock_exam_code",  r.mockExamCode()),
-                Map.entry("status",          r.status()),
-                Map.entry("score_percent",   r.scorePercent() == null ? -1 : r.scorePercent()),
-                Map.entry("correct_count",   r.correctCount() == null ? 0 : r.correctCount()),
-                Map.entry("answered_count",  r.answeredCount()),
-                Map.entry("started_at",      r.startedAt().toString()),
-                Map.entry("submitted_at",    r.submittedAt() != null ? r.submittedAt().toString() : "")
-        )).toList();
-        return ApiResponse.ok(Map.of(
-                "attempts",    attempts,
-                "total_in_db", result.totalInDb()
-        ));
+    // ---------------------------------------------------------------
+    // Response DTOs — explicit records (snake_case via Jackson) so the wire
+    // contract is type-checked instead of stringly-keyed inline maps. Each
+    // `from` factory owns the id-stringification and null-defaulting (-1 for
+    // "no score", 0 for counts, "" for absent strings) the old Map.of did.
+    // ---------------------------------------------------------------
+
+    record QuestionDto(String questionId, String variantId, String stem, List<Choice> choices) {
+        static QuestionDto from(QuestionDetail q) {
+            return new QuestionDto(String.valueOf(q.questionId()), String.valueOf(q.variantId()),
+                    q.stem(), q.choices());
+        }
     }
 
-    @GetMapping("/attempts/stats")
-    public ApiResponse<?> getAttemptStats(@CurrentUser Long userId) {
-        requireAuth(userId);
-        var s = mockExamService.getStats(userId);
-        return ApiResponse.ok(Map.of(
-                "total_attempts",               s.totalAttempts(),
-                "submitted_count",              s.submittedCount(),
-                "exited_count",                 s.exitedCount(),
-                "recent_3_avg_score_percent",   s.recent3AvgScorePercent() == null ? -1 : s.recent3AvgScorePercent(),
-                "best_score_percent",           s.bestScorePercent() == null ? -1 : s.bestScorePercent(),
-                "latest_score_percent",         s.latestScorePercent() == null ? -1 : s.latestScorePercent()
-        ));
+    record MockAccessDto(boolean allowed, int mockRemaining, String reason) {
+        static MockAccessDto from(MockAccessResult r) {
+            return new MockAccessDto(r.allowed(), r.mockRemaining(),
+                    r.reason() != null ? r.reason() : "");
+        }
     }
 
-    private Map<String, Object> toQuestionDto(QuestionDetail q) {
-        return Map.of(
-                "question_id", String.valueOf(q.questionId()),
-                "variant_id",  String.valueOf(q.variantId()),
-                "stem",        q.stem(),
-                "choices",     q.choices()
-        );
+    record StartAttemptDto(String mockAttemptId, String status, int mockRemainingAfterStart,
+                           List<QuestionDto> questions) {
+        static StartAttemptDto from(StartAttemptResult r) {
+            return new StartAttemptDto(String.valueOf(r.attemptId()), r.status(),
+                    r.mockRemainingAfterStart(),
+                    r.questions().stream().map(QuestionDto::from).toList());
+        }
     }
 
-    private void requireAuth(Long userId) {
-        if (userId == null) {
-            throw new BusinessException("UNAUTHORIZED", "Authentication required",
-                    HttpStatus.UNAUTHORIZED);
+    record SavedAnswerDto(String questionId, String selectedChoiceKey, String correctChoiceKey,
+                          boolean isCorrect, String explanation) {
+        static SavedAnswerDto from(AnswerDetail a) {
+            return new SavedAnswerDto(String.valueOf(a.questionId()), a.selectedKey(),
+                    a.correctKey() != null ? a.correctKey() : "",
+                    a.isCorrect() != null ? a.isCorrect() : false,
+                    a.explanation() != null ? a.explanation() : "");
+        }
+    }
+
+    record AttemptDetailDto(String mockAttemptId, String mockExamId, String status, String language,
+                            int scorePercent, int correctCount, int wrongCount,
+                            int timeLimitSeconds, String startedAt, int timeUsedSeconds,
+                            List<QuestionDto> questions, List<SavedAnswerDto> savedAnswers) {
+        static AttemptDetailDto from(AttemptDetailResult r) {
+            return new AttemptDetailDto(
+                    String.valueOf(r.attemptId()), String.valueOf(r.mockExamId()),
+                    r.status(), r.language(),
+                    r.scorePercent() == null ? -1 : r.scorePercent(),
+                    r.correctCount() == null ? 0 : r.correctCount(),
+                    r.wrongCount() == null ? 0 : r.wrongCount(),
+                    r.timeLimitSeconds(), r.startedAt().toString(),
+                    r.timeUsedSeconds() == null ? -1 : r.timeUsedSeconds(),
+                    r.questions().stream().map(QuestionDto::from).toList(),
+                    r.savedAnswers().stream().map(SavedAnswerDto::from).toList());
+        }
+    }
+
+    record SaveAnswerDto(boolean saved, int answeredCount, boolean isCorrect,
+                         String correctChoiceKey, int wrongCount, int maxAllowedWrong,
+                         boolean shouldTerminate) {
+        static SaveAnswerDto from(SaveAnswerResult r) {
+            return new SaveAnswerDto(r.saved(), r.answeredCount(), r.isCorrect(),
+                    r.correctChoiceKey(), r.wrongCountSoFar(), r.maxAllowedWrong(),
+                    r.shouldTerminate());
+        }
+    }
+
+    record WeakTopicDto(String topicId, String label) {
+        static WeakTopicDto from(WeakTopicRow t) {
+            return new WeakTopicDto(String.valueOf(t.topicId()), t.label());
+        }
+    }
+
+    record SubmitDto(String mockAttemptId, String status, int scorePercent, int correctCount,
+                     int wrongCount, List<WeakTopicDto> weakTopics, Map<String, String> nextAction) {
+        static SubmitDto from(SubmitResult r) {
+            return new SubmitDto(String.valueOf(r.attemptId()), r.status(), r.scorePercent(),
+                    r.correctCount(), r.wrongCount(),
+                    r.weakTopics().stream().map(WeakTopicDto::from).toList(),
+                    r.nextAction());
+        }
+    }
+
+    record ExitDto(String mockAttemptId, String status, boolean quotaConsumed, int answeredCount) {
+        static ExitDto from(ExitResult r) {
+            return new ExitDto(String.valueOf(r.attemptId()), r.status(),
+                    r.quotaConsumed(), r.answeredCount());
+        }
+    }
+
+    record AttemptHistoryDto(List<AttemptHistoryItemDto> attempts, int totalInDb) {}
+
+    record AttemptHistoryItemDto(String attemptId, String mockExamId, String mockExamCode,
+                                 String status, int scorePercent, int correctCount,
+                                 int answeredCount, String startedAt, String submittedAt) {
+        static AttemptHistoryItemDto from(AttemptHistoryRow r) {
+            return new AttemptHistoryItemDto(
+                    String.valueOf(r.id()), String.valueOf(r.mockExamId()), r.mockExamCode(),
+                    r.status(),
+                    r.scorePercent() == null ? -1 : r.scorePercent(),
+                    r.correctCount() == null ? 0 : r.correctCount(),
+                    r.answeredCount(), r.startedAt().toString(),
+                    r.submittedAt() != null ? r.submittedAt().toString() : "");
+        }
+    }
+
+    record AttemptStatsDto(int totalAttempts, int submittedCount, int exitedCount,
+                           @JsonProperty("recent_3_avg_score_percent") int recent3AvgScorePercent,
+                           int bestScorePercent, int latestScorePercent) {
+        static AttemptStatsDto from(AttemptStats s) {
+            return new AttemptStatsDto(s.totalAttempts(), s.submittedCount(), s.exitedCount(),
+                    s.recent3AvgScorePercent() == null ? -1 : s.recent3AvgScorePercent(),
+                    s.bestScorePercent() == null ? -1 : s.bestScorePercent(),
+                    s.latestScorePercent() == null ? -1 : s.latestScorePercent());
         }
     }
 }
