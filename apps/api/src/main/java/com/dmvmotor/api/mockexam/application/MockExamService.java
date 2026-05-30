@@ -8,6 +8,7 @@ import com.dmvmotor.api.common.ResourceNotFoundException;
 import com.dmvmotor.api.content.domain.QuestionDetail;
 import com.dmvmotor.api.content.infrastructure.QuestionRepository;
 import com.dmvmotor.api.mockexam.infrastructure.MockExamRepository;
+import com.dmvmotor.api.mockexam.infrastructure.MockHistoryDao;
 import com.dmvmotor.api.mockexam.infrastructure.MockExamRepository.AnswerDetail;
 import com.dmvmotor.api.mockexam.infrastructure.MockExamRepository.AttemptRow;
 import com.dmvmotor.api.mistakereview.infrastructure.MistakeRepository;
@@ -25,6 +26,7 @@ import java.util.Map;
 public class MockExamService {
 
     private final MockExamRepository mockExamRepo;
+    private final MockHistoryDao     historyDao;
     private final AccessService      accessService;
     private final QuestionRepository questionRepo;
     private final MistakeRepository  mistakeRepo;
@@ -33,6 +35,7 @@ public class MockExamService {
     private final ApplicationEventPublisher events;
 
     public MockExamService(MockExamRepository mockExamRepo,
+                           MockHistoryDao historyDao,
                            AccessService accessService,
                            QuestionRepository questionRepo,
                            MistakeRepository mistakeRepo,
@@ -40,6 +43,7 @@ public class MockExamService {
                            MockScoringPolicy scoringPolicy,
                            ApplicationEventPublisher events) {
         this.mockExamRepo  = mockExamRepo;
+        this.historyDao    = historyDao;
         this.accessService = accessService;
         this.questionRepo  = questionRepo;
         this.mistakeRepo   = mistakeRepo;
@@ -273,18 +277,18 @@ public class MockExamService {
 
     public AttemptHistoryResult listHistory(Long userId, int requestedLimit) {
         int limit = Math.min(Math.max(requestedLimit, 1), MAX_HISTORY_LIMIT);
-        var rows = mockExamRepo.findRecentByUser(userId, limit);
-        int totalInDb = mockExamRepo.countAttemptsByUser(userId);
+        var rows = historyDao.findRecentByUser(userId, limit);
+        int totalInDb = historyDao.countAttemptsByUser(userId);
         return new AttemptHistoryResult(rows, totalInDb);
     }
 
-    public MockExamRepository.AttemptStats getStats(Long userId) {
-        return mockExamRepo.aggregateStats(userId);
+    public MockHistoryDao.AttemptStats getStats(Long userId) {
+        return historyDao.aggregateStats(userId);
     }
 
     public record AttemptHistoryResult(
-            List<MockExamRepository.AttemptHistoryRow> attempts,
-            int                                        totalInDb
+            List<MockHistoryDao.AttemptHistoryRow> attempts,
+            int                                    totalInDb
     ) {}
 
     /**

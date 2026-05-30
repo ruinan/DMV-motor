@@ -10,10 +10,11 @@ import com.dmvmotor.api.mistakereview.infrastructure.MistakeListRepository;
 import com.dmvmotor.api.practice.domain.AnswerResult;
 import com.dmvmotor.api.practice.domain.PracticeSession;
 import com.dmvmotor.api.mistakereview.infrastructure.MistakeRepository;
+import com.dmvmotor.api.practice.infrastructure.PracticeHistoryDao;
+import com.dmvmotor.api.practice.infrastructure.PracticeHistoryDao.AttemptTotals;
+import com.dmvmotor.api.practice.infrastructure.PracticeHistoryDao.SessionHistoryRow;
 import com.dmvmotor.api.practice.infrastructure.PracticeQuestionSelector;
 import com.dmvmotor.api.practice.infrastructure.PracticeSessionRepository;
-import com.dmvmotor.api.practice.infrastructure.PracticeSessionRepository.AttemptTotals;
-import com.dmvmotor.api.practice.infrastructure.PracticeSessionRepository.SessionHistoryRow;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -27,6 +28,7 @@ public class PracticeService {
 
     private final PracticeSessionRepository sessionRepo;
     private final PracticeQuestionSelector  questionSelector;
+    private final PracticeHistoryDao        historyDao;
     private final QuestionRepository        questionRepo;
     private final MistakeRepository         mistakeRepo;
     private final MistakeListRepository     mistakeListRepo;
@@ -35,6 +37,7 @@ public class PracticeService {
 
     public PracticeService(PracticeSessionRepository sessionRepo,
                            PracticeQuestionSelector questionSelector,
+                           PracticeHistoryDao historyDao,
                            QuestionRepository questionRepo,
                            MistakeRepository mistakeRepo,
                            MistakeListRepository mistakeListRepo,
@@ -42,6 +45,7 @@ public class PracticeService {
                            UserRepository userRepo) {
         this.sessionRepo      = sessionRepo;
         this.questionSelector = questionSelector;
+        this.historyDao       = historyDao;
         this.questionRepo     = questionRepo;
         this.mistakeRepo      = mistakeRepo;
         this.mistakeListRepo  = mistakeListRepo;
@@ -51,14 +55,14 @@ public class PracticeService {
 
     public SessionHistoryResult listHistory(Long userId, int requestedLimit) {
         int limit = Math.min(Math.max(requestedLimit, 1), MAX_HISTORY_LIMIT);
-        List<SessionHistoryRow> rows = sessionRepo.findRecentByUserWithStats(userId, limit);
-        int totalInDb = sessionRepo.countByUser(userId);
+        List<SessionHistoryRow> rows = historyDao.findRecentByUserWithStats(userId, limit);
+        int totalInDb = historyDao.countByUser(userId);
         return new SessionHistoryResult(rows, totalInDb);
     }
 
     public PracticeStats getStats(Long userId) {
-        int totalSessions = sessionRepo.countByUser(userId);
-        AttemptTotals totals = sessionRepo.attemptTotals(userId);
+        int totalSessions = historyDao.countByUser(userId);
+        AttemptTotals totals = historyDao.attemptTotals(userId);
         int cycle = userRepo.findById(userId).map(UserRepository.UserRow::resetCount).orElse(0);
         int activeMistakes = mistakeListRepo.countActive(userId, cycle);
         int activeMistakeTopics = mistakeListRepo.countDistinctActiveTopics(userId, cycle);

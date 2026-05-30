@@ -8,6 +8,7 @@ import com.dmvmotor.api.content.domain.Choice;
 import com.dmvmotor.api.content.domain.QuestionDetail;
 import com.dmvmotor.api.practice.application.PracticeService;
 import com.dmvmotor.api.practice.domain.AnswerResult;
+import com.dmvmotor.api.practice.infrastructure.PracticeHistoryDao;
 import com.dmvmotor.api.practice.infrastructure.PracticeSessionRepository;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
@@ -206,7 +207,7 @@ public class PracticeSessionController {
     record HistoryItemDto(String sessionId, String entryType, String language, String status,
                           String startedAt, String completedAt, int answeredCount,
                           int correctCount, int accuracyPercent) {
-        static HistoryItemDto from(PracticeSessionRepository.SessionHistoryRow r) {
+        static HistoryItemDto from(PracticeHistoryDao.SessionHistoryRow r) {
             int accuracy = r.answeredCount() == 0 ? 0
                     : (int) Math.round(r.correctCount() * 100.0 / r.answeredCount());
             return new HistoryItemDto(
