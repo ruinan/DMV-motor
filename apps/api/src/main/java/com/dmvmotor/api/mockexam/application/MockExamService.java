@@ -29,6 +29,7 @@ public class MockExamService {
     private final QuestionRepository questionRepo;
     private final MistakeRepository  mistakeRepo;
     private final UserRepository     userRepo;
+    private final MockScoringPolicy  scoringPolicy;
     private final ApplicationEventPublisher events;
 
     public MockExamService(MockExamRepository mockExamRepo,
@@ -36,12 +37,14 @@ public class MockExamService {
                            QuestionRepository questionRepo,
                            MistakeRepository mistakeRepo,
                            UserRepository userRepo,
+                           MockScoringPolicy scoringPolicy,
                            ApplicationEventPublisher events) {
         this.mockExamRepo  = mockExamRepo;
         this.accessService = accessService;
         this.questionRepo  = questionRepo;
         this.mistakeRepo   = mistakeRepo;
         this.userRepo      = userRepo;
+        this.scoringPolicy = scoringPolicy;
         this.events        = events;
     }
 
@@ -84,22 +87,9 @@ public class MockExamService {
                 mockRemainingAfterStart, questions);
     }
 
-    /**
-     * Pass threshold = 85% per docs/parameters.md. Anything strictly above the
-     * resulting wrong cap → exam auto-terminates with status='ended_by_failure'.
-     * 30-question exam → ceil(30 × 0.15) = 5 wrongs allowed; on the 6th, fail.
-     * Kept in service so unit-test overrides land without an env round-trip.
-     */
-    private static final double PASS_THRESHOLD = 0.85;
-
-    private int maxAllowedWrong(int totalQuestions) {
-        return (int) Math.ceil(totalQuestions * (1 - PASS_THRESHOLD));
-    }
-
-    private static int scorePercent(int correctCount, int totalQuestions) {
-        if (totalQuestions == 0) return 0;
-        return (int) Math.round(100.0 * correctCount / totalQuestions);
-    }
+    // Scoring + pass/fail rules now live in MockScoringPolicy (dev-audit #4).
+    // The timer mechanics below stay here: they read OffsetDateTime.now(), so
+    // they're attempt orchestration, not deterministic scoring policy.
 
     private static int elapsedSeconds(AttemptRow attempt) {
         return (int) Duration.between(attempt.startedAt(), OffsetDateTime.now()).getSeconds();
@@ -116,7 +106,7 @@ public class MockExamService {
         int wrongCount   = mockExamRepo.countWrongAnswers(attempt.id());
         int total        = mockExamRepo.findMockExamQuestionCount(attempt.mockExamId());
         mockExamRepo.finalizeAttempt(attempt.id(), "ended_by_timeout",
-                scorePercent(correctCount, total), correctCount, wrongCount, limitSeconds);
+                scoringPolicy.scorePercent(correctCount, total), correctCount, wrongCount, limitSeconds);
         events.publishEvent(new MockAttemptCompletedEvent(attempt.id(), attempt.userId()));
     }
 
@@ -170,13 +160,13 @@ public class MockExamService {
 
         int wrongCount = mockExamRepo.countWrongAnswers(attemptId);
         int totalQuestions = mockExamRepo.findMockExamQuestionCount(attempt.mockExamId());
-        int maxWrong = maxAllowedWrong(totalQuestions);
+        int maxWrong = scoringPolicy.maxAllowedWrong(totalQuestions);
         boolean shouldTerminate = wrongCount > maxWrong;
 
         if (shouldTerminate) {
             int correctCount = mockExamRepo.countCorrectAnswers(attemptId);
             mockExamRepo.finalizeAttempt(attemptId, "ended_by_failure",
-                    scorePercent(correctCount, totalQuestions), correctCount, wrongCount,
+                    scoringPolicy.scorePercent(correctCount, totalQuestions), correctCount, wrongCount,
                     Math.min(elapsedSeconds(attempt), limitSeconds));
             events.publishEvent(new MockAttemptCompletedEvent(attemptId, userId));
         }
@@ -207,8 +197,9 @@ public class MockExamService {
         int limitSeconds = mockExamRepo.findTimeLimitSeconds(attempt.mockExamId());
         String status = isExpired(attempt, limitSeconds) ? "ended_by_timeout" : "submitted";
         int timeUsed = Math.min(elapsedSeconds(attempt), limitSeconds);
+        int score = scoringPolicy.scorePercent(correctCount, total);
         mockExamRepo.finalizeAttempt(attemptId, status,
-                scorePercent(correctCount, total), correctCount, wrongCount, timeUsed);
+                score, correctCount, wrongCount, timeUsed);
         events.publishEvent(new MockAttemptCompletedEvent(attemptId, userId));
 
         List<MockExamRepository.WeakTopicRow> weakTopics =
@@ -218,7 +209,7 @@ public class MockExamService {
                 ? Map.of("type", "review", "label", "Review weak topics first")
                 : Map.of("type", "practice", "label", "Keep practicing");
 
-        return new SubmitResult(attemptId, status, scorePercent(correctCount, total),
+        return new SubmitResult(attemptId, status, score,
                 correctCount, wrongCount, weakTopics, nextAction);
     }
 
