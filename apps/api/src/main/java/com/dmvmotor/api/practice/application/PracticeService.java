@@ -10,6 +10,7 @@ import com.dmvmotor.api.mistakereview.infrastructure.MistakeListRepository;
 import com.dmvmotor.api.practice.domain.AnswerResult;
 import com.dmvmotor.api.practice.domain.PracticeSession;
 import com.dmvmotor.api.mistakereview.infrastructure.MistakeRepository;
+import com.dmvmotor.api.practice.infrastructure.PracticeQuestionSelector;
 import com.dmvmotor.api.practice.infrastructure.PracticeSessionRepository;
 import com.dmvmotor.api.practice.infrastructure.PracticeSessionRepository.AttemptTotals;
 import com.dmvmotor.api.practice.infrastructure.PracticeSessionRepository.SessionHistoryRow;
@@ -25,6 +26,7 @@ public class PracticeService {
     private static final int MAX_HISTORY_LIMIT = 50;
 
     private final PracticeSessionRepository sessionRepo;
+    private final PracticeQuestionSelector  questionSelector;
     private final QuestionRepository        questionRepo;
     private final MistakeRepository         mistakeRepo;
     private final MistakeListRepository     mistakeListRepo;
@@ -32,17 +34,19 @@ public class PracticeService {
     private final UserRepository            userRepo;
 
     public PracticeService(PracticeSessionRepository sessionRepo,
+                           PracticeQuestionSelector questionSelector,
                            QuestionRepository questionRepo,
                            MistakeRepository mistakeRepo,
                            MistakeListRepository mistakeListRepo,
                            AccessService accessService,
                            UserRepository userRepo) {
-        this.sessionRepo     = sessionRepo;
-        this.questionRepo    = questionRepo;
-        this.mistakeRepo     = mistakeRepo;
-        this.mistakeListRepo = mistakeListRepo;
-        this.accessService   = accessService;
-        this.userRepo        = userRepo;
+        this.sessionRepo      = sessionRepo;
+        this.questionSelector = questionSelector;
+        this.questionRepo     = questionRepo;
+        this.mistakeRepo      = mistakeRepo;
+        this.mistakeListRepo  = mistakeListRepo;
+        this.accessService    = accessService;
+        this.userRepo         = userRepo;
     }
 
     public SessionHistoryResult listHistory(Long userId, int requestedLimit) {
@@ -118,7 +122,7 @@ public class PracticeService {
 
         Long sessionId = sessionRepo.create(userId, entryType, language, cycle, filter);
 
-        QuestionDetail first = sessionRepo
+        QuestionDetail first = questionSelector
                 .findNextUnansweredQuestion(sessionId, language, entryType, userId, cycle, filter)
                 .orElseThrow(() -> new BusinessException("NO_QUESTIONS_AVAILABLE",
                         "No questions available for the selected topics",
@@ -159,7 +163,7 @@ public class PracticeService {
                     "No more questions in this session", HttpStatus.NOT_FOUND);
         }
 
-        return sessionRepo.findNextUnansweredQuestion(
+        return questionSelector.findNextUnansweredQuestion(
                         sessionId, effectiveLang, session.entryType(),
                         session.userId(), cycle, session.topicFilter())
                 .orElseThrow(() -> new BusinessException("SESSION_COMPLETED",
