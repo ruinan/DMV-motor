@@ -83,8 +83,11 @@ type Props = {
 export function PracticeFlow({ t, lang }: Props) {
   // Drive isLoggedIn off Firebase auth state, not /me fetch state — otherwise
   // the anonymous "Sign in or register" UI flashes for the half-second between
-  // Firebase resolving the user and /me returning the profile.
-  const { user } = useAuth();
+  // Firebase resolving the user and /me returning the profile. authLoading is
+  // the "we don't know yet" window on a hard refresh — treat it as unknown
+  // (show a spinner), never as anonymous, or a signed-in user mid-practice
+  // sees the free-trial landing flash before auth rehydrates.
+  const { user, loading: authLoading } = useAuth();
   const me = useMe();
   const ai = useAiExplain();
   const queryClient = useQueryClient();
@@ -334,14 +337,17 @@ export function PracticeFlow({ t, lang }: Props) {
   // Signed-in users may be about to be auto-resumed (lang toggle remount or
   // a follow-up navigation from Study Hub's Resume CTA). Don't flash the
   // idle "Start" / "Resume" UI in that window — render the same spinner the
-  // "starting" phase uses so the transition feels continuous. Covers two
-  // cases: (1) /me is still loading, we don't yet know if there's an
+  // "starting" phase uses so the transition feels continuous. Covers three
+  // cases: (0) Firebase auth is still rehydrating on a hard refresh — we don't
+  // yet know if the visitor is signed in, so don't gamble on the anonymous
+  // landing; (1) /me is still loading, we don't yet know if there's an
   // in-progress session; (2) /me reports in_progress and the useEffect
   // below is about to fire setPhase("starting").
   const willAutoResume =
     phase.kind === "idle" &&
-    !!user &&
-    (me.isLoading || me.data?.learning.in_progress_practice != null);
+    (authLoading ||
+      (!!user &&
+        (me.isLoading || me.data?.learning.in_progress_practice != null)));
   if (willAutoResume) {
     return (
       <Container>
