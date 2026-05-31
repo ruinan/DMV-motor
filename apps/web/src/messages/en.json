@@ -247,6 +247,8 @@
     "aiExplainCooldown": "Give it a moment before asking again.",
     "aiExplainUnavailable": "AI explanations are currently unavailable.",
     "aiExplainAuthRequired": "Sign in to get an AI explanation.",
+    "aiExplainDeepen": "Go deeper",
+    "aiExplainDepthReached": "Deepest explanation reached.",
     "terminatedTitle": "Exam ended — too many wrong answers",
     "terminatedBody": "You answered {answered} questions ({wrong} wrong). The exam ends once wrong answers pass the fail threshold.",
     "terminatedTryAgain": "Take a new mock exam",
@@ -320,7 +322,9 @@
     "aiExplainError": "Couldn't get an explanation. Try again later.",
     "aiExplainCooldown": "Give it a moment before asking again.",
     "aiExplainUnavailable": "AI explanations are currently unavailable.",
-    "aiExplainAuthRequired": "Sign in to get an AI explanation."
+    "aiExplainAuthRequired": "Sign in to get an AI explanation.",
+    "aiExplainDeepen": "Go deeper",
+    "aiExplainDepthReached": "Deepest explanation reached."
   },
   "progress": {
     "title": "Progress",
@@ -423,6 +427,8 @@
     "aiExplainAuthRequired": "Sign in to use AI explanations.",
     "aiExplainCooldown": "AI is cooling down. Try again in a moment.",
     "aiExplainUnavailable": "AI explanations are currently unavailable.",
-    "aiExplainError": "Couldn't generate an AI explanation. Try again later."
+    "aiExplainError": "Couldn't generate an AI explanation. Try again later.",
+    "aiExplainDeepen": "Go deeper",
+    "aiExplainDepthReached": "Deepest explanation reached."
   }
 }

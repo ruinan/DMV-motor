@@ -1,8 +1,7 @@
 "use client";
 
-import { CheckCircle2, Sparkles, XCircle } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { useAiExplain } from "@/lib/hooks/use-ai-explain";
+import { CheckCircle2, XCircle } from "lucide-react";
+import { AiExplainBlock } from "@/components/ai-explain-block";
 import type {
   MockAttemptQuestion,
   MockSavedAnswer,
@@ -68,7 +67,6 @@ function MockReviewItem({
   a: MockSavedAnswer;
   isLoggedIn: boolean;
 }) {
-  const ai = useAiExplain();
   return (
     <article className="rounded-xl border bg-card p-5 shadow-sm">
       <header className="mb-3 flex items-center gap-2 text-sm">
@@ -125,60 +123,14 @@ function MockReviewItem({
       )}
 
       {!a.is_correct && (
-        <div className="mt-3 border-t border-border/60 pt-3">
-          {ai.state.kind === "ok" ? (
-            <>
-              <p className="mb-1 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-primary">
-                <Sparkles className="size-3.5" />
-                {t.aiExplainHeading}
-                {ai.state.cached && (
-                  <span className="font-normal normal-case tracking-normal text-muted-foreground">
-                    {t.aiExplainCached}
-                  </span>
-                )}
-              </p>
-              <p className="text-sm leading-relaxed text-foreground">
-                {ai.state.text}
-              </p>
-            </>
-          ) : ai.state.kind === "error" ? (
-            <p className="text-xs text-destructive">
-              {ai.state.code === "RATE_LIMITED"
-                ? t.aiExplainCooldown
-                : ai.state.code === "AI_UNAVAILABLE"
-                  ? t.aiExplainUnavailable
-                  : t.aiExplainError}
-            </p>
-          ) : (
-            <>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() =>
-                  ai.explain({
-                    question_id: a.question_id,
-                    variant_id: q.variant_id,
-                    selected_choice_key: a.selected_choice_key,
-                    language: lang,
-                  })
-                }
-                disabled={!isLoggedIn || ai.state.kind === "loading"}
-                className="gap-1.5"
-              >
-                <Sparkles className="size-4" />
-                {ai.state.kind === "loading"
-                  ? t.aiExplainLoading
-                  : t.aiExplainButton}
-              </Button>
-              {!isLoggedIn && (
-                <p className="mt-2 text-xs text-muted-foreground">
-                  {t.aiExplainAuthRequired}
-                </p>
-              )}
-            </>
-          )}
-        </div>
+        <AiExplainBlock
+          questionId={a.question_id}
+          variantId={q.variant_id}
+          selectedChoiceKey={a.selected_choice_key}
+          language={lang}
+          t={t}
+          isLoggedIn={isLoggedIn}
+        />
       )}
     </article>
   );

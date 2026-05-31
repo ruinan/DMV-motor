@@ -8,7 +8,6 @@ import {
   CheckCircle2,
   History,
   Loader2,
-  Sparkles,
   XCircle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -16,7 +15,7 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { apiFetch, ApiError } from "@/lib/api-client";
 import { useAuth } from "@/lib/auth-context";
 import { useMe } from "@/lib/hooks/use-me";
-import { useAiExplain } from "@/lib/hooks/use-ai-explain";
+import { AiExplainBlock } from "@/components/ai-explain-block";
 import type { Dictionary, Locale } from "@/lib/dictionaries";
 import { AttemptHistory } from "./AttemptHistory";
 
@@ -89,7 +88,6 @@ export function PracticeFlow({ t, lang }: Props) {
   // sees the free-trial landing flash before auth rehydrates.
   const { user, loading: authLoading } = useAuth();
   const me = useMe();
-  const ai = useAiExplain();
   const queryClient = useQueryClient();
   const [phase, setPhase] = useState<Phase>({ kind: "idle" });
   const [historyOpen, setHistoryOpen] = useState(false);
@@ -263,9 +261,8 @@ export function PracticeFlow({ t, lang }: Props) {
     const sessionId = phase.sessionId;
     const totalCount = phase.totalCount;
     const answeredCount = phase.result.progress.answered_count;
-    // Each new question owns its own AI explanation lifecycle — drop the
-    // previous result so the AI button doesn't carry over stale text.
-    ai.reset();
+    // Each question's AiExplainBlock is keyed by question_id, so advancing
+    // remounts it with a fresh thread — no manual reset needed.
     setPhase({ kind: "starting" });
     try {
       const q = await apiFetch<Question & { progress?: { answered_count: number } }>(
@@ -638,17 +635,13 @@ export function PracticeFlow({ t, lang }: Props) {
                 users get the DeepSeek response inline. */}
             {!phase.result.is_correct && (
               <AiExplainBlock
+                key={phase.question.question_id}
+                questionId={phase.question.question_id}
+                variantId={phase.question.variant_id}
+                selectedChoiceKey={phase.picked}
+                language={lang}
                 t={t}
                 isLoggedIn={isLoggedIn}
-                ai={ai}
-                onAsk={() =>
-                  ai.explain({
-                    question_id: phase.question.question_id,
-                    variant_id: phase.question.variant_id,
-                    selected_choice_key: phase.picked,
-                    language: lang,
-                  })
-                }
               />
             )}
           </div>
@@ -742,73 +735,6 @@ function ProgressBar({
           style={{ width: `${pct}%` }}
         />
       </div>
-    </div>
-  );
-}
-
-function AiExplainBlock({
-  t,
-  isLoggedIn,
-  ai,
-  onAsk,
-}: {
-  t: Dictionary["practice"];
-  isLoggedIn: boolean;
-  ai: ReturnType<typeof useAiExplain>;
-  onAsk: () => void;
-}) {
-  if (ai.state.kind === "ok") {
-    return (
-      <div className="mt-4 border-t border-border/60 pt-4">
-        <p className="mb-1 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-primary">
-          <Sparkles className="size-3.5" />
-          {t.aiExplainHeading}
-          {ai.state.cached && (
-            <span className="font-normal text-muted-foreground normal-case tracking-normal">
-              {t.aiExplainCached}
-            </span>
-          )}
-        </p>
-        <p className="leading-relaxed text-foreground">{ai.state.text}</p>
-      </div>
-    );
-  }
-
-  if (ai.state.kind === "error") {
-    // Tier the error copy: rate-limit and operator-disabled get specific
-    // wording; everything else (5xx / network / parse) falls through to a
-    // generic "try later".
-    const msg =
-      ai.state.code === "RATE_LIMITED"
-        ? t.aiExplainCooldown
-        : ai.state.code === "AI_UNAVAILABLE"
-          ? t.aiExplainUnavailable
-          : t.aiExplainError;
-    return (
-      <div className="mt-4 border-t border-border/60 pt-4">
-        <p className="text-xs text-destructive">{msg}</p>
-      </div>
-    );
-  }
-
-  return (
-    <div className="mt-4 border-t border-border/60 pt-4">
-      <Button
-        type="button"
-        variant="outline"
-        size="sm"
-        onClick={onAsk}
-        disabled={!isLoggedIn || ai.state.kind === "loading"}
-        className="gap-1.5"
-      >
-        <Sparkles className="size-4" />
-        {ai.state.kind === "loading" ? t.aiExplainLoading : t.aiExplainButton}
-      </Button>
-      {!isLoggedIn && (
-        <p className="mt-2 text-xs text-muted-foreground">
-          {t.aiExplainAuthRequired}
-        </p>
-      )}
     </div>
   );
 }

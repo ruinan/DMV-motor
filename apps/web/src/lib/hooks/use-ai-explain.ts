@@ -1,25 +1,32 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { apiFetch, ApiError } from "@/lib/api-client";
 
 /**
- * Local state for a single AI-explain interaction. Kept per-component so each
- * feedback card has its own lifecycle (no global cache; the backend already
- * memoises the result on (user, question, language) via the ai_explanations
- * table, so re-clicking the same question on the same locale returns
- * `cached: true` instantly without a second LLM call).
+ * AI explanation thread for one question, in one language.
+ *
+ * Layer 0 is the base "why was I wrong" explanation (server DB-cached). Layers
+ * 1..N are "深入分析" deep-dives the server generates on demand but does NOT
+ * persist — the whole thread lives here and in the browser's localStorage
+ * (decision memory §35: "clear cache 就没", 减服务器压力). On revisit we hydrate
+ * from localStorage and show the history instantly, no server round-trip.
  */
-export type AiExplainState =
-  | { kind: "idle" }
-  | { kind: "loading" }
-  | { kind: "ok"; text: string; cached: boolean }
-  | { kind: "error"; message: string; code?: string };
+export type AiLayer = { depth: number; text: string; cached: boolean };
 
-export type AiExplainInput = {
-  question_id: string;
-  variant_id?: string;
-  selected_choice_key?: string;
+export type AiExplainState = {
+  status: "idle" | "loading" | "error";
+  layers: AiLayer[];
+  /** Remaining deep-dives for this question; null until the first response. */
+  depthRemaining: number | null;
+  errorCode?: string;
+  errorMessage?: string;
+};
+
+export type AiExplainIdentity = {
+  questionId: string;
+  variantId?: string;
+  selectedChoiceKey?: string;
   language: string;
 };
 
@@ -28,31 +35,100 @@ type AiExplainResponse = {
   cached: boolean;
   model: string;
   language: string;
+  depth: number;
+  depth_remaining: number;
 };
 
-export function useAiExplain() {
-  const [state, setState] = useState<AiExplainState>({ kind: "idle" });
+type StoredThread = { layers: AiLayer[]; depthRemaining: number | null };
 
-  async function explain(input: AiExplainInput) {
-    setState({ kind: "loading" });
+const STORAGE_PREFIX = "ai-explain:v1:";
+
+function storageKey(questionId: string, language: string): string {
+  return `${STORAGE_PREFIX}${questionId}:${language}`;
+}
+
+function readThread(key: string): StoredThread | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = window.localStorage.getItem(key);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as StoredThread;
+    if (!Array.isArray(parsed.layers)) return null;
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+function writeThread(key: string, thread: StoredThread): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(key, JSON.stringify(thread));
+  } catch {
+    // Quota / privacy mode — degrade gracefully: the thread just won't persist.
+  }
+}
+
+const EMPTY: AiExplainState = { status: "idle", layers: [], depthRemaining: null };
+
+export function useAiExplain(identity: AiExplainIdentity) {
+  const { questionId, variantId, selectedChoiceKey, language } = identity;
+  const key = storageKey(questionId, language);
+  const [state, setState] = useState<AiExplainState>(EMPTY);
+
+  // Hydrate the saved thread when the question/language changes. Showing the
+  // history straight from localStorage avoids a server hit on revisit.
+  useEffect(() => {
+    const saved = readThread(key);
+    setState(
+      saved
+        ? { status: "idle", layers: saved.layers, depthRemaining: saved.depthRemaining }
+        : EMPTY,
+    );
+  }, [key]);
+
+  async function call(depth: number) {
+    setState((s) => ({ ...s, status: "loading", errorCode: undefined, errorMessage: undefined }));
     try {
       const res = await apiFetch<AiExplainResponse>("/api/v1/ai/explain", {
         method: "POST",
-        body: JSON.stringify(input),
+        body: JSON.stringify({
+          question_id: questionId,
+          variant_id: variantId,
+          selected_choice_key: selectedChoiceKey,
+          language,
+          depth,
+        }),
       });
-      setState({ kind: "ok", text: res.explanation, cached: res.cached });
+      setState((s) => {
+        const layers = [
+          ...s.layers,
+          { depth: res.depth, text: res.explanation, cached: res.cached },
+        ];
+        writeThread(key, { layers, depthRemaining: res.depth_remaining });
+        return { status: "idle", layers, depthRemaining: res.depth_remaining };
+      });
     } catch (err) {
-      if (err instanceof ApiError) {
-        setState({ kind: "error", message: err.message, code: err.code });
-      } else {
-        setState({ kind: "error", message: "Network error" });
-      }
+      // Keep the layers we already have — only the new request failed.
+      setState((s) => ({
+        ...s,
+        status: "error",
+        errorCode: err instanceof ApiError ? err.code : undefined,
+        errorMessage: err instanceof ApiError ? err.message : "Network error",
+      }));
     }
   }
 
-  function reset() {
-    setState({ kind: "idle" });
+  /** Reveal the base explanation (depth 0). No-op if we already have it. */
+  function explain() {
+    if (state.layers.some((l) => l.depth === 0)) return;
+    void call(0);
   }
 
-  return { state, explain, reset };
+  /** Request the next deeper layer ("深入分析"). */
+  function deepen() {
+    void call(state.layers.length);
+  }
+
+  return { state, explain, deepen };
 }

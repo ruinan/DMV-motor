@@ -1,9 +1,9 @@
 "use client";
 
-import { CheckCircle2, ChevronLeft, Sparkles, XCircle } from "lucide-react";
+import { CheckCircle2, ChevronLeft, XCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAttempts, type AttemptItem as AttemptRow } from "@/lib/hooks/use-attempts";
-import { useAiExplain } from "@/lib/hooks/use-ai-explain";
+import { AiExplainBlock } from "@/components/ai-explain-block";
 import { useAuth } from "@/lib/auth-context";
 import type { Dictionary, Locale } from "@/lib/dictionaries";
 
@@ -79,7 +79,6 @@ function AttemptHistoryItem({
   attempt: AttemptRow;
   isLoggedIn: boolean;
 }) {
-  const ai = useAiExplain();
   return (
     <article className="rounded-xl border bg-card p-5 shadow-sm">
       <header className="mb-3 flex items-center gap-2 text-sm">
@@ -157,91 +156,19 @@ function AttemptHistoryItem({
         </p>
       )}
 
-      {/* AI deep-dive on wrong answers only — mirrors PracticeFlow feedback
-          behavior. The button is the only way to trigger an AI call; users
-          cannot type free-form prompts, so the LLM payload is locked to
-          structured fields (question_id / variant_id / selected_choice_key /
-          language). Backend enforces per-user daily cap + thinking-time
-          cooldown + free-trial / paid pool isolation. */}
+      {/* AI deep-dive on wrong answers only. Click-to-reveal + "深入分析"
+          layering, history persisted client-side — all handled by the shared
+          AiExplainBlock (enhance1). */}
       {!attempt.is_correct && (
-        <AttemptAiBlock
+        <AiExplainBlock
+          questionId={attempt.question_id}
+          variantId={attempt.variant_id}
+          selectedChoiceKey={attempt.selected_choice_key}
+          language={lang}
           t={t}
           isLoggedIn={isLoggedIn}
-          ai={ai}
-          onAsk={() =>
-            ai.explain({
-              question_id: attempt.question_id,
-              variant_id: attempt.variant_id,
-              selected_choice_key: attempt.selected_choice_key,
-              language: lang,
-            })
-          }
         />
       )}
     </article>
-  );
-}
-
-function AttemptAiBlock({
-  t,
-  isLoggedIn,
-  ai,
-  onAsk,
-}: {
-  t: Dictionary["practice"];
-  isLoggedIn: boolean;
-  ai: ReturnType<typeof useAiExplain>;
-  onAsk: () => void;
-}) {
-  if (ai.state.kind === "ok") {
-    return (
-      <div className="mt-3 border-t border-border/60 pt-3">
-        <p className="mb-1 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-primary">
-          <Sparkles className="size-3.5" />
-          {t.aiExplainHeading}
-          {ai.state.cached && (
-            <span className="font-normal text-muted-foreground normal-case tracking-normal">
-              {t.aiExplainCached}
-            </span>
-          )}
-        </p>
-        <p className="leading-relaxed text-sm text-foreground">{ai.state.text}</p>
-      </div>
-    );
-  }
-
-  if (ai.state.kind === "error") {
-    const msg =
-      ai.state.code === "RATE_LIMITED"
-        ? t.aiExplainCooldown
-        : ai.state.code === "AI_UNAVAILABLE"
-          ? t.aiExplainUnavailable
-          : t.aiExplainError;
-    return (
-      <div className="mt-3 border-t border-border/60 pt-3">
-        <p className="text-xs text-destructive">{msg}</p>
-      </div>
-    );
-  }
-
-  return (
-    <div className="mt-3 border-t border-border/60 pt-3">
-      <Button
-        type="button"
-        variant="outline"
-        size="sm"
-        onClick={onAsk}
-        disabled={!isLoggedIn || ai.state.kind === "loading"}
-        className="gap-1.5"
-      >
-        <Sparkles className="size-4" />
-        {ai.state.kind === "loading" ? t.aiExplainLoading : t.aiExplainButton}
-      </Button>
-      {!isLoggedIn && (
-        <p className="mt-2 text-xs text-muted-foreground">
-          {t.aiExplainAuthRequired}
-        </p>
-      )}
-    </div>
   );
 }

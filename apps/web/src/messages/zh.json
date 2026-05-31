@@ -247,6 +247,8 @@
     "aiExplainCooldown": "稍等一下再问。",
     "aiExplainUnavailable": "AI 解析当前不可用。",
     "aiExplainAuthRequired": "登录后可获取 AI 解析。",
+    "aiExplainDeepen": "深入分析",
+    "aiExplainDepthReached": "已是最深解析。",
     "terminatedTitle": "考试结束——错题过多",
     "terminatedBody": "你已答 {answered} 题，其中 {wrong} 道错。错题超过失败门槛，考试自动终止。",
     "terminatedTryAgain": "重新开始一次模考",
@@ -320,7 +322,9 @@
     "aiExplainError": "暂时无法获取解析，请稍后重试。",
     "aiExplainCooldown": "稍等一下再问。",
     "aiExplainUnavailable": "AI 解析当前不可用。",
-    "aiExplainAuthRequired": "登录后可获取 AI 解析。"
+    "aiExplainAuthRequired": "登录后可获取 AI 解析。",
+    "aiExplainDeepen": "深入分析",
+    "aiExplainDepthReached": "已是最深解析。"
   },
   "progress": {
     "title": "学习进度",
@@ -423,6 +427,8 @@
     "aiExplainAuthRequired": "登录后即可使用 AI 解析。",
     "aiExplainCooldown": "AI 正在冷却中，请稍后再试。",
     "aiExplainUnavailable": "AI 解析功能暂时不可用。",
-    "aiExplainError": "无法生成 AI 解析，请稍后重试。"
+    "aiExplainError": "无法生成 AI 解析，请稍后重试。",
+    "aiExplainDeepen": "深入分析",
+    "aiExplainDepthReached": "已是最深解析。"
   }
 }

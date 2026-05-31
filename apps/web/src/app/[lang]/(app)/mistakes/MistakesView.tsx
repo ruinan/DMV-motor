@@ -9,15 +9,14 @@ import {
   ChevronLeft,
   ChevronRight,
   CheckCircle2,
-  Sparkles,
   Target,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { AiExplainBlock } from "@/components/ai-explain-block";
 import { useMistakes, type MistakeItem } from "@/lib/hooks/use-mistakes";
 import { useMe } from "@/lib/hooks/use-me";
 import { useTopicNameMap } from "@/lib/hooks/use-topics";
 import { useMistakeReview } from "@/lib/hooks/use-mistake-review";
-import { useAiExplain } from "@/lib/hooks/use-ai-explain";
 import { useAuth } from "@/lib/auth-context";
 import { apiFetch, ApiError } from "@/lib/api-client";
 import type { Dictionary, Locale } from "@/lib/dictionaries";
@@ -234,7 +233,6 @@ function MistakeReviewPanel({
   questionId: string;
 }) {
   const { data, isLoading, error } = useMistakeReview(questionId, lang, true);
-  const ai = useAiExplain();
   const { user } = useAuth();
   const isLoggedIn = !!user;
 
@@ -287,59 +285,13 @@ function MistakeReviewPanel({
         </p>
       )}
 
-      <div className="mt-3 border-t border-border/60 pt-3">
-        {ai.state.kind === "ok" ? (
-          <>
-            <p className="mb-1 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-primary">
-              <Sparkles className="size-3.5" />
-              {t.aiExplainHeading}
-              {ai.state.cached && (
-                <span className="font-normal normal-case tracking-normal text-muted-foreground">
-                  {t.aiExplainCached}
-                </span>
-              )}
-            </p>
-            <p className="text-sm leading-relaxed text-foreground">
-              {ai.state.text}
-            </p>
-          </>
-        ) : ai.state.kind === "error" ? (
-          <p className="text-xs text-destructive">
-            {ai.state.code === "RATE_LIMITED"
-              ? t.aiExplainCooldown
-              : ai.state.code === "AI_UNAVAILABLE"
-                ? t.aiExplainUnavailable
-                : t.aiExplainError}
-          </p>
-        ) : (
-          <>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() =>
-                ai.explain({
-                  question_id: data.question_id,
-                  variant_id: data.variant_id,
-                  language: lang,
-                })
-              }
-              disabled={!isLoggedIn || ai.state.kind === "loading"}
-              className="gap-1.5"
-            >
-              <Sparkles className="size-4" />
-              {ai.state.kind === "loading"
-                ? t.aiExplainLoading
-                : t.aiExplainButton}
-            </Button>
-            {!isLoggedIn && (
-              <p className="mt-2 text-xs text-muted-foreground">
-                {t.aiExplainAuthRequired}
-              </p>
-            )}
-          </>
-        )}
-      </div>
+      <AiExplainBlock
+        questionId={data.question_id}
+        variantId={data.variant_id}
+        language={lang}
+        t={t}
+        isLoggedIn={isLoggedIn}
+      />
     </div>
   );
 }
