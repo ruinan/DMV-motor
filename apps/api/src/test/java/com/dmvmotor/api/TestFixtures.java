@@ -29,6 +29,7 @@ public class TestFixtures {
     public void truncateAll() {
         jdbc.execute("""
                 TRUNCATE
+                    reminder_tasks,
                     ai_deep_dive_log,
                     ai_explanations,
                     mistake_records,
@@ -446,5 +447,18 @@ public class TestFixtures {
         return jdbc.queryForObject(
                 "SELECT COUNT(*) FROM ai_deep_dive_log WHERE user_id = ?",
                 Integer.class, userId);
+    }
+
+    /**
+     * Insert a synthetic reminder_tasks row aged {@code ageSeconds} into the
+     * past. Used by daily-cap / pause / ownership tests.
+     */
+    public Long insertReminder(Long userId, String type, String status,
+                               int priority, long ageSeconds) {
+        return jdbc.queryForObject("""
+                INSERT INTO reminder_tasks (user_id, type, status, priority, created_at)
+                VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP - make_interval(secs => ?))
+                RETURNING id
+                """, Long.class, userId, type, status, priority, (double) ageSeconds);
     }
 }
