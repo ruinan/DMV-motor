@@ -2,8 +2,9 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { ArrowRight, ChevronDown, PlayCircle, Sparkles } from "lucide-react";
+import { ArrowRight, ChevronDown, Loader2, PlayCircle, Sparkles } from "lucide-react";
 import { AttemptHistory } from "../../practice/AttemptHistory";
+import { useMinLoading } from "@/lib/hooks/use-min-loading";
 import { useMe } from "@/lib/hooks/use-me";
 import { useReadiness } from "@/lib/hooks/use-readiness";
 import { useTopicMastery } from "@/lib/hooks/use-topic-mastery";
@@ -40,6 +41,15 @@ export function Dashboard({ t, lang }: Props) {
 
   const isPaid = me.data?.access.has_active_pass ?? false;
   const readiness = useReadiness(isPaid);
+
+  // Show a spinner while history/stats load instead of flashing the empty
+  // state (feedback_loading_indicator) — min 0.3s so it doesn't blink.
+  const practiceLoading = useMinLoading(
+    practiceHistory.isLoading || practiceStats.isLoading,
+  );
+  const mockLoading = useMinLoading(
+    mockHistory.isLoading || mockStats.isLoading,
+  );
 
   const inProgress = me.data?.learning.in_progress_practice;
   const masteredCount = mastery.data?.summary.mastered_sub_topics ?? 0;
@@ -104,6 +114,7 @@ export function Dashboard({ t, lang }: Props) {
       <PracticeHistorySection
         t={t}
         lang={lang}
+        loading={practiceLoading}
         sessions={practiceHistory.data?.sessions ?? []}
         totalInDb={practiceHistory.data?.total_in_db ?? 0}
         stats={practiceStats.data}
@@ -115,6 +126,7 @@ export function Dashboard({ t, lang }: Props) {
       <MockHistorySection
         t={t}
         lang={lang}
+        loading={mockLoading}
         attempts={(mockHistory.data?.attempts ?? []).filter(
           (a) => a.status !== "in_progress",
         )}
@@ -214,12 +226,14 @@ function ResumeOrStartCard({
 function PracticeHistorySection({
   t,
   lang,
+  loading,
   sessions,
   totalInDb,
   stats,
 }: {
   t: Dictionary;
   lang: Locale;
+  loading: boolean;
   sessions: PracticeSessionHistoryItem[];
   totalInDb: number;
   stats:
@@ -235,7 +249,9 @@ function PracticeHistorySection({
       <h2 className="mb-4 text-xl font-semibold text-foreground">
         {t.studyHub.practiceHistoryTitle}
       </h2>
-      {sessions.length === 0 ? (
+      {loading ? (
+        <SectionLoading />
+      ) : sessions.length === 0 ? (
         <div className="rounded-xl border border-dashed border-border bg-card p-8 text-center text-sm text-muted-foreground">
           {t.studyHub.practiceHistoryEmpty}
         </div>
@@ -246,12 +262,14 @@ function PracticeHistorySection({
           ))}
         </div>
       )}
-      <p className="mt-4 text-sm text-muted-foreground">
-        {t.studyHub.practiceAggregate
-          .replace("{total}", String(stats?.total_sessions ?? totalInDb))
-          .replace("{mistakes}", String(stats?.active_mistakes_count ?? 0))
-          .replace("{topics}", String(stats?.active_mistakes_topic_count ?? 0))}
-      </p>
+      {!loading && (
+        <p className="mt-4 text-sm text-muted-foreground">
+          {t.studyHub.practiceAggregate
+            .replace("{total}", String(stats?.total_sessions ?? totalInDb))
+            .replace("{mistakes}", String(stats?.active_mistakes_count ?? 0))
+            .replace("{topics}", String(stats?.active_mistakes_topic_count ?? 0))}
+        </p>
+      )}
     </section>
   );
 }
@@ -344,11 +362,13 @@ function SessionCard({
 function MockHistorySection({
   t,
   lang,
+  loading,
   attempts,
   stats,
 }: {
   t: Dictionary;
   lang: Locale;
+  loading: boolean;
   attempts: MockAttemptHistoryItem[];
   totalInDb: number;
   stats:
@@ -379,7 +399,9 @@ function MockHistorySection({
           <Sparkline values={sparklineValues} width={140} height={36} />
         )}
       </div>
-      {attempts.length === 0 ? (
+      {loading ? (
+        <SectionLoading />
+      ) : attempts.length === 0 ? (
         <div className="rounded-xl border border-dashed border-border bg-card p-8 text-center text-sm text-muted-foreground">
           {t.studyHub.mockHistoryEmpty}
         </div>
@@ -390,19 +412,30 @@ function MockHistorySection({
           ))}
         </div>
       )}
-      <p className="mt-4 text-sm text-muted-foreground">
-        {t.studyHub.mockAggregate
-          .replace("{total}", String(stats?.total_attempts ?? 0))
-          .replace(
-            "{recentAvg}",
-            recent3Avg != null && recent3Avg >= 0 ? `${recent3Avg}%` : "—",
-          )
-          .replace(
-            "{best}",
-            best != null && best >= 0 ? `${best}%` : "—",
-          )}
-      </p>
+      {!loading && (
+        <p className="mt-4 text-sm text-muted-foreground">
+          {t.studyHub.mockAggregate
+            .replace("{total}", String(stats?.total_attempts ?? 0))
+            .replace(
+              "{recentAvg}",
+              recent3Avg != null && recent3Avg >= 0 ? `${recent3Avg}%` : "—",
+            )
+            .replace(
+              "{best}",
+              best != null && best >= 0 ? `${best}%` : "—",
+            )}
+        </p>
+      )}
     </section>
+  );
+}
+
+/** Shared in-section loading block (feedback_loading_indicator). */
+function SectionLoading() {
+  return (
+    <div className="flex items-center justify-center rounded-xl border border-border bg-card p-8">
+      <Loader2 className="size-5 animate-spin text-muted-foreground" />
+    </div>
   );
 }
 
