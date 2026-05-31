@@ -41,15 +41,19 @@ public class AiExplanationController {
         long questionId = Ids.parse(req.questionId(), "question_id");
         Long variantId = req.variantId() == null ? null : Ids.parse(req.variantId(), "variant_id");
         String language = req.language() == null ? "en" : req.language();
+        // depth 0 = base explanation; ≥1 = "深入分析" layer. Negative clamps to 0.
+        int depth = req.depth() == null ? 0 : Math.max(0, req.depth());
 
         AiExplanationService.Result result = service.explain(userId, questionId, variantId,
-                req.selectedChoiceKey(), language);
+                req.selectedChoiceKey(), language, depth);
 
         return ApiResponse.ok(Map.of(
-                "explanation", result.explanation(),
-                "cached",      result.cached(),
-                "model",       result.model(),
-                "language",    result.language()
+                "explanation",     result.explanation(),
+                "cached",          result.cached(),
+                "model",           result.model(),
+                "language",        result.language(),
+                "depth",           result.depth(),
+                "depth_remaining", result.depthRemaining()
         ));
     }
 
@@ -78,7 +82,8 @@ public class AiExplanationController {
             @NotBlank(message = "must not be blank") String question_id,
             String variant_id,
             String selected_choice_key,
-            String language
+            String language,
+            Integer depth
     ) {
         String questionId()         { return question_id; }
         String variantId()          { return variant_id; }

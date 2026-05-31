@@ -25,7 +25,10 @@ public class StubAiExplanationProvider implements AiExplanationProvider {
     @Override
     public Output explain(Input in) {
         callCount.incrementAndGet();
-        String text = "stub:explanation:q=" + in.questionId() + ":lang=" + in.language();
+        // depth 0 keeps the original string (existing cache-hit tests assert it);
+        // deep-dive layers append :depth=N so tests can tell layers apart.
+        String text = "stub:explanation:q=" + in.questionId() + ":lang=" + in.language()
+                + (in.depth() > 0 ? ":depth=" + in.depth() : "");
         return new Output(text, 0, 0);
     }
 

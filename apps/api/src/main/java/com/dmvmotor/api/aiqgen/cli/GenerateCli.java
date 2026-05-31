@@ -64,7 +64,7 @@ public final class GenerateCli {
         // max_tokens=4000 covers ~5 bilingual MCQs per batch (each ~600 tokens).
         // Timeout 180s — DeepSeek can take 30-60s for a 4-question batch.
         AiProperties props = new AiProperties(
-                true, "deepseek", 120, 60, 300, 50,
+                true, "deepseek", 120, 60, 300, 50, 10,
                 new AiProperties.Deepseek(apiKey, "https://api.deepseek.com", "deepseek-chat", 4000, 180));
 
         DeepSeekChatClient client = new DeepSeekChatClient(props);

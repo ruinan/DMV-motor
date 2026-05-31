@@ -52,7 +52,7 @@ class DeepSeekAiExplanationProviderTest {
                 "deepseek-chat",
                 400,
                 timeoutSeconds);
-        AiProperties props = new AiProperties(true, "deepseek", 120, 60, 300, 50, ds);
+        AiProperties props = new AiProperties(true, "deepseek", 120, 60, 300, 50, 10, ds);
         return new DeepSeekAiExplanationProvider(props);
     }
 
@@ -67,7 +67,8 @@ class DeepSeekAiExplanationProviderTest {
                 "B",
                 "A",
                 "A stop sign requires a full stop.",
-                language);
+                language,
+                0);
     }
 
     private static String chatCompletionsJson(String content,
@@ -279,7 +280,7 @@ class DeepSeekAiExplanationProviderTest {
 
         AiExplanationProvider.Input noRef = new AiExplanationProvider.Input(
                 7L, "Q?", List.of(Map.of("key", "A", "text", "x")),
-                "A", "B", null, "en");
+                "A", "B", null, "en", 0);
 
         DeepSeekAiExplanationProvider provider = buildProvider(30);
         provider.explain(noRef);

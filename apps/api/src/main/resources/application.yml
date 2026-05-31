@@ -62,6 +62,9 @@ app:
     cooldown-increment-seconds: 0
     max-cooldown-seconds: 10
     max-calls-per-day: 50
+    # enhance1 "深入分析": a single question can be deep-dived at most this many
+    # times (per language). Enforced server-side; survives a client cache clear.
+    max-deep-dives-per-question: 10
     deepseek:
       # Local dev: drop the key into apps/api/.env (gitignored) as APP_AI_DEEPSEEK_API_KEY.
       # Prod: sourced from Secret Manager `deepseek-api-key` (cloudrun.tf env block).

@@ -44,6 +44,25 @@ public class DeepSeekAiExplanationProvider implements AiExplanationProvider {
             + "用 2-3 句话解释为什么他们选错以及正确答案为什么对。"
             + "用简单中文。不要重复题目。纯文本输出，不要 markdown。";
 
+    // enhance1 "深入分析": the learner already read the basic explanation and
+    // tapped "go deeper". Escalate — give the underlying rule, a worked angle,
+    // a memory aid, or the common confusion behind this item. Layers aren't fed
+    // prior text (anti-hijack), so the depth number is the only escalation cue.
+    private static final String DEEP_DIVE_PROMPT_EN =
+            "You are a California Class M1 motorcycle permit test tutor. The "
+            + "learner already read a basic explanation of this question and "
+            + "wants to understand it more deeply (depth level %d). Give a "
+            + "deeper take: the underlying rule or safety reason, a worked "
+            + "example, a memory aid, or the common confusion. 3-4 sentences, "
+            + "plain English. Don't just restate the basic explanation. Plain "
+            + "text only — no markdown.";
+
+    private static final String DEEP_DIVE_PROMPT_ZH =
+            "你是加州 M1 摩托车驾照笔试辅导员。学员已经看过这道题的基础解释，"
+            + "想更深入理解（深度层级 %d）。请给出更深的讲解：背后的规则或安全"
+            + "原理、举例、记忆方法、或常见混淆点。3-4 句，简单中文。不要只是"
+            + "重复基础解释。纯文本输出，不要 markdown。";
+
     private final RestClient restClient;
     private final String     model;
     private final int        maxTokens;
@@ -68,9 +87,10 @@ public class DeepSeekAiExplanationProvider implements AiExplanationProvider {
 
     @Override
     public Output explain(Input in) {
-        String systemPrompt = "zh".equalsIgnoreCase(in.language())
-                ? SYSTEM_PROMPT_ZH
-                : SYSTEM_PROMPT_EN;
+        boolean zh = "zh".equalsIgnoreCase(in.language());
+        String systemPrompt = in.depth() > 0
+                ? String.format(zh ? DEEP_DIVE_PROMPT_ZH : DEEP_DIVE_PROMPT_EN, in.depth())
+                : (zh ? SYSTEM_PROMPT_ZH : SYSTEM_PROMPT_EN);
 
         Map<String, Object> body = new LinkedHashMap<>();
         body.put("model",       model);

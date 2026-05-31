@@ -65,6 +65,14 @@ class AiExplanationControllerTest extends IntegrationTestBase {
                 + "\"language\":\"" + language + "\"}";
     }
 
+    private String bodyWithDepth(String questionId, String selectedChoiceKey,
+                                 String language, int depth) {
+        return "{\"question_id\":\"" + questionId + "\","
+                + "\"selected_choice_key\":\"" + selectedChoiceKey + "\","
+                + "\"language\":\"" + language + "\","
+                + "\"depth\":" + depth + "}";
+    }
+
     // --------------- 1. anonymous ---------------
 
     @Test
@@ -316,6 +324,101 @@ class AiExplanationControllerTest extends IntegrationTestBase {
                 .andExpect(status().isTooManyRequests())
                 .andExpect(jsonPath("$.error.code", is("RATE_LIMITED")))
                 .andExpect(jsonPath("$.error.message", containsString("Daily")));
+
+        assertEquals(0, stubProvider.callCount());
+    }
+
+    // --------------- 14. deep dive ("深入分析") ---------------
+
+    @Test
+    void deepDive_freshQuestion_returnsDeeperLayer_notCachedNotPersisted() throws Exception {
+        // No prior calls → no cooldown gate, cap not reached. depth=1 escalates
+        // the prompt; the layer is NOT written to ai_explanations (client keeps
+        // it), only a metadata row lands in ai_deep_dive_log.
+        mockMvc.perform(post("/api/v1/ai/explain")
+                        .header("Authorization", "Bearer " + userId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(bodyWithDepth(freeTrialQuestionId.toString(), "B", "en", 1)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.explanation", containsString(":depth=1")))
+                .andExpect(jsonPath("$.data.cached", is(false)))
+                .andExpect(jsonPath("$.data.depth", is(1)))
+                .andExpect(jsonPath("$.data.depth_remaining", is(9)));
+
+        assertEquals(1, stubProvider.callCount());
+        assertEquals(0, fixtures.countAiExplanationsForUser(userId),
+                "deep-dive text is not persisted server-side");
+        assertEquals(1, fixtures.countDeepDiveLogForUser(userId),
+                "deep-dive logs one metadata row");
+    }
+
+    @Test
+    void deepDive_perQuestionCapReached_returns429() throws Exception {
+        // Seed maxDeepDivesPerQuestion (default 10) prior deep-dives on this
+        // question, aged 600s so the cooldown can't be the cause — the cap is.
+        for (int i = 1; i <= 10; i++) {
+            fixtures.insertDeepDiveLog(userId, freeTrialQuestionId, "en", i, 600L + i);
+        }
+
+        mockMvc.perform(post("/api/v1/ai/explain")
+                        .header("Authorization", "Bearer " + userId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(bodyWithDepth(freeTrialQuestionId.toString(), "B", "en", 11)))
+                .andExpect(status().isTooManyRequests())
+                .andExpect(jsonPath("$.error.code", is("RATE_LIMITED")))
+                .andExpect(jsonPath("$.error.message", containsString("Deep-dive limit")));
+
+        assertEquals(0, stubProvider.callCount(), "cap must short-circuit the provider");
+    }
+
+    @Test
+    void deepDive_paidOnlyQuestion_freeTrialUser_returns404() throws Exception {
+        // Access gate applies to deep dives too — a free-trial user can't deep
+        // dive a paid-only question (same ID-leak hardening as the base path).
+        mockMvc.perform(post("/api/v1/ai/explain")
+                        .header("Authorization", "Bearer " + userId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(bodyWithDepth(paidOnlyQuestionId.toString(), "C", "en", 1)))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.error.code", is("RESOURCE_NOT_FOUND")));
+
+        assertEquals(0, stubProvider.callCount());
+        assertEquals(0, fixtures.countDeepDiveLogForUser(userId));
+    }
+
+    @Test
+    void deepDive_respectsCooldownFromRecentBaseCall_returns429() throws Exception {
+        // A recent base call (30s ago, cooldown 120s) must also gate a deep dive
+        // — deep dives are billable LLM calls, so they share the rate-limit.
+        Long otherQ = fixtures.insertQuestion(topicId, "A");
+        fixtures.insertEnVariant(otherQ, "Other stem", "Other exp");
+        fixtures.insertAiExplanation(userId, otherQ, "en", 30);
+
+        mockMvc.perform(post("/api/v1/ai/explain")
+                        .header("Authorization", "Bearer " + userId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(bodyWithDepth(freeTrialQuestionId.toString(), "B", "en", 1)))
+                .andExpect(status().isTooManyRequests())
+                .andExpect(jsonPath("$.error.code", is("RATE_LIMITED")))
+                .andExpect(jsonPath("$.error.message", containsString("cooling")));
+
+        assertEquals(0, stubProvider.callCount());
+    }
+
+    @Test
+    void baseCall_respectsCooldownFromRecentDeepDive_returns429() throws Exception {
+        // The reverse: a recent deep dive (30s ago) must gate a new base call —
+        // proves the base path's rate-limit counts deep dives too.
+        Long otherQ = fixtures.insertQuestion(topicId, "A");
+        fixtures.insertEnVariant(otherQ, "Other stem", "Other exp");
+        fixtures.insertDeepDiveLog(userId, otherQ, "en", 1, 30);
+
+        mockMvc.perform(post("/api/v1/ai/explain")
+                        .header("Authorization", "Bearer " + userId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body(freeTrialQuestionId.toString(), "B", "en")))
+                .andExpect(status().isTooManyRequests())
+                .andExpect(jsonPath("$.error.code", is("RATE_LIMITED")));
 
         assertEquals(0, stubProvider.callCount());
     }

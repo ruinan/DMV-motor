@@ -29,7 +29,11 @@ public interface AiExplanationProvider {
             String                        correctChoiceKey,
             String                        selectedChoiceKey,
             String                        staticExplanation,
-            String                        language
+            String                        language,
+            // enhance1: 0 = base explanation; 1..N = "深入分析" layer. Providers
+            // escalate the prompt for depth ≥ 1. Layers aren't fed prior text
+            // (anti-hijack) — the depth just nudges "go deeper".
+            int                           depth
     ) {}
 
     record Output(

@@ -24,6 +24,12 @@ public record AiProperties(
         @DefaultValue("0")     int       cooldownIncrementSeconds,
         @DefaultValue("10")    int       maxCooldownSeconds,
         @DefaultValue("50")    int       maxCallsPerDay,
+        // enhance1: a single question can be "深入分析"-ed at most this many
+        // times (per language). The cap is enforced server-side and survives a
+        // client localStorage clear (the deep-dive log persists), so repeatedly
+        // clearing + re-burning still hits the ceiling. Beyond it the next
+        // deep-dive is refused (RATE_LIMITED) until the daily window rolls.
+        @DefaultValue("10")    int       maxDeepDivesPerQuestion,
         @DefaultValue          Deepseek  deepseek
 ) {
 

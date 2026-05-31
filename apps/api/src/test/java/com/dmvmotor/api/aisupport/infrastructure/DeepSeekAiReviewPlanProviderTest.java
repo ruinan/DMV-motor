@@ -41,7 +41,7 @@ class DeepSeekAiReviewPlanProviderTest {
                 "deepseek-chat",
                 500,
                 timeoutSeconds);
-        AiProperties props = new AiProperties(true, "deepseek", 120, 60, 300, 50, ds);
+        AiProperties props = new AiProperties(true, "deepseek", 120, 60, 300, 50, 10, ds);
         return new DeepSeekAiReviewPlanProvider(props);
     }
 

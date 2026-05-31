@@ -29,6 +29,7 @@ public class TestFixtures {
     public void truncateAll() {
         jdbc.execute("""
                 TRUNCATE
+                    ai_deep_dive_log,
                     ai_explanations,
                     mistake_records,
                     practice_attempts,
@@ -425,6 +426,25 @@ public class TestFixtures {
     public Integer countAiExplanationsForUser(Long userId) {
         return jdbc.queryForObject(
                 "SELECT COUNT(*) FROM ai_explanations WHERE user_id = ?",
+                Integer.class, userId);
+    }
+
+    /**
+     * Insert a synthetic ai_deep_dive_log row (metadata only, no text) aged
+     * {@code ageSeconds} into the past. Used by deep-dive cap / rate-limit tests
+     * to simulate prior deep-dive calls.
+     */
+    public void insertDeepDiveLog(Long userId, Long questionId, String language,
+                                  int depth, long ageSeconds) {
+        jdbc.update("""
+                INSERT INTO ai_deep_dive_log (user_id, question_id, language, depth, created_at)
+                VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP - make_interval(secs => ?))
+                """, userId, questionId, language, depth, (double) ageSeconds);
+    }
+
+    public Integer countDeepDiveLogForUser(Long userId) {
+        return jdbc.queryForObject(
+                "SELECT COUNT(*) FROM ai_deep_dive_log WHERE user_id = ?",
                 Integer.class, userId);
     }
 }
