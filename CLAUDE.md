@@ -228,7 +228,7 @@ Claude 在本项目中扮演**小公司 CTO** 的角色：
 |---|---|---|---|
 | HIGH | 付费 access pass 真实购买流程 | 用户钉定"先不做付费" | /me 全 Coming soon stub；临时用 dev grant-pass 后门 |
 | ~~HIGH~~ ✅ | ~~`reminder/` 模块~~ | `features.md §2` + `reminder-and-readiness.md` MVP 必备 | **完成（2026-05-30，commit `fbf00da`，本地）**：V24 `reminder_tasks` + domain/repo/service/controller。后端按学习状态生成（resume>weak-points>mock 优先序）+ 每天≤1 + 3 次未响应暂停该类回退；`GET /reminders`(站内 list) + `POST /reminders/generate`(幂等) + `POST /reminders/{id}/respond`。12 IT，379 tests 绿。Scope：**后端 only**（前端站内 UI 待做）；无 cron（generate 显式/lazy）；同类冷却由 1/day 包含 |
-| HIGH | AI 主动推荐 endpoint | `mvp.md §5 功能 10`："推荐下一轮强化题/复习方向" | 只有 /ai/explain（错因）+ /ai/review-plan（考后），**不是**主动推荐 |
+| ~~HIGH~~ ✅ | ~~AI 主动推荐 endpoint~~ | `mvp.md §5 功能 10`："推荐下一轮强化题/复习方向" | **完成（2026-05-31，commit `d1182cc`，本地）**：`GET /api/v1/ai/recommendations` 确定性排序（active mistakes topic 计数优先 > 未覆盖 key topic）+ reason_code + topic_filter 一键开 practice。`RecommendationRepository/Service/Controller`。7 IT，386 tests 绿。LLM 文案层留 seam 后补（§34-B）；free/paid 分层未做（暂全登录用户）；前端未接 |
 | MED | mastery 第 3 闸门（混淆点） | `parameters.md §6` 第 3 条 | 等 questions 加 confusion_tag schema；`TODO(FUTURE_CONFUSION_SCHEMA)` |
 | MED | `api-contract.md §16` mock UX 过期 | 本会话用户改了 mock 规则 | 文档还写旧"逐题对错统计"，需更新为 linear/auto-terminate/考后 AI |
 | MED | `/api/v1/access` 路径不一致 | `api-contract.md §12` 写 `/access` | 实际 `/me/access` |
