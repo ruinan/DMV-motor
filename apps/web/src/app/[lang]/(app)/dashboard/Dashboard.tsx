@@ -75,8 +75,8 @@ export function Dashboard({ t, lang }: Props) {
         </p>
       </header>
 
-      {/* Hero: two gauges side by side */}
-      <section className="grid grid-cols-1 gap-6 rounded-xl border border-border/40 bg-card p-6 shadow-sm md:grid-cols-2 md:gap-12 md:p-8">
+      {/* Hero: the three at-a-glance metrics — coverage, readiness, mock perf. */}
+      <section className="grid grid-cols-1 gap-8 rounded-xl border border-border/40 bg-card p-6 shadow-sm md:grid-cols-3 md:p-8">
         <div className="flex flex-col items-center gap-3">
           <CoverageDonut
             mastered={masteredCount}
@@ -105,6 +105,7 @@ export function Dashboard({ t, lang }: Props) {
             </Link>
           )}
         </div>
+        <MockSummary t={t} stats={mockStats.data} loading={mockLoading} />
       </section>
 
       {/* Section 1: Resume CTA or Start CTA */}
@@ -131,7 +132,6 @@ export function Dashboard({ t, lang }: Props) {
           (a) => a.status !== "in_progress",
         )}
         totalInDb={mockHistory.data?.total_in_db ?? 0}
-        stats={mockStats.data}
       />
     </div>
   );
@@ -364,30 +364,19 @@ function MockHistorySection({
   lang,
   loading,
   attempts,
-  stats,
 }: {
   t: Dictionary;
   lang: Locale;
   loading: boolean;
   attempts: MockAttemptHistoryItem[];
   totalInDb: number;
-  stats:
-    | {
-        total_attempts: number;
-        recent_3_avg_score_percent: number;
-        best_score_percent: number;
-        latest_score_percent: number;
-      }
-    | undefined;
 }) {
   // Reverse for sparkline (oldest → newest) — backend returns newest first.
+  // Aggregate stats (attempts / avg / best) now live in the hero MockSummary.
   const sparklineValues = attempts
     .filter((a) => a.status === "submitted" && a.score_percent >= 0)
     .map((a) => a.score_percent)
     .reverse();
-
-  const recent3Avg = stats?.recent_3_avg_score_percent;
-  const best = stats?.best_score_percent;
 
   return (
     <section>
@@ -412,20 +401,6 @@ function MockHistorySection({
           ))}
         </div>
       )}
-      {!loading && (
-        <p className="mt-4 text-sm text-muted-foreground">
-          {t.studyHub.mockAggregate
-            .replace("{total}", String(stats?.total_attempts ?? 0))
-            .replace(
-              "{recentAvg}",
-              recent3Avg != null && recent3Avg >= 0 ? `${recent3Avg}%` : "—",
-            )
-            .replace(
-              "{best}",
-              best != null && best >= 0 ? `${best}%` : "—",
-            )}
-        </p>
-      )}
     </section>
   );
 }
@@ -435,6 +410,61 @@ function SectionLoading() {
   return (
     <div className="flex items-center justify-center rounded-xl border border-border bg-card p-8">
       <Loader2 className="size-5 animate-spin text-muted-foreground" />
+    </div>
+  );
+}
+
+// Third hero metric: mock-exam performance at a glance (best big, then recent
+// average + attempt count). Sits beside the coverage donut + readiness ring.
+function MockSummary({
+  t,
+  stats,
+  loading,
+}: {
+  t: Dictionary;
+  stats:
+    | {
+        total_attempts: number;
+        recent_3_avg_score_percent: number;
+        best_score_percent: number;
+        latest_score_percent: number;
+      }
+    | undefined;
+  loading: boolean;
+}) {
+  if (loading) {
+    return (
+      <div className="flex flex-col items-center justify-center">
+        <Loader2 className="size-6 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+  const best = stats?.best_score_percent;
+  const avg = stats?.recent_3_avg_score_percent;
+  const total = stats?.total_attempts ?? 0;
+  const bestTone =
+    best == null || best < 0
+      ? "text-muted-foreground"
+      : best >= 85
+        ? "text-success"
+        : best >= 70
+          ? "text-amber-600"
+          : "text-destructive";
+  return (
+    <div className="flex flex-col items-center justify-center gap-1 text-center">
+      <p className={`text-4xl font-bold tabular-nums ${bestTone}`}>
+        {best != null && best >= 0 ? `${best}%` : "—"}
+      </p>
+      <p className="text-sm font-semibold text-foreground">
+        {t.studyHub.mockSummaryLabel} · {t.studyHub.mockBest}
+      </p>
+      <p className="mt-1 text-xs text-muted-foreground">
+        {t.studyHub.mockAvgRecent}{" "}
+        {avg != null && avg >= 0 ? `${avg}%` : "—"}
+      </p>
+      <p className="text-xs text-muted-foreground">
+        {t.studyHub.mockAttemptsCount.replace("{n}", String(total))}
+      </p>
     </div>
   );
 }
