@@ -465,6 +465,9 @@ function MockSummary({
       <p className="text-xs text-muted-foreground">
         {t.studyHub.mockAttemptsCount.replace("{n}", String(total))}
       </p>
+      <p className="mt-1 max-w-[14rem] text-[11px] leading-snug text-muted-foreground/70">
+        {t.studyHub.mockStatsNote}
+      </p>
     </div>
   );
 }

@@ -80,6 +80,7 @@
     "mockBest": "Best",
     "mockAvgRecent": "Avg (last 3)",
     "mockAttemptsCount": "{n} attempts",
+    "mockStatsNote": "Submitted or timed-out only — exited / unfinished don't count",
     "entryFreeTrial": "Free trial",
     "entryFull": "Full bank",
     "correct": "correct",
