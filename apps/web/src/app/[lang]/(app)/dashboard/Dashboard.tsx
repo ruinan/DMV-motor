@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { ArrowRight, ChevronDown, Loader2, PlayCircle, Sparkles } from "lucide-react";
+import { ArrowRight, ChevronDown, Info, Loader2, PlayCircle, Sparkles } from "lucide-react";
 import { AttemptHistory } from "../../practice/AttemptHistory";
 import { useMinLoading } from "@/lib/hooks/use-min-loading";
 import { useMe } from "@/lib/hooks/use-me";
@@ -93,9 +93,18 @@ export function Dashboard({ t, lang }: Props) {
             label={t.studyHub.readinessLabel}
             lockedLabel={t.studyHub.readinessLocked}
           />
-          <p className="text-center text-sm font-semibold text-foreground">
-            {t.studyHub.readinessTitle}
-          </p>
+          <div className="group relative flex items-center gap-1">
+            <p className="text-center text-sm font-semibold text-foreground">
+              {t.studyHub.readinessTitle}
+            </p>
+            <Info className="size-3.5 cursor-help text-muted-foreground" aria-hidden />
+            <span
+              role="tooltip"
+              className="pointer-events-none absolute bottom-full left-1/2 z-20 mb-2 hidden w-60 -translate-x-1/2 rounded-lg border border-border bg-card px-3 py-2 text-left text-xs font-normal leading-snug text-muted-foreground shadow-lg group-hover:block"
+            >
+              {t.studyHub.readinessTooltip}
+            </span>
+          </div>
           {!isPaid && (
             <Link
               href={`/${lang}/me#subscription`}
