@@ -40,7 +40,7 @@ type Props = {
 const ASPECTS: { code: string; en: string; zh: string }[] = [
   { code: "example", en: "Example", zh: "举例" },
   { code: "mnemonic", en: "Memory aid", zh: "记忆法" },
-  { code: "distractors", en: "Why others wrong", zh: "为何别的错" },
+  { code: "distractors", en: "Why others wrong", zh: "错项辨析" },
   { code: "rule", en: "The rule", zh: "背后规则" },
 ];
 

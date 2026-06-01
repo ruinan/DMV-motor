@@ -406,9 +406,9 @@ function MockHistorySection({
           {t.studyHub.mockHistoryEmpty}
         </div>
       ) : (
-        <div className="flex flex-wrap gap-2">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {attempts.map((a) => (
-            <MockBadge key={a.attempt_id} attempt={a} lang={lang} />
+            <MockCard key={a.attempt_id} t={t} attempt={a} lang={lang} />
           ))}
         </div>
       )}
@@ -439,33 +439,66 @@ function SectionLoading() {
   );
 }
 
-function MockBadge({
+// A mock-attempt card. Mirrors the practice SessionCard's visual language
+// (rounded card, date + status pill, large score, accent action) so the mock
+// strip reads as part of the Study Hub, and is prominent + tappable straight
+// into the per-question review (?review=1, sidebar kept).
+function MockCard({
+  t,
   attempt,
   lang,
 }: {
+  t: Dictionary;
   attempt: MockAttemptHistoryItem;
   lang: Locale;
 }) {
-  const tone =
-    attempt.score_percent < 0
-      ? "border-border bg-muted text-muted-foreground"
-      : attempt.score_percent >= 85
-        ? "border-success/40 bg-success/10 text-success"
-        : attempt.score_percent >= 70
-          ? "border-amber-500/40 bg-amber-500/10 text-amber-700"
-          : "border-destructive/40 bg-destructive/10 text-destructive";
-  const label = attempt.score_percent < 0 ? "—" : `${attempt.score_percent}%`;
+  const scored = attempt.score_percent >= 0;
+  const scoreTone = !scored
+    ? "text-muted-foreground"
+    : attempt.score_percent >= 85
+      ? "text-success"
+      : attempt.score_percent >= 70
+        ? "text-amber-600"
+        : "text-destructive";
+  const score = scored ? `${attempt.score_percent}%` : "—";
   const date = formatRelative(attempt.submitted_at || attempt.started_at);
-  // Tap a past mock to reopen it in review mode (sidebar stays; ?review=1) —
-  // score + AI plan + per-question review.
+
+  const statusLabel =
+    attempt.status === "ended_by_exit"
+      ? t.studyHub.mockStatusExited
+      : attempt.status === "ended_by_failure"
+        ? t.studyHub.mockStatusFailed
+        : attempt.status === "ended_by_timeout"
+          ? t.studyHub.mockStatusTimeout
+          : t.studyHub.mockStatusCompleted;
+  const statusTone =
+    attempt.status === "ended_by_failure"
+      ? "bg-destructive/10 text-destructive"
+      : "bg-muted text-muted-foreground";
+
   return (
     <Link
       href={`/${lang}/mock/${attempt.attempt_id}?review=1`}
-      className={`flex flex-col items-center gap-1 rounded-lg border px-3 py-2 transition-shadow hover:shadow-sm ${tone}`}
-      title={`${date} · ${attempt.status}`}
+      className="group flex flex-col gap-2 rounded-xl border border-border/40 bg-card p-4 text-sm shadow-sm transition-colors hover:bg-muted/40"
     >
-      <span className="text-base font-bold tabular-nums">{label}</span>
-      <span className="text-[10px] text-muted-foreground">{date}</span>
+      <div className="flex items-center justify-between">
+        <span className="text-xs font-medium text-muted-foreground">{date}</span>
+        <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${statusTone}`}>
+          {statusLabel}
+        </span>
+      </div>
+      <div className="flex items-end justify-between">
+        <div>
+          <p className={`text-2xl font-bold tabular-nums ${scoreTone}`}>{score}</p>
+          <p className="text-xs text-muted-foreground">
+            {t.studyHub.mockAnswered.replace("{n}", String(attempt.answered_count))}
+          </p>
+        </div>
+        <span className="flex items-center gap-0.5 text-xs font-medium text-primary group-hover:underline">
+          {t.studyHub.mockReviewCta}
+          <ArrowRight className="size-3.5" />
+        </span>
+      </div>
     </Link>
   );
 }
