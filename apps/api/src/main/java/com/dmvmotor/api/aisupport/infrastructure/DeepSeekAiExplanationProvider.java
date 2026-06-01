@@ -44,24 +44,44 @@ public class DeepSeekAiExplanationProvider implements AiExplanationProvider {
             + "用 2-3 句话解释为什么他们选错以及正确答案为什么对。"
             + "用简单中文。不要重复题目。纯文本输出，不要 markdown。";
 
-    // enhance1 "深入分析": the learner already read the basic explanation and
-    // tapped "go deeper". Escalate — give the underlying rule, a worked angle,
-    // a memory aid, or the common confusion behind this item. Layers aren't fed
-    // prior text (anti-hijack), so the depth number is the only escalation cue.
+    // enhance1 "深入分析": the learner tapped a direction (aspect) to go deeper.
+    // The prompt is built from a per-aspect focus + the thread so far (fed back
+    // so the layer is progressive and doesn't repeat). %1$d = depth, %2$s =
+    // aspect focus instruction.
     private static final String DEEP_DIVE_PROMPT_EN =
             "You are a California Class M1 motorcycle permit test tutor. The "
-            + "learner already read a basic explanation of this question and "
-            + "wants to understand it more deeply (depth level %d). Give a "
-            + "deeper take: the underlying rule or safety reason, a worked "
-            + "example, a memory aid, or the common confusion. 3-4 sentences, "
-            + "plain English. Don't just restate the basic explanation. Plain "
-            + "text only — no markdown.";
+            + "learner already read an explanation of this question and tapped "
+            + "to go deeper (layer %1$d). %2$s Build on what was already said — "
+            + "do NOT repeat earlier points; add something new and more specific. "
+            + "3-4 sentences, plain English, plain text only (no markdown).";
 
     private static final String DEEP_DIVE_PROMPT_ZH =
-            "你是加州 M1 摩托车驾照笔试辅导员。学员已经看过这道题的基础解释，"
-            + "想更深入理解（深度层级 %d）。请给出更深的讲解：背后的规则或安全"
-            + "原理、举例、记忆方法、或常见混淆点。3-4 句，简单中文。不要只是"
-            + "重复基础解释。纯文本输出，不要 markdown。";
+            "你是加州 M1 摩托车驾照笔试辅导员。学员已看过这道题的解释并点击继续"
+            + "深入（第 %1$d 层）。%2$s 要在已说内容的基础上递进——**不要重复**"
+            + "前面的要点，补充更新、更具体的内容。3-4 句，简单中文，纯文本（不要 markdown）。";
+
+    /** Per-aspect focus instruction. Keys must match the frontend buttons. */
+    private static String aspectFocusEn(String aspect) {
+        return switch (aspect == null ? "" : aspect) {
+            case "example"     -> "Focus: give a concrete real-world riding scenario that illustrates the rule.";
+            case "mnemonic"    -> "Focus: give a memory aid or mnemonic that makes the answer stick.";
+            case "distractors" -> "Focus: explain why each of the other (wrong) choices is tempting but wrong.";
+            case "rule"        -> "Focus: explain the underlying law/regulation and the safety reason behind it.";
+            default            -> "Focus: go one level deeper than the basic explanation.";
+        };
+    }
+
+    private static String aspectFocusZh(String aspect) {
+        return switch (aspect == null ? "" : aspect) {
+            case "example"     -> "重点：举一个具体的真实骑行场景来说明这条规则。";
+            case "mnemonic"    -> "重点：给一个让答案好记的记忆方法或口诀。";
+            case "distractors" -> "重点：逐个说明其他（错误）选项为什么有迷惑性、为什么错。";
+            case "rule"        -> "重点：讲清楚背后的法规和安全原理。";
+            default            -> "重点：比基础解释再深入一层。";
+        };
+    }
+
+    private static final int PRIOR_CONTEXT_MAX = 1200;
 
     private final RestClient restClient;
     private final String     model;
@@ -89,7 +109,8 @@ public class DeepSeekAiExplanationProvider implements AiExplanationProvider {
     public Output explain(Input in) {
         boolean zh = "zh".equalsIgnoreCase(in.language());
         String systemPrompt = in.depth() > 0
-                ? String.format(zh ? DEEP_DIVE_PROMPT_ZH : DEEP_DIVE_PROMPT_EN, in.depth())
+                ? String.format(zh ? DEEP_DIVE_PROMPT_ZH : DEEP_DIVE_PROMPT_EN,
+                        in.depth(), zh ? aspectFocusZh(in.aspect()) : aspectFocusEn(in.aspect()))
                 : (zh ? SYSTEM_PROMPT_ZH : SYSTEM_PROMPT_EN);
 
         Map<String, Object> body = new LinkedHashMap<>();
@@ -139,6 +160,16 @@ public class DeepSeekAiExplanationProvider implements AiExplanationProvider {
         sb.append("Correct: ").append(in.correctChoiceKey());
         if (in.staticExplanation() != null && !in.staticExplanation().isBlank()) {
             sb.append('\n').append("Reference: ").append(in.staticExplanation());
+        }
+        // Deep-dive: feed the thread so far so the next layer builds on it and
+        // doesn't repeat. Truncated to bound prompt cost; this is the AI's own
+        // earlier output, framed as context (not a free-text user instruction).
+        if (in.priorContext() != null && !in.priorContext().isBlank()) {
+            String prior = in.priorContext();
+            if (prior.length() > PRIOR_CONTEXT_MAX) {
+                prior = prior.substring(prior.length() - PRIOR_CONTEXT_MAX);
+            }
+            sb.append('\n').append("Already explained (do not repeat):\n").append(prior);
         }
         return sb.toString();
     }

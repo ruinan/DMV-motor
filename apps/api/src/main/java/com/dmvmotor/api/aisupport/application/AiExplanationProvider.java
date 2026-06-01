@@ -30,10 +30,16 @@ public interface AiExplanationProvider {
             String                        selectedChoiceKey,
             String                        staticExplanation,
             String                        language,
-            // enhance1: 0 = base explanation; 1..N = "深入分析" layer. Providers
-            // escalate the prompt for depth ≥ 1. Layers aren't fed prior text
-            // (anti-hijack) — the depth just nudges "go deeper".
-            int                           depth
+            // enhance1: 0 = base explanation; 1..N = "深入分析" layer.
+            int                           depth,
+            // Deep-dive direction the learner tapped (example / mnemonic /
+            // distractors / rule), or null for the base. A fixed preset — never
+            // free user text — so the click-only anti-abuse stance holds.
+            String                        aspect,
+            // The thread so far (base + prior layers, the AI's OWN earlier
+            // output) fed back so the next layer is progressive and doesn't
+            // repeat. Server-truncated; null/blank for the base.
+            String                        priorContext
     ) {}
 
     record Output(

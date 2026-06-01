@@ -68,7 +68,7 @@ class DeepSeekAiExplanationProviderTest {
                 "A",
                 "A stop sign requires a full stop.",
                 language,
-                0);
+                0, null, null);
     }
 
     private static String chatCompletionsJson(String content,
@@ -280,7 +280,7 @@ class DeepSeekAiExplanationProviderTest {
 
         AiExplanationProvider.Input noRef = new AiExplanationProvider.Input(
                 7L, "Q?", List.of(Map.of("key", "A", "text", "x")),
-                "A", "B", null, "en", 0);
+                "A", "B", null, "en", 0, null, null);
 
         DeepSeekAiExplanationProvider provider = buildProvider(30);
         provider.explain(noRef);
@@ -290,5 +290,62 @@ class DeepSeekAiExplanationProviderTest {
         String userMsg = body.get("messages").get(1).get("content").asText();
         assertFalse(userMsg.contains("Reference:"),
                 "user message must omit Reference when no static explanation, got: " + userMsg);
+    }
+
+    // enhance1: deep-dive (depth ≥ 1) is aspect-directed + progressive. Cover the
+    // per-aspect focus switch (both languages, incl. the default fallback) and
+    // that the thread-so-far is fed back as "do not repeat" context.
+    @Test
+    void deepDive_allAspectsAndLanguages_feedPriorContext() throws Exception {
+        String[] aspects = {"example", "mnemonic", "distractors", "rule", "unknown"};
+        String[] langs = {"en", "zh"};
+        DeepSeekAiExplanationProvider provider = buildProvider(30);
+
+        for (String lang : langs) {
+            for (String aspect : aspects) {
+                server.enqueue(new MockResponse()
+                        .setHeader("Content-Type", "application/json")
+                        .setBody(chatCompletionsJson("deeper", 5, 5)));
+
+                AiExplanationProvider.Output out = provider.explain(
+                        new AiExplanationProvider.Input(
+                                9L, "Q?",
+                                List.of(Map.of("key", "A", "text", "x"),
+                                        Map.of("key", "B", "text", "y")),
+                                "A", "B", "ref", lang, 2, aspect,
+                                "earlier explanation of the basics"));
+
+                assertEquals("deeper", out.text());
+                RecordedRequest req = server.takeRequest(2, TimeUnit.SECONDS);
+                JsonNode body = JSON.readTree(req.getBody().readUtf8());
+                String userMsg = body.get("messages").get(1).get("content").asText();
+                assertTrue(userMsg.contains("earlier explanation of the basics"),
+                        "deep dive must feed prior context for " + lang + "/" + aspect);
+                // system prompt was built for a deep dive (layer interpolated)
+                String systemMsg = body.get("messages").get(0).get("content").asText();
+                assertTrue(systemMsg.contains("2"),
+                        "deep-dive prompt should reference the layer for " + lang + "/" + aspect);
+            }
+        }
+    }
+
+    @Test
+    void deepDive_longPriorContext_isTruncated() throws Exception {
+        server.enqueue(new MockResponse()
+                .setHeader("Content-Type", "application/json")
+                .setBody(chatCompletionsJson("ok", 1, 1)));
+
+        String longContext = "z".repeat(5000);
+        DeepSeekAiExplanationProvider provider = buildProvider(30);
+        provider.explain(new AiExplanationProvider.Input(
+                9L, "Q?", List.of(Map.of("key", "A", "text", "x")),
+                "A", "B", null, "en", 1, "example", longContext));
+
+        RecordedRequest req = server.takeRequest(2, TimeUnit.SECONDS);
+        JsonNode body = JSON.readTree(req.getBody().readUtf8());
+        String userMsg = body.get("messages").get(1).get("content").asText();
+        // The 5000-char context is capped well under its original length.
+        assertTrue(userMsg.length() < 4000,
+                "long prior context must be truncated, got length " + userMsg.length());
     }
 }

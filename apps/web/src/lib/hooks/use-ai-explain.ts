@@ -12,7 +12,13 @@ import { apiFetch, ApiError } from "@/lib/api-client";
  * (decision memory §35: "clear cache 就没", 减服务器压力). On revisit we hydrate
  * from localStorage and show the history instantly, no server round-trip.
  */
-export type AiLayer = { depth: number; text: string; cached: boolean };
+export type AiLayer = {
+  depth: number;
+  text: string;
+  cached: boolean;
+  /** Deep-dive direction the user tapped (example/mnemonic/distractors/rule). */
+  aspect?: string;
+};
 
 export type AiExplainState = {
   status: "idle" | "loading" | "error";
@@ -87,7 +93,11 @@ export function useAiExplain(identity: AiExplainIdentity) {
     );
   }, [key]);
 
-  async function call(depth: number) {
+  async function call(depth: number, aspect?: string) {
+    // Feed the thread so far back so deep-dive layers are progressive and don't
+    // repeat (the server truncates). Only for deep dives (depth > 0).
+    const priorContext =
+      depth > 0 ? state.layers.map((l) => l.text).join("\n\n") : "";
     setState((s) => ({ ...s, status: "loading", errorCode: undefined, errorMessage: undefined }));
     try {
       const res = await apiFetch<AiExplainResponse>("/api/v1/ai/explain", {
@@ -98,12 +108,14 @@ export function useAiExplain(identity: AiExplainIdentity) {
           selected_choice_key: selectedChoiceKey,
           language,
           depth,
+          ...(aspect ? { aspect } : {}),
+          ...(priorContext ? { prior_context: priorContext } : {}),
         }),
       });
       setState((s) => {
         const layers = [
           ...s.layers,
-          { depth: res.depth, text: res.explanation, cached: res.cached },
+          { depth: res.depth, text: res.explanation, cached: res.cached, aspect },
         ];
         writeThread(key, { layers, depthRemaining: res.depth_remaining });
         return { status: "idle", layers, depthRemaining: res.depth_remaining };
@@ -125,9 +137,9 @@ export function useAiExplain(identity: AiExplainIdentity) {
     void call(0);
   }
 
-  /** Request the next deeper layer ("深入分析"). */
-  function deepen() {
-    void call(state.layers.length);
+  /** Request a deeper layer in a chosen direction ("深入分析"). */
+  function deepen(aspect: string) {
+    void call(state.layers.length, aspect);
   }
 
   return { state, explain, deepen };

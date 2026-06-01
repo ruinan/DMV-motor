@@ -254,6 +254,26 @@ class AiExplanationControllerTest extends IntegrationTestBase {
         assertEquals(0, stubProvider.callCount());
     }
 
+    @Test
+    void deepDive_withAspect_directsTheProvider() throws Exception {
+        // The tapped direction (aspect) + prior thread flow to the provider so
+        // the layer is focused + progressive. Stub echoes :aspect=<x>.
+        String body = "{\"question_id\":\"" + freeTrialQuestionId + "\","
+                + "\"selected_choice_key\":\"B\",\"language\":\"en\","
+                + "\"depth\":1,\"aspect\":\"example\","
+                + "\"prior_context\":\"the basic explanation text\"}";
+        mockMvc.perform(post("/api/v1/ai/explain")
+                        .header("Authorization", "Bearer " + userId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.explanation", containsString(":aspect=example")))
+                .andExpect(jsonPath("$.data.depth", is(1)))
+                .andExpect(jsonPath("$.data.depth_remaining", is(9)));
+
+        assertEquals(1, fixtures.countDeepDiveLogForUser(userId));
+    }
+
     // --------------- 10-11. validation ---------------
 
     @Test

@@ -26,9 +26,11 @@ public class StubAiExplanationProvider implements AiExplanationProvider {
     public Output explain(Input in) {
         callCount.incrementAndGet();
         // depth 0 keeps the original string (existing cache-hit tests assert it);
-        // deep-dive layers append :depth=N so tests can tell layers apart.
+        // deep-dive layers append :depth=N (and :aspect=X when directed) so
+        // tests can tell layers apart.
         String text = "stub:explanation:q=" + in.questionId() + ":lang=" + in.language()
-                + (in.depth() > 0 ? ":depth=" + in.depth() : "");
+                + (in.depth() > 0 ? ":depth=" + in.depth() : "")
+                + (in.aspect() != null && !in.aspect().isBlank() ? ":aspect=" + in.aspect() : "");
         return new Output(text, 0, 0);
     }
 

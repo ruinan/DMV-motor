@@ -55,7 +55,8 @@ public class AiExplanationService {
     }
 
     public Result explain(Long userId, Long questionId, Long variantId,
-                          String selectedChoiceKey, String language, int depth) {
+                          String selectedChoiceKey, String language, int depth,
+                          String aspect, String priorContext) {
         // Feature flag — stable AI_UNAVAILABLE so the client shows "off" rather
         // than leaking a stub / canned text.
         if (!props.enabled()) {
@@ -65,7 +66,8 @@ public class AiExplanationService {
         }
         return depth <= 0
                 ? explainBase(userId, questionId, selectedChoiceKey, language)
-                : deepDive(userId, questionId, selectedChoiceKey, language, depth);
+                : deepDive(userId, questionId, selectedChoiceKey, language, depth,
+                        aspect, priorContext);
     }
 
     // ---- depth 0: base explanation (DB-cached) -------------------------------
@@ -102,7 +104,8 @@ public class AiExplanationService {
     // ---- depth ≥ 1: deep dive (not persisted, only counted) ------------------
 
     private Result deepDive(Long userId, Long questionId,
-                            String selectedChoiceKey, String language, int depth) {
+                            String selectedChoiceKey, String language, int depth,
+                            String aspect, String priorContext) {
         // Access gate (also loads the question content for the provider).
         QuestionDetail question = contentService.getQuestion(userId, questionId, language);
 
@@ -120,7 +123,8 @@ public class AiExplanationService {
         enforceRateLimit(userId);
 
         AiExplanationProvider.Output out =
-                provider.explain(toInput(question, selectedChoiceKey, language, depth));
+                provider.explain(toInput(question, selectedChoiceKey, language, depth,
+                        aspect, priorContext));
 
         // Log metadata only (no text). One row per LLM call, including re-burns.
         deepDiveRepo.insert(userId, questionId, language, depth);
@@ -134,6 +138,13 @@ public class AiExplanationService {
     private AiExplanationProvider.Input toInput(QuestionDetail question,
                                                 String selectedChoiceKey,
                                                 String language, int depth) {
+        return toInput(question, selectedChoiceKey, language, depth, null, null);
+    }
+
+    private AiExplanationProvider.Input toInput(QuestionDetail question,
+                                                String selectedChoiceKey,
+                                                String language, int depth,
+                                                String aspect, String priorContext) {
         List<Map<String, String>> choices = question.choices().stream()
                 .map(c -> Map.of("key", c.key(), "text", c.text()))
                 .toList();
@@ -145,7 +156,9 @@ public class AiExplanationService {
                 selectedChoiceKey,
                 question.explanation(),
                 language,
-                depth);
+                depth,
+                aspect,
+                priorContext);
     }
 
     /**

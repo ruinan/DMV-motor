@@ -45,7 +45,7 @@ public class AiExplanationController {
         int depth = req.depth() == null ? 0 : Math.max(0, req.depth());
 
         AiExplanationService.Result result = service.explain(userId, questionId, variantId,
-                req.selectedChoiceKey(), language, depth);
+                req.selectedChoiceKey(), language, depth, req.aspect(), req.priorContext());
 
         return ApiResponse.ok(Map.of(
                 "explanation",     result.explanation(),
@@ -83,10 +83,13 @@ public class AiExplanationController {
             String variant_id,
             String selected_choice_key,
             String language,
-            Integer depth
+            Integer depth,
+            String aspect,
+            String prior_context
     ) {
         String questionId()         { return question_id; }
         String variantId()          { return variant_id; }
         String selectedChoiceKey()  { return selected_choice_key; }
+        String priorContext()       { return prior_context; }
     }
 }
