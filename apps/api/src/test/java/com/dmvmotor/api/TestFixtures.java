@@ -30,6 +30,7 @@ public class TestFixtures {
         jdbc.execute("""
                 TRUNCATE
                     reminder_tasks,
+                    mock_review_plans,
                     ai_deep_dive_log,
                     ai_explanations,
                     mistake_records,

@@ -65,13 +65,15 @@ public class AiExplanationController {
      */
     @GetMapping("/review-plan")
     public ApiResponse<?> reviewPlan(@CurrentUser Long userId,
-                                      @RequestParam("mock_attempt_id") String mockAttemptId) {
+                                      @RequestParam("mock_attempt_id") String mockAttemptId,
+                                      @RequestParam(value = "language", required = false) String language) {
         if (userId == null) {
             throw new BusinessException("UNAUTHORIZED", "Authentication required",
                     HttpStatus.UNAUTHORIZED);
         }
         long attemptId = Ids.parse(mockAttemptId, "mock_attempt_id");
-        AiReviewPlanService.PlanView view = reviewPlanService.getCachedPlan(attemptId, userId);
+        String lang = (language == null || language.isBlank()) ? "en" : language;
+        AiReviewPlanService.PlanView view = reviewPlanService.getCachedPlan(attemptId, userId, lang);
         return ApiResponse.ok(Map.of(
                 "status", view.status().name().toLowerCase(),
                 "plan",   view.plan() != null ? view.plan() : ""

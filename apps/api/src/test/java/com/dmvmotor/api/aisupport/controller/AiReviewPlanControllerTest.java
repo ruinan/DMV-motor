@@ -179,6 +179,38 @@ class AiReviewPlanControllerTest extends IntegrationTestBase {
                 .andExpect(jsonPath("$.data.plan").value(containsString("wrong=1")));
     }
 
+    @Test
+    void reviewPlan_perLanguage_lazilyGeneratesRequestedLanguage() throws Exception {
+        // Bug fix: the plan is cached + generated per language so switching the
+        // UI language shows it in that language. The mock's language (en) is
+        // generated eagerly; zh is generated lazily on first request.
+        Long attemptId = fixtures.insertMockAttemptWithScore(userId, mockExamId, 70);
+        reviewPlanService.generateAndCache(attemptId, userId); // en (mock language)
+
+        // en is ready.
+        mockMvc.perform(get("/api/v1/ai/review-plan")
+                        .header("Authorization", "Bearer " + userId)
+                        .param("mock_attempt_id", String.valueOf(attemptId))
+                        .param("language", "en"))
+                .andExpect(jsonPath("$.data.status").value("ready"));
+
+        // zh isn't cached → the GET kicks off lazy generation and reports
+        // pending while it runs.
+        mockMvc.perform(get("/api/v1/ai/review-plan")
+                        .header("Authorization", "Bearer " + userId)
+                        .param("mock_attempt_id", String.valueOf(attemptId))
+                        .param("language", "zh"))
+                .andExpect(jsonPath("$.data.status").value("pending"));
+
+        // The lazy job ran (sync executor in tests) → a second zh read is ready,
+        // and en stays ready — the two languages are cached independently.
+        mockMvc.perform(get("/api/v1/ai/review-plan")
+                        .header("Authorization", "Bearer " + userId)
+                        .param("mock_attempt_id", String.valueOf(attemptId))
+                        .param("language", "zh"))
+                .andExpect(jsonPath("$.data.status").value("ready"));
+    }
+
     // ===== Auto-trigger wiring =====
 
     @Test

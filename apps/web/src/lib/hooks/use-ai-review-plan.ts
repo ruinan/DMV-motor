@@ -23,15 +23,20 @@ const MAX_POLLS = 10;
  * plan is produced by a background job when the mock finishes — the client
  * never triggers it, it only polls here until the plan is ready.
  */
-export function useAiReviewPlan(attemptId: string | null): AiReviewPlanView {
+export function useAiReviewPlan(
+  attemptId: string | null,
+  language: string,
+): AiReviewPlanView {
   const { user } = useAuth();
   const [polls, setPolls] = useState(0);
   const q = useQuery({
-    queryKey: ["ai-review-plan", attemptId],
+    // language is part of the key so switching locale refetches (the plan is
+    // cached + generated per language; a new language lazily generates).
+    queryKey: ["ai-review-plan", attemptId, language],
     queryFn: () => {
       setPolls((n) => n + 1);
       return apiFetch<Resp>(
-        `/api/v1/ai/review-plan?mock_attempt_id=${attemptId}`,
+        `/api/v1/ai/review-plan?mock_attempt_id=${attemptId}&language=${language}`,
       );
     },
     enabled: !!user && !!attemptId,

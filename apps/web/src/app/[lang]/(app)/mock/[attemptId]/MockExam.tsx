@@ -254,7 +254,7 @@ export function MockExam({ t, lang, attemptId }: Props) {
             ← {t.backToDashboard}
           </Link>
         </header>
-        <AiReviewPlanBlock t={t} attemptId={attemptId} />
+        <AiReviewPlanBlock t={t} lang={lang} attemptId={attemptId} />
         <MockReview
           t={t}
           lang={lang}
@@ -309,7 +309,7 @@ export function MockExam({ t, lang, attemptId }: Props) {
               .replace("{wrong}", String(wrong))}
           </p>
         </div>
-        <AiReviewPlanBlock t={t} attemptId={attemptId} />
+        <AiReviewPlanBlock t={t} lang={lang} attemptId={attemptId} />
         <div className="flex flex-col gap-3 sm:flex-row sm:justify-center">
           <Button onClick={() => router.push(`/${lang}/mock`)}>
             {t.terminatedTryAgain}
@@ -669,7 +669,7 @@ function ResultView({
         )}
       </section>
 
-      <AiReviewPlanBlock t={t} attemptId={attemptId} />
+      <AiReviewPlanBlock t={t} lang={lang} attemptId={attemptId} />
 
       <div className="flex flex-col gap-3 sm:flex-row sm:justify-end">
         <Button variant="outline" onClick={onBack}>
@@ -767,7 +767,7 @@ function FinishedView({
         </section>
       )}
 
-      {scored && <AiReviewPlanBlock t={t} attemptId={attemptId} />}
+      {scored && <AiReviewPlanBlock t={t} lang={lang} attemptId={attemptId} />}
 
       <MockReview
         t={t}
@@ -799,12 +799,14 @@ function FinishedView({
  */
 function AiReviewPlanBlock({
   t,
+  lang,
   attemptId,
 }: {
   t: Dictionary["mock"];
+  lang: Locale;
   attemptId: string;
 }) {
-  const ai = useAiReviewPlan(attemptId);
+  const ai = useAiReviewPlan(attemptId, lang);
 
   if (ai.state === "ready") {
     return (
