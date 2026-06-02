@@ -10,6 +10,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
+import { useMe, examName } from "@/lib/hooks/use-me";
 import { LanguageToggle } from "@/components/language-toggle";
 import type { Dictionary, Locale } from "@/lib/dictionaries";
 
@@ -27,6 +28,10 @@ type Props = {
 export function AppSidebar({ t, lang }: Props) {
   const pathname = usePathname();
   const { user, signOut } = useAuth();
+  const me = useMe();
+  const examLabel = me.data?.current_exam
+    ? examName(me.data.current_exam, lang)
+    : null;
 
   // 4-item IA: Study (data overview), Practice (drills + mistakes + review),
   // Exam (mock), Settings (account). Sub-pages like /mistakes /review /progress
@@ -41,12 +46,19 @@ export function AppSidebar({ t, lang }: Props) {
   return (
     <aside className="hidden md:flex md:fixed md:inset-y-0 md:left-0 md:w-64 md:flex-col md:border-r md:border-border md:bg-card">
       <div className="flex h-16 items-center justify-between px-6">
-        <Link
-          href={`/${lang}/dashboard`}
-          className="text-lg font-bold tracking-tight text-primary"
-        >
-          {t.nav.appBrand}
-        </Link>
+        <div className="flex min-w-0 flex-col">
+          <Link
+            href={`/${lang}/dashboard`}
+            className="text-lg font-bold leading-tight tracking-tight text-primary"
+          >
+            {t.nav.appBrand}
+          </Link>
+          {examLabel && (
+            <span className="truncate text-xs text-muted-foreground">
+              {examLabel}
+            </span>
+          )}
+        </div>
         <LanguageToggle currentLang={lang} ariaLabel={t.site.switchLanguage} />
       </div>
 

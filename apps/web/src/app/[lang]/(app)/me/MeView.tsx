@@ -7,6 +7,7 @@ import {
   AlertTriangle,
   CheckCircle2,
   CreditCard,
+  GraduationCap,
   Globe2,
   KeyRound,
   LogOut,
@@ -18,6 +19,8 @@ import {
 import { useAuth } from "@/lib/auth-context";
 import { apiFetch, ApiError } from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
+import { ExamPicker } from "@/components/exam-picker";
+import { examName, type CurrentExam } from "@/lib/hooks/use-me";
 import type { Dictionary, Locale } from "@/lib/dictionaries";
 
 type MeResponse = {
@@ -34,6 +37,7 @@ type MeResponse = {
     has_in_progress_practice: boolean;
     has_in_progress_review: boolean;
   };
+  current_exam: CurrentExam | null;
 };
 
 type Props = {
@@ -86,6 +90,7 @@ export function MeView({ t, lang }: Props) {
 
           <Group label={t.groupAccount}>
             <ProfileSection t={t} data={data} />
+            <ExamSection t={t} lang={lang} data={data} />
             <LanguageSection t={t} lang={lang} data={data} />
           </Group>
 
@@ -273,6 +278,46 @@ function ProfileSection({
         <Field label={t.userId} value={data.user_id} />
         <Field label={t.email} value={data.email} />
       </dl>
+    </Section>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Exam (state × license the user is preparing for)
+// ---------------------------------------------------------------------------
+
+function ExamSection({
+  t,
+  lang,
+  data,
+}: {
+  t: Dictionary["me"];
+  lang: Locale;
+  data: MeResponse;
+}) {
+  const current = data.current_exam
+    ? examName(data.current_exam, lang)
+    : t.examNotSet;
+
+  return (
+    <Section
+      id="exam"
+      icon={<GraduationCap className="size-4" />}
+      title={t.sectionExam}
+      description={t.sectionExamBody}
+    >
+      <p className="mb-3 text-sm text-muted-foreground">
+        {t.examCurrent}:{" "}
+        <span className="font-medium text-foreground">{current}</span>
+      </p>
+      <ExamPicker
+        lang={lang}
+        labels={{
+          loading: t.loading,
+          errorGeneric: t.errorGeneric,
+          empty: t.examPickerEmpty,
+        }}
+      />
     </Section>
   );
 }

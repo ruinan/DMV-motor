@@ -33,7 +33,7 @@
     "terms": "Terms"
   },
   "nav": {
-    "appBrand": "M1 Prep",
+    "appBrand": "DMV Prep",
     "study": "Study",
     "practice": "Practice",
     "exam": "Exam",
@@ -85,7 +85,12 @@
     "entryFreeTrial": "Free trial",
     "entryFull": "Full bank",
     "correct": "correct",
-    "inProgressBadge": "In progress"
+    "inProgressBadge": "In progress",
+    "loading": "Loading…",
+    "errorGeneric": "Something went wrong. Please try again.",
+    "examOnboardingTitle": "Which exam are you preparing for?",
+    "examOnboardingBody": "Pick your exam so practice, mock exams and progress are tailored to it. You can change it anytime in Settings.",
+    "examPickerEmpty": "No exams are available yet."
   },
   "dashboard": {
     "packTitle": "Today's review pack",
@@ -125,7 +130,7 @@
     "noWeakTopics": "No weak topics detected yet."
   },
   "auth": {
-    "appTagline": "California M1 Prep",
+    "appTagline": "DMV written-exam prep",
     "tabSignIn": "Sign in",
     "tabCreate": "Create account",
     "email": "Email",
@@ -178,6 +183,11 @@
     "state_expired": "Expired",
     "sectionProfile": "Profile",
     "sectionProfileBody": "Read-only identity tied to your sign-in.",
+    "sectionExam": "Exam",
+    "sectionExamBody": "The exam you're preparing for. Changing it re-scopes your practice, mock exams and progress.",
+    "examCurrent": "Currently preparing for",
+    "examNotSet": "Not set yet",
+    "examPickerEmpty": "No exams are available yet.",
     "sectionLanguage": "Language preference",
     "sectionLanguageBody": "Used for question display and saved to your account.",
     "languageEnglish": "English",

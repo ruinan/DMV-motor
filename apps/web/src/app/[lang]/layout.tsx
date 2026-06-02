@@ -27,9 +27,9 @@ const mono = localFont({
 });
 
 export const metadata: Metadata = {
-  title: "DMV Motor — California M1 prep",
+  title: "DMV Motor — DMV written-exam prep",
   description:
-    "California M1 motorcycle written-exam prep. Practice, mistakes, mock exams.",
+    "DMV written-exam prep. Practice, mistakes, and timed mock exams.",
 };
 
 export function generateStaticParams() {

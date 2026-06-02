@@ -11,6 +11,15 @@ export type InProgressPractice = {
   last_activity_at: string;
 };
 
+/** The exam a user is currently preparing for. Null until they pick one. */
+export type CurrentExam = {
+  id: string;
+  state_code: string;
+  license_class: string;
+  name_en: string;
+  name_zh: string;
+};
+
 export type MeResponse = {
   user_id: string;
   email: string;
@@ -26,7 +35,13 @@ export type MeResponse = {
     in_progress_practice: InProgressPractice | null;
     has_in_progress_review: boolean;
   };
+  current_exam: CurrentExam | null;
 };
+
+/** Localized name for a current exam, given the active UI language. */
+export function examName(exam: CurrentExam, lang: "en" | "zh"): string {
+  return lang === "zh" ? exam.name_zh : exam.name_en;
+}
 
 export function useMe() {
   const { user } = useAuth();

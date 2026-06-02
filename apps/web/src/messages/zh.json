@@ -33,7 +33,7 @@
     "terms": "条款"
   },
   "nav": {
-    "appBrand": "M1 备考",
+    "appBrand": "DMV 备考",
     "study": "学习",
     "practice": "练习",
     "exam": "考试",
@@ -85,7 +85,12 @@
     "entryFreeTrial": "免费试用",
     "entryFull": "完整题库",
     "correct": "正确",
-    "inProgressBadge": "进行中"
+    "inProgressBadge": "进行中",
+    "loading": "加载中…",
+    "errorGeneric": "出错了，请重试。",
+    "examOnboardingTitle": "你在备考哪个考试？",
+    "examOnboardingBody": "选择你的考试，练习、模考和进度都会围绕它定制。随时可在设置中更改。",
+    "examPickerEmpty": "暂无可选考试。"
   },
   "dashboard": {
     "packTitle": "今日复习包",
@@ -125,7 +130,7 @@
     "noWeakTopics": "暂未识别出薄弱知识点。"
   },
   "auth": {
-    "appTagline": "加州 M1 备考",
+    "appTagline": "DMV 笔试备考",
     "tabSignIn": "登录",
     "tabCreate": "注册账号",
     "email": "邮箱",
@@ -178,6 +183,11 @@
     "state_expired": "已过期",
     "sectionProfile": "个人信息",
     "sectionProfileBody": "与登录身份绑定的只读字段。",
+    "sectionExam": "考试",
+    "sectionExamBody": "你正在备考的考试。更改后，练习、模考和进度都会切换到新考试。",
+    "examCurrent": "当前备考",
+    "examNotSet": "尚未设置",
+    "examPickerEmpty": "暂无可选考试。",
     "sectionLanguage": "语言偏好",
     "sectionLanguageBody": "用于题目展示，保存到你的账号。",
     "languageEnglish": "English",

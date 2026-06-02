@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { ArrowRight, ChevronDown, Info, Loader2, PlayCircle, Sparkles } from "lucide-react";
+import { ArrowRight, ChevronDown, GraduationCap, Info, Loader2, PlayCircle, Sparkles } from "lucide-react";
 import { AttemptHistory } from "../../practice/AttemptHistory";
 import { useMinLoading } from "@/lib/hooks/use-min-loading";
 import { useMe } from "@/lib/hooks/use-me";
@@ -21,6 +21,7 @@ import {
 import { ReadinessRing } from "@/components/readiness-ring";
 import { CoverageDonut } from "@/components/study-hub/CoverageDonut";
 import { Sparkline } from "@/components/study-hub/Sparkline";
+import { ExamPicker } from "@/components/exam-picker";
 import type { Dictionary, Locale } from "@/lib/dictionaries";
 
 type Props = {
@@ -74,6 +75,31 @@ export function Dashboard({ t, lang }: Props) {
           {t.studyHub.subtitle}
         </p>
       </header>
+
+      {/* Onboarding: a signed-in user who hasn't picked an exam yet. Existing
+          users were backfilled, so this only shows for brand-new accounts. The
+          app still works (backend defaults), but we nudge an explicit choice. */}
+      {me.data && !me.data.current_exam && (
+        <section className="rounded-xl border border-primary/30 bg-primary/5 p-6 shadow-sm">
+          <div className="mb-1 flex items-center gap-2">
+            <GraduationCap className="size-5 text-primary" />
+            <h2 className="text-lg font-semibold text-foreground">
+              {t.studyHub.examOnboardingTitle}
+            </h2>
+          </div>
+          <p className="mb-4 text-sm text-muted-foreground">
+            {t.studyHub.examOnboardingBody}
+          </p>
+          <ExamPicker
+            lang={lang}
+            labels={{
+              loading: t.studyHub.loading,
+              errorGeneric: t.studyHub.errorGeneric,
+              empty: t.studyHub.examPickerEmpty,
+            }}
+          />
+        </section>
+      )}
 
       {/* Hero: the three at-a-glance metrics — coverage, readiness, mock perf. */}
       <section className="grid grid-cols-1 gap-8 rounded-xl border border-border/40 bg-card p-6 shadow-sm md:grid-cols-3 md:p-8">
