@@ -3,6 +3,7 @@ package com.dmvmotor.api.aisupport.application;
 import com.dmvmotor.api.aisupport.infrastructure.RecommendationRepository;
 import com.dmvmotor.api.aisupport.infrastructure.RecommendationRepository.TopicMistakeCount;
 import com.dmvmotor.api.authaccess.infrastructure.UserRepository;
+import com.dmvmotor.api.content.application.ExamContext;
 import com.dmvmotor.api.content.domain.Topic;
 import com.dmvmotor.api.content.infrastructure.TopicRepository;
 import org.springframework.stereotype.Service;
@@ -39,13 +40,16 @@ public class RecommendationService {
     private final RecommendationRepository recRepo;
     private final TopicRepository          topicRepo;
     private final UserRepository           userRepo;
+    private final ExamContext              examContext;
 
     public RecommendationService(RecommendationRepository recRepo,
                                  TopicRepository topicRepo,
-                                 UserRepository userRepo) {
+                                 UserRepository userRepo,
+                                 ExamContext examContext) {
         this.recRepo   = recRepo;
         this.topicRepo = topicRepo;
         this.userRepo  = userRepo;
+        this.examContext = examContext;
     }
 
     public List<Recommendation> recommend(Long userId, String language, int requestedLimit) {
@@ -53,7 +57,10 @@ public class RecommendationService {
         int cycle = userRepo.findById(userId)
                 .map(UserRepository.UserRow::resetCount).orElse(0);
 
-        List<Topic> topics = topicRepo.findAllOrderBySortOrder();
+        // Recommend only within the user's current exam taxonomy. Mistake-topic
+        // ids from other exams (shouldn't occur for a single-exam user) fall out
+        // naturally via the byId lookup below.
+        List<Topic> topics = topicRepo.findByExam(examContext.resolveExamId(userId));
         Map<Long, Topic> byId = topics.stream()
                 .collect(Collectors.toMap(Topic::id, Function.identity()));
 

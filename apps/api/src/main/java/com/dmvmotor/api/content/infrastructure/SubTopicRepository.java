@@ -3,6 +3,8 @@ package com.dmvmotor.api.content.infrastructure;
 import com.dmvmotor.api.content.domain.SubTopic;
 import com.dmvmotor.api.infrastructure.jooq.generated.Tables;
 import org.jooq.DSLContext;
+import org.jooq.Field;
+import org.jooq.impl.DSL;
 import org.springframework.stereotype.Repository;
 
 import java.util.HashMap;
@@ -18,17 +20,29 @@ public class SubTopicRepository {
         this.dsl = dsl;
     }
 
-    public List<SubTopic> findAllOrderBySortOrder() {
-        return dsl.selectFrom(Tables.SUB_TOPICS)
-                .orderBy(Tables.SUB_TOPICS.SORT_ORDER.asc())
+    /**
+     * Sub-topics belonging to one exam, in display order. Sub-topics carry no
+     * exam_id of their own — they inherit it from their parent topic, so this
+     * joins through {@code topics.exam_id} (V26).
+     */
+    public List<SubTopic> findByExam(Long examId) {
+        var st = Tables.SUB_TOPICS;
+        var t  = Tables.TOPICS;
+        Field<Long> topicExamId = DSL.field(DSL.name("topics", "exam_id"), Long.class);
+        return dsl.select(st.ID, st.PARENT_TOPIC_ID, st.CODE, st.NAME_EN,
+                          st.NAME_ZH, st.DESCRIPTION, st.SORT_ORDER)
+                .from(st)
+                .join(t).on(t.ID.eq(st.PARENT_TOPIC_ID))
+                .where(topicExamId.eq(examId))
+                .orderBy(st.SORT_ORDER.asc())
                 .fetch(r -> new SubTopic(
-                        r.getId(),
-                        r.getParentTopicId(),
-                        r.getCode(),
-                        r.getNameEn(),
-                        r.getNameZh(),
-                        r.getDescription(),
-                        r.getSortOrder()
+                        r.get(st.ID),
+                        r.get(st.PARENT_TOPIC_ID),
+                        r.get(st.CODE),
+                        r.get(st.NAME_EN),
+                        r.get(st.NAME_ZH),
+                        r.get(st.DESCRIPTION),
+                        r.get(st.SORT_ORDER)
                 ));
     }
 

@@ -5,6 +5,7 @@ import com.dmvmotor.api.authaccess.application.AccessService.AccessInfo;
 import com.dmvmotor.api.authaccess.infrastructure.UserRepository;
 import com.dmvmotor.api.common.BusinessException;
 import com.dmvmotor.api.common.ResourceNotFoundException;
+import com.dmvmotor.api.content.application.ExamContext;
 import com.dmvmotor.api.content.domain.QuestionDetail;
 import com.dmvmotor.api.content.infrastructure.QuestionRepository;
 import com.dmvmotor.api.mockexam.infrastructure.MockExamRepository;
@@ -32,6 +33,7 @@ public class MockExamService {
     private final MistakeRepository  mistakeRepo;
     private final UserRepository     userRepo;
     private final MockScoringPolicy  scoringPolicy;
+    private final ExamContext        examContext;
     private final ApplicationEventPublisher events;
 
     public MockExamService(MockExamRepository mockExamRepo,
@@ -41,6 +43,7 @@ public class MockExamService {
                            MistakeRepository mistakeRepo,
                            UserRepository userRepo,
                            MockScoringPolicy scoringPolicy,
+                           ExamContext examContext,
                            ApplicationEventPublisher events) {
         this.mockExamRepo  = mockExamRepo;
         this.historyDao    = historyDao;
@@ -49,6 +52,7 @@ public class MockExamService {
         this.mistakeRepo   = mistakeRepo;
         this.userRepo      = userRepo;
         this.scoringPolicy = scoringPolicy;
+        this.examContext   = examContext;
         this.events        = events;
     }
 
@@ -68,13 +72,16 @@ public class MockExamService {
                     HttpStatus.FORBIDDEN);
         }
 
-        Long mockExamId = mockExamRepo.findActiveMockExamId()
+        // Scope to the user's current exam (or default pre-onboarding); the
+        // attempt snapshots it so later switches don't rewire this exam.
+        Long examId = examContext.resolveExamId(userId);
+        Long mockExamId = mockExamRepo.findActiveMockExamId(examId)
                 .orElseThrow(() -> new BusinessException("NO_MOCK_EXAM_AVAILABLE",
                         "No active mock exam template found",
                         HttpStatus.UNPROCESSABLE_ENTITY));
 
         int cycle = userRepo.findById(userId).map(u -> u.resetCount()).orElse(0);
-        Long attemptId = mockExamRepo.createAttempt(userId, mockExamId, language, cycle);
+        Long attemptId = mockExamRepo.createAttempt(userId, mockExamId, language, cycle, examId);
         // canUseMockExam=true ⇒ activePassId is non-null, so quota decrement
         // targets the specific row that's currently in window.
         mockExamRepo.consumeMockQuotaForPass(info.activePassId());
@@ -164,7 +171,8 @@ public class MockExamService {
 
         int wrongCount = mockExamRepo.countWrongAnswers(attemptId);
         int totalQuestions = mockExamRepo.findMockExamQuestionCount(attempt.mockExamId());
-        int maxWrong = scoringPolicy.maxAllowedWrong(totalQuestions);
+        int threshold = mockExamRepo.findPassThresholdPercent(attempt.mockExamId());
+        int maxWrong = scoringPolicy.maxAllowedWrong(totalQuestions, threshold);
         boolean shouldTerminate = wrongCount > maxWrong;
 
         if (shouldTerminate) {

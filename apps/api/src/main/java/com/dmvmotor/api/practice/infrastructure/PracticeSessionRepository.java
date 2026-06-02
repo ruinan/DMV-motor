@@ -19,6 +19,15 @@ import java.util.Optional;
 @Repository
 public class PracticeSessionRepository {
 
+    // V26 exam-scoping columns, accessed via dynamic refs (codebase convention,
+    // no jOOQ regen). PS_EXAM_ID = practice_sessions.exam_id (snapshot at start);
+    // Q_EXAM_ID = questions.exam_id, qualified so it never collides with
+    // topics.exam_id when both tables are in scope.
+    private static final Field<Long> PS_EXAM_ID =
+            DSL.field(DSL.name("exam_id"), Long.class);
+    private static final Field<Long> Q_EXAM_ID =
+            DSL.field(DSL.name("questions", "exam_id"), Long.class);
+
     private final DSLContext    dsl;
     private final ObjectMapper  objectMapper;
 
@@ -33,13 +42,14 @@ public class PracticeSessionRepository {
      * an empty list for the normal full pool.
      */
     public Long create(Long userId, String entryType, String languageCode,
-                        int learningCycle, List<Long> topicFilter) {
+                        int learningCycle, Long examId, List<Long> topicFilter) {
         var ps = Tables.PRACTICE_SESSIONS;
         return dsl.insertInto(ps)
                 .set(ps.USER_ID,        userId)
                 .set(ps.ENTRY_TYPE,     entryType)
                 .set(ps.LANGUAGE_CODE,  languageCode)
                 .set(ps.LEARNING_CYCLE, learningCycle)
+                .set(PS_EXAM_ID,        examId)
                 .set(ps.TOPIC_FILTER,   encodeTopicFilter(topicFilter))
                 .returningResult(ps.ID)
                 .fetchOne()
@@ -66,7 +76,11 @@ public class PracticeSessionRepository {
 
     public Optional<PracticeSession> findById(Long sessionId) {
         var ps = Tables.PRACTICE_SESSIONS;
-        Record r = dsl.selectFrom(ps).where(ps.ID.eq(sessionId)).fetchOne();
+        // Explicit column list (not selectFrom) so the V26 exam_id — absent from
+        // the generated record — is included for map() to read.
+        Record r = dsl.select(ps.ID, ps.USER_ID, ps.STATUS, ps.ENTRY_TYPE, ps.LANGUAGE_CODE,
+                        ps.STARTED_AT, ps.COMPLETED_AT, ps.TOPIC_FILTER, PS_EXAM_ID)
+                .from(ps).where(ps.ID.eq(sessionId)).fetchOne();
         if (r == null) return Optional.empty();
         return Optional.of(map(r));
     }
@@ -94,22 +108,23 @@ public class PracticeSessionRepository {
         return dsl.fetchCount(pa, pa.PRACTICE_SESSION_ID.eq(sessionId));
     }
 
-    public int countTotal(String languageCode, String entryType) {
-        return countTotal(languageCode, entryType, List.of());
+    public int countTotal(String languageCode, String entryType, Long examId) {
+        return countTotal(languageCode, entryType, examId, List.of());
     }
 
     /**
-     * Size of the session pool, optionally scoped to a topic filter. The pool
-     * condition mirrors {@link #findNextUnansweredQuestion} (active +
-     * allow_in_practice, plus allow_in_free_trial for free-trial, plus the
-     * topic filter) so the displayed total matches what can actually be served.
-     * An empty {@code topicFilter} means the full pool.
+     * Size of the session pool, scoped to the session's exam and optionally a
+     * topic filter. The pool condition mirrors {@code findNextUnansweredQuestion}
+     * (exam + active + allow_in_practice, plus allow_in_free_trial for
+     * free-trial, plus the topic filter) so the displayed total matches what can
+     * actually be served. An empty {@code topicFilter} means the full pool.
      */
-    public int countTotal(String languageCode, String entryType, List<Long> topicFilter) {
+    public int countTotal(String languageCode, String entryType, Long examId, List<Long> topicFilter) {
         var q  = Tables.QUESTIONS;
         var qv = Tables.QUESTION_VARIANTS;
 
-        var condition = q.ALLOW_IN_PRACTICE.isTrue().and(q.STATUS.eq("active"));
+        var condition = q.ALLOW_IN_PRACTICE.isTrue().and(q.STATUS.eq("active"))
+                .and(Q_EXAM_ID.eq(examId));
         if ("free_trial".equals(entryType)) {
             condition = condition.and(
                     org.jooq.impl.DSL.field(
@@ -135,14 +150,15 @@ public class PracticeSessionRepository {
 
     /**
      * Whether the question is part of this session's pool.
-     * Mirrors the filter in {@link #findNextUnansweredQuestion}: active + allow_in_practice,
-     * plus allow_in_free_trial when the session is free_trial.
+     * Mirrors the filter in {@code findNextUnansweredQuestion}: exam + active +
+     * allow_in_practice, plus allow_in_free_trial when the session is free_trial.
      */
-    public boolean existsInSessionPool(Long questionId, String entryType) {
+    public boolean existsInSessionPool(Long questionId, String entryType, Long examId) {
         var q = Tables.QUESTIONS;
         var condition = q.ID.eq(questionId)
                 .and(q.STATUS.eq("active"))
-                .and(q.ALLOW_IN_PRACTICE.isTrue());
+                .and(q.ALLOW_IN_PRACTICE.isTrue())
+                .and(Q_EXAM_ID.eq(examId));
         if ("free_trial".equals(entryType)) {
             condition = condition.and(
                     org.jooq.impl.DSL.field(
@@ -183,7 +199,7 @@ public class PracticeSessionRepository {
         var pa = Tables.PRACTICE_ATTEMPTS;
         Field<Integer> answered = DSL.count(pa.ID).as("answered");
         Record r = dsl.select(ps.ID, ps.ENTRY_TYPE, ps.LANGUAGE_CODE,
-                              ps.TOPIC_FILTER, ps.LAST_ACTIVE_AT, answered)
+                              ps.TOPIC_FILTER, PS_EXAM_ID, ps.LAST_ACTIVE_AT, answered)
                 .from(ps)
                 .leftJoin(pa).on(pa.PRACTICE_SESSION_ID.eq(ps.ID))
                 .where(ps.USER_ID.eq(userId)
@@ -199,7 +215,7 @@ public class PracticeSessionRepository {
         // size, not min(cap, full bank).
         int total = Math.min(capFor(r.get(ps.ENTRY_TYPE)),
                 countTotal(r.get(ps.LANGUAGE_CODE), r.get(ps.ENTRY_TYPE),
-                        decodeTopicFilter(r.get(ps.TOPIC_FILTER))));
+                        r.get(PS_EXAM_ID), decodeTopicFilter(r.get(ps.TOPIC_FILTER))));
         return Optional.of(new InProgressSession(
                 r.get(ps.ID),
                 r.get(ps.ENTRY_TYPE),
@@ -294,6 +310,7 @@ public class PracticeSessionRepository {
                 r.get(ps.LANGUAGE_CODE),
                 r.get(ps.STARTED_AT),
                 r.get(ps.COMPLETED_AT),
+                r.get(PS_EXAM_ID),
                 decodeTopicFilter(r.get(ps.TOPIC_FILTER))
         );
     }

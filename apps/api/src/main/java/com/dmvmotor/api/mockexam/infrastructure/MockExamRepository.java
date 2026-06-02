@@ -2,7 +2,9 @@ package com.dmvmotor.api.mockexam.infrastructure;
 
 import com.dmvmotor.api.infrastructure.jooq.generated.Tables;
 import org.jooq.DSLContext;
+import org.jooq.Field;
 import org.jooq.Record;
+import org.jooq.impl.DSL;
 import org.springframework.stereotype.Repository;
 
 import java.time.OffsetDateTime;
@@ -11,6 +13,10 @@ import java.util.Optional;
 
 @Repository
 public class MockExamRepository {
+
+    // V26 exam_id (dynamic ref, no jOOQ regen). Unqualified — each query that
+    // uses it has a single exam_id-bearing table in scope.
+    private static final Field<Long> EXAM_ID = DSL.field(DSL.name("exam_id"), Long.class);
 
     private final DSLContext dsl;
 
@@ -22,14 +28,33 @@ public class MockExamRepository {
     // Mock Exam Template
     // ---------------------------------------------------------------
 
-    public Optional<Long> findActiveMockExamId() {
+    /** The active mock-exam template for a given exam (its own bank). */
+    public Optional<Long> findActiveMockExamId(Long examId) {
         var me = Tables.MOCK_EXAMS;
         Record r = dsl.selectFrom(me)
-                .where(me.STATUS.eq("active"))
+                .where(me.STATUS.eq("active").and(EXAM_ID.eq(examId)))
                 .orderBy(me.ID.asc())
                 .limit(1)
                 .fetchOne();
         return r == null ? Optional.empty() : Optional.of(r.get(me.ID));
+    }
+
+    /**
+     * The exam's pass threshold (percent), resolved through the mock template's
+     * parent exam. Falls back to 85 (the historical default) if unset.
+     */
+    public int findPassThresholdPercent(Long mockExamId) {
+        var me = Tables.MOCK_EXAMS;
+        var exams = DSL.table(DSL.name("exams"));
+        Field<Long>    meExamId  = DSL.field(DSL.name("mock_exams", "exam_id"), Long.class);
+        Field<Long>    examsId   = DSL.field(DSL.name("exams", "id"), Long.class);
+        Field<Integer> threshold = DSL.field(DSL.name("exams", "pass_threshold_percent"), Integer.class);
+        Integer v = dsl.select(threshold)
+                .from(me)
+                .join(exams).on(meExamId.eq(examsId))
+                .where(me.ID.eq(mockExamId))
+                .fetchOne(0, Integer.class);
+        return java.util.Optional.ofNullable(v).orElse(85);  // default mirrors the old constant
     }
 
     public List<Long> findQuestionIdsByMockExamId(Long mockExamId) {
@@ -56,13 +81,15 @@ public class MockExamRepository {
     // Mock Attempts
     // ---------------------------------------------------------------
 
-    public Long createAttempt(Long userId, Long mockExamId, String language, int learningCycle) {
+    public Long createAttempt(Long userId, Long mockExamId, String language,
+                              int learningCycle, Long examId) {
         var ma = Tables.MOCK_ATTEMPTS;
         return dsl.insertInto(ma)
                 .set(ma.USER_ID, userId)
                 .set(ma.MOCK_EXAM_ID, mockExamId)
                 .set(ma.LANGUAGE_CODE, language)
                 .set(ma.LEARNING_CYCLE, learningCycle)
+                .set(EXAM_ID, examId)
                 .returningResult(ma.ID)
                 .fetchOne()
                 .value1();

@@ -22,6 +22,15 @@ public class TestFixtures {
         this.jdbc = jdbc;
     }
 
+    /**
+     * Subquery resolving the V26-seeded CA-M1 exam. The {@code exams} table is
+     * deliberately NOT truncated by {@link #truncateAll()} (it's reference data
+     * seeded by migration), so this always resolves — the default exam every
+     * fixture row belongs to unless an explicit exam is given.
+     */
+    private static final String CA_M1_EXAM =
+            "(SELECT id FROM exams WHERE state_code='CA' AND license_class='M1')";
+
     // ---------------------------------------------------------------
     // Cleanup
     // ---------------------------------------------------------------
@@ -51,6 +60,42 @@ public class TestFixtures {
                     users
                 RESTART IDENTITY CASCADE
                 """);
+        // The exams catalog (V26) is reference data seeded by migration, not
+        // truncated above (its sequence must keep the seeded CA-M1 row). Restore
+        // its baseline so a test that adds an exam or flips a status can't leak
+        // into the next test — all exam_id FK holders were just truncated, so
+        // there are no inbound references to block this.
+        jdbc.update("DELETE FROM exams WHERE NOT (state_code = 'CA' AND license_class = 'M1')");
+        jdbc.update("UPDATE exams SET status = 'active' WHERE state_code = 'CA' AND license_class = 'M1'");
+    }
+
+    // ---------------------------------------------------------------
+    // Exams (V26)
+    // ---------------------------------------------------------------
+
+    /** The V26-seeded CA-M1 exam id (the default every other fixture belongs to). */
+    public Long defaultExamId() {
+        return jdbc.queryForObject(
+                "SELECT id FROM exams WHERE state_code='CA' AND license_class='M1'", Long.class);
+    }
+
+    /** Seed an additional active exam (for cross-exam isolation / threshold tests). */
+    public Long insertExam(String stateCode, String licenseClass,
+                           String nameEn, String nameZh, int passThresholdPercent) {
+        return jdbc.queryForObject("""
+                INSERT INTO exams
+                    (state_code, license_class, name_en, name_zh, pass_threshold_percent, status, sort_order)
+                VALUES (?, ?, ?, ?, ?, 'active', 10)
+                RETURNING id
+                """, Long.class, stateCode, licenseClass, nameEn, nameZh, passThresholdPercent);
+    }
+
+    public void setUserCurrentExam(Long userId, Long examId) {
+        jdbc.update("UPDATE users SET current_exam_id = ? WHERE id = ?", examId, userId);
+    }
+
+    public void setExamStatus(Long examId, String status) {
+        jdbc.update("UPDATE exams SET status = ? WHERE id = ?", status, examId);
     }
 
     // ---------------------------------------------------------------
@@ -63,11 +108,17 @@ public class TestFixtures {
 
     public Long insertTopic(String code, String nameEn, String nameZh,
                              boolean isKeyTopic, int sortOrder) {
+        return insertTopicForExam(defaultExamId(), code, nameEn, nameZh, isKeyTopic, sortOrder);
+    }
+
+    /** Topic belonging to a specific exam (cross-exam isolation tests). */
+    public Long insertTopicForExam(Long examId, String code, String nameEn, String nameZh,
+                                   boolean isKeyTopic, int sortOrder) {
         Long topicId = jdbc.queryForObject("""
-                INSERT INTO topics (code, name_en, name_zh, is_key_topic, sort_order)
-                VALUES (?, ?, ?, ?, ?)
+                INSERT INTO topics (code, name_en, name_zh, is_key_topic, sort_order, exam_id)
+                VALUES (?, ?, ?, ?, ?, ?)
                 RETURNING id
-                """, Long.class, code, nameEn, nameZh, isKeyTopic, sortOrder);
+                """, Long.class, code, nameEn, nameZh, isKeyTopic, sortOrder, examId);
         // Auto-seed one default sub-topic so insertQuestion's sub_topic_id
         // resolver (added when V15 set the column NOT NULL) always finds a row.
         // Production data uses the V14 seed; tests build minimal topics ad hoc.
@@ -78,12 +129,23 @@ public class TestFixtures {
         return topicId;
     }
 
+    /** Topic with NO sub-topic seeded — a topic with no sub-topics can never be
+     *  "mastered" (the donut treats childless topics as not mastered). */
+    public Long insertTopicWithoutSubTopic(String code) {
+        return jdbc.queryForObject("""
+                INSERT INTO topics (code, name_en, name_zh, is_key_topic, sort_order, exam_id)
+                VALUES (?, ?, ?, false, 99, """ + CA_M1_EXAM + """
+                )
+                RETURNING id
+                """, Long.class, code, code + " EN", code + " ZH");
+    }
+
     public Long insertChildTopic(String code, Long parentTopicId) {
         Long topicId = jdbc.queryForObject("""
-                INSERT INTO topics (code, name_en, name_zh, is_key_topic, sort_order, parent_topic_id)
-                VALUES (?, ?, ?, false, 0, ?)
+                INSERT INTO topics (code, name_en, name_zh, is_key_topic, sort_order, parent_topic_id, exam_id)
+                VALUES (?, ?, ?, false, 0, ?, (SELECT exam_id FROM topics WHERE id = ?))
                 RETURNING id
-                """, Long.class, code, code + " EN", code + " ZH", parentTopicId);
+                """, Long.class, code, code + " EN", code + " ZH", parentTopicId, parentTopicId);
         jdbc.update("""
                 INSERT INTO sub_topics (parent_topic_id, code, name_en, name_zh, sort_order)
                 VALUES (?, ?, ?, ?, 0)
@@ -98,40 +160,44 @@ public class TestFixtures {
     public Long insertKeyCoverageQuestion(Long topicId, String correctChoiceKey) {
         return jdbc.queryForObject("""
                 INSERT INTO questions
-                    (primary_topic_id, correct_choice_key, status, allow_in_free_trial, is_key_coverage, sub_topic_id)
+                    (primary_topic_id, correct_choice_key, status, allow_in_free_trial, is_key_coverage, sub_topic_id, exam_id)
                 VALUES (?, ?, 'active', true, true,
-                    (SELECT id FROM sub_topics WHERE parent_topic_id = ? ORDER BY sort_order LIMIT 1))
+                    (SELECT id FROM sub_topics WHERE parent_topic_id = ? ORDER BY sort_order LIMIT 1),
+                    (SELECT exam_id FROM topics WHERE id = ?))
                 RETURNING id
-                """, Long.class, topicId, correctChoiceKey, topicId);
+                """, Long.class, topicId, correctChoiceKey, topicId, topicId);
     }
 
     public Long insertQuestion(Long topicId, String correctChoiceKey) {
         return jdbc.queryForObject("""
-                INSERT INTO questions (primary_topic_id, correct_choice_key, status, allow_in_free_trial, sub_topic_id)
+                INSERT INTO questions (primary_topic_id, correct_choice_key, status, allow_in_free_trial, sub_topic_id, exam_id)
                 VALUES (?, ?, 'active', true,
-                    (SELECT id FROM sub_topics WHERE parent_topic_id = ? ORDER BY sort_order LIMIT 1))
+                    (SELECT id FROM sub_topics WHERE parent_topic_id = ? ORDER BY sort_order LIMIT 1),
+                    (SELECT exam_id FROM topics WHERE id = ?))
                 RETURNING id
-                """, Long.class, topicId, correctChoiceKey, topicId);
+                """, Long.class, topicId, correctChoiceKey, topicId, topicId);
     }
 
     /** Active question excluded from the free-trial pool (allow_in_free_trial=false). */
     public Long insertPaidOnlyQuestion(Long topicId, String correctChoiceKey) {
         return jdbc.queryForObject("""
-                INSERT INTO questions (primary_topic_id, correct_choice_key, status, allow_in_free_trial, sub_topic_id)
+                INSERT INTO questions (primary_topic_id, correct_choice_key, status, allow_in_free_trial, sub_topic_id, exam_id)
                 VALUES (?, ?, 'active', false,
-                    (SELECT id FROM sub_topics WHERE parent_topic_id = ? ORDER BY sort_order LIMIT 1))
+                    (SELECT id FROM sub_topics WHERE parent_topic_id = ? ORDER BY sort_order LIMIT 1),
+                    (SELECT exam_id FROM topics WHERE id = ?))
                 RETURNING id
-                """, Long.class, topicId, correctChoiceKey, topicId);
+                """, Long.class, topicId, correctChoiceKey, topicId, topicId);
     }
 
     /** Question with status='inactive' — should never appear in any practice pool. */
     public Long insertInactiveQuestion(Long topicId, String correctChoiceKey) {
         return jdbc.queryForObject("""
-                INSERT INTO questions (primary_topic_id, correct_choice_key, status, allow_in_free_trial, sub_topic_id)
+                INSERT INTO questions (primary_topic_id, correct_choice_key, status, allow_in_free_trial, sub_topic_id, exam_id)
                 VALUES (?, ?, 'inactive', true,
-                    (SELECT id FROM sub_topics WHERE parent_topic_id = ? ORDER BY sort_order LIMIT 1))
+                    (SELECT id FROM sub_topics WHERE parent_topic_id = ? ORDER BY sort_order LIMIT 1),
+                    (SELECT exam_id FROM topics WHERE id = ?))
                 RETURNING id
-                """, Long.class, topicId, correctChoiceKey, topicId);
+                """, Long.class, topicId, correctChoiceKey, topicId, topicId);
     }
 
     public void insertEnVariant(Long questionId, String stem, String explanation) {
@@ -229,20 +295,22 @@ public class TestFixtures {
                 INSERT INTO mock_attempts
                     (user_id, mock_exam_id, status, score_percent, correct_count,
                      wrong_count, answered_count, quota_consumed, learning_cycle,
-                     submitted_at)
-                VALUES (?, ?, 'submitted', ?, ?, 0, ?, true, ?, CURRENT_TIMESTAMP)
+                     submitted_at, exam_id)
+                VALUES (?, ?, 'submitted', ?, ?, 0, ?, true, ?, CURRENT_TIMESTAMP,
+                        (SELECT exam_id FROM mock_exams WHERE id = ?))
                 RETURNING id
                 """, Long.class, userId, mockExamId, scorePercent,
-                scorePercent / 10, scorePercent / 10, learningCycle);
+                scorePercent / 10, scorePercent / 10, learningCycle, mockExamId);
     }
 
     public Long insertInProgressMockAttempt(Long userId, Long mockExamId) {
         return jdbc.queryForObject("""
                 INSERT INTO mock_attempts
-                    (user_id, mock_exam_id, status, answered_count, quota_consumed, learning_cycle)
-                VALUES (?, ?, 'in_progress', 0, true, 0)
+                    (user_id, mock_exam_id, status, answered_count, quota_consumed, learning_cycle, exam_id)
+                VALUES (?, ?, 'in_progress', 0, true, 0,
+                        (SELECT exam_id FROM mock_exams WHERE id = ?))
                 RETURNING id
-                """, Long.class, userId, mockExamId);
+                """, Long.class, userId, mockExamId, mockExamId);
     }
 
     /** In-progress attempt whose clock started {@code ageSeconds} ago — used to
@@ -252,11 +320,12 @@ public class TestFixtures {
         return jdbc.queryForObject("""
                 INSERT INTO mock_attempts
                     (user_id, mock_exam_id, status, answered_count, quota_consumed,
-                     learning_cycle, started_at)
+                     learning_cycle, started_at, exam_id)
                 VALUES (?, ?, 'in_progress', 0, true, 0,
-                        CURRENT_TIMESTAMP - make_interval(secs => ?))
+                        CURRENT_TIMESTAMP - make_interval(secs => ?),
+                        (SELECT exam_id FROM mock_exams WHERE id = ?))
                 RETURNING id
-                """, Long.class, userId, mockExamId, ageSeconds);
+                """, Long.class, userId, mockExamId, ageSeconds, mockExamId);
     }
 
     public void insertMockAttemptResult(Long attemptId, Long questionId, Long variantId,
@@ -289,10 +358,20 @@ public class TestFixtures {
 
     public Long insertMockExam(String code, int questionCount) {
         return jdbc.queryForObject("""
-                INSERT INTO mock_exams (code, question_count, status)
-                VALUES (?, ?, 'active')
+                INSERT INTO mock_exams (code, question_count, status, exam_id)
+                VALUES (?, ?, 'active', """ + CA_M1_EXAM + """
+                )
                 RETURNING id
                 """, Long.class, code, questionCount);
+    }
+
+    /** Mock-exam template belonging to a specific exam (cross-exam isolation tests). */
+    public Long insertMockExamForExam(String code, int questionCount, Long examId) {
+        return jdbc.queryForObject("""
+                INSERT INTO mock_exams (code, question_count, status, exam_id)
+                VALUES (?, ?, 'active', ?)
+                RETURNING id
+                """, Long.class, code, questionCount, examId);
     }
 
     public void insertMockExamQuestion(Long mockExamId, Long questionId, int sortOrder) {
@@ -336,8 +415,9 @@ public class TestFixtures {
     public Long insertPracticeSession(Long userId, int learningCycle) {
         return jdbc.queryForObject("""
                 INSERT INTO practice_sessions
-                    (user_id, status, entry_type, language_code, learning_cycle)
-                VALUES (?, 'completed', 'full', 'en', ?)
+                    (user_id, status, entry_type, language_code, learning_cycle, exam_id)
+                VALUES (?, 'completed', 'full', 'en', ?, """ + CA_M1_EXAM + """
+                )
                 RETURNING id
                 """, Long.class, userId, learningCycle);
     }
@@ -346,8 +426,9 @@ public class TestFixtures {
                                                  String entryType, String language) {
         return jdbc.queryForObject("""
                 INSERT INTO practice_sessions
-                    (user_id, status, entry_type, language_code, learning_cycle)
-                VALUES (?, 'in_progress', ?, ?, ?)
+                    (user_id, status, entry_type, language_code, learning_cycle, exam_id)
+                VALUES (?, 'in_progress', ?, ?, ?, """ + CA_M1_EXAM + """
+                )
                 RETURNING id
                 """, Long.class, userId, entryType, language, learningCycle);
     }
@@ -359,8 +440,9 @@ public class TestFixtures {
                                                  String topicFilterCsv) {
         return jdbc.queryForObject("""
                 INSERT INTO practice_sessions
-                    (user_id, status, entry_type, language_code, learning_cycle, topic_filter)
-                VALUES (?, 'in_progress', ?, ?, ?, ?)
+                    (user_id, status, entry_type, language_code, learning_cycle, topic_filter, exam_id)
+                VALUES (?, 'in_progress', ?, ?, ?, ?, """ + CA_M1_EXAM + """
+                )
                 RETURNING id
                 """, Long.class, userId, entryType, language, learningCycle, topicFilterCsv);
     }

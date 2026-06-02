@@ -2,10 +2,14 @@ package com.dmvmotor.api.authaccess.application;
 
 import com.dmvmotor.api.authaccess.infrastructure.UserRepository;
 import com.dmvmotor.api.authaccess.infrastructure.UserRepository.UserRow;
+import com.dmvmotor.api.common.BusinessException;
 import com.dmvmotor.api.common.ResourceNotFoundException;
+import com.dmvmotor.api.content.domain.Exam;
+import com.dmvmotor.api.content.infrastructure.ExamRepository;
 import com.dmvmotor.api.mistakereview.review.infrastructure.ReviewRepository;
 import com.dmvmotor.api.practice.infrastructure.PracticeSessionRepository;
 import com.dmvmotor.api.practice.infrastructure.PracticeSessionRepository.InProgressSession;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -16,15 +20,18 @@ public class AccountService {
     private final AccessService             accessService;
     private final PracticeSessionRepository practiceSessionRepo;
     private final ReviewRepository          reviewRepo;
+    private final ExamRepository            examRepo;
 
     public AccountService(UserRepository userRepo,
                           AccessService accessService,
                           PracticeSessionRepository practiceSessionRepo,
-                          ReviewRepository reviewRepo) {
+                          ReviewRepository reviewRepo,
+                          ExamRepository examRepo) {
         this.userRepo            = userRepo;
         this.accessService       = accessService;
         this.practiceSessionRepo = practiceSessionRepo;
         this.reviewRepo          = reviewRepo;
+        this.examRepo            = examRepo;
     }
 
     public MeResult getMe(Long userId) {
@@ -35,14 +42,30 @@ public class AccountService {
         AccessService.AccessInfo access = accessService.getAccess(userId);
         InProgressSession inProgress = practiceSessionRepo.findInProgressByUser(userId, cycle).orElse(null);
         boolean hasInProgressReview   = reviewRepo.findActivePackId(userId, cycle).isPresent();
+        // Null until the user has picked an exam (onboarding); existing users
+        // were backfilled to CA-M1 by V26.
+        Exam currentExam = user.currentExamId() == null
+                ? null
+                : examRepo.findById(user.currentExamId()).orElse(null);
 
         return new MeResult(userId, user.email(), user.languagePreference(),
-                access, inProgress, hasInProgressReview);
+                access, inProgress, hasInProgressReview, currentExam);
     }
 
     public String updateLanguage(Long userId, String language) {
         userRepo.updateLanguage(userId, language);
         return language;
+    }
+
+    /** Set the user's current exam. Rejects unknown / inactive exams. */
+    @Transactional
+    public Exam updateExam(Long userId, Long examId) {
+        Exam exam = examRepo.findById(examId)
+                .filter(e -> "active".equals(e.status()))
+                .orElseThrow(() -> new BusinessException("INVALID_EXAM",
+                        "No such active exam: " + examId, HttpStatus.BAD_REQUEST));
+        userRepo.updateCurrentExam(userId, examId);
+        return exam;
     }
 
     @Transactional
@@ -58,7 +81,8 @@ public class AccountService {
             String language,
             AccessService.AccessInfo access,
             InProgressSession inProgressPractice,
-            boolean hasInProgressReview
+            boolean hasInProgressReview,
+            Exam currentExam
     ) {
         public boolean hasInProgressPractice() {
             return inProgressPractice != null;

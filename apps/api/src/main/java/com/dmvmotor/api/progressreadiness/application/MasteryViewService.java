@@ -1,6 +1,7 @@
 package com.dmvmotor.api.progressreadiness.application;
 
 import com.dmvmotor.api.authaccess.infrastructure.UserRepository;
+import com.dmvmotor.api.content.application.ExamContext;
 import com.dmvmotor.api.content.domain.SubTopic;
 import com.dmvmotor.api.content.domain.Topic;
 import com.dmvmotor.api.content.infrastructure.SubTopicRepository;
@@ -28,18 +29,21 @@ public class MasteryViewService {
     private final PracticeHistoryRepository historyRepository;
     private final SubTopicMasteryEvaluator evaluator;
     private final UserRepository userRepository;
+    private final ExamContext examContext;
 
     public MasteryViewService(
             TopicRepository topicRepository,
             SubTopicRepository subTopicRepository,
             PracticeHistoryRepository historyRepository,
             SubTopicMasteryEvaluator evaluator,
-            UserRepository userRepository) {
+            UserRepository userRepository,
+            ExamContext examContext) {
         this.topicRepository = topicRepository;
         this.subTopicRepository = subTopicRepository;
         this.historyRepository = historyRepository;
         this.evaluator = evaluator;
         this.userRepository = userRepository;
+        this.examContext = examContext;
     }
 
     public TopicMasteryView build(Long userId) {
@@ -47,10 +51,13 @@ public class MasteryViewService {
                 .map(UserRepository.UserRow::resetCount)
                 .orElse(0);
 
+        // Donut reflects the user's current exam's taxonomy only.
+        Long examId = examContext.resolveExamId(userId);
+
         Map<Long, Integer> bankSizes = subTopicRepository.countActiveQuestionsBySubTopic();
 
-        List<Topic> topics = topicRepository.findAllOrderBySortOrder();
-        List<SubTopic> subTopics = subTopicRepository.findAllOrderBySortOrder();
+        List<Topic> topics = topicRepository.findByExam(examId);
+        List<SubTopic> subTopics = subTopicRepository.findByExam(examId);
 
         Map<Long, List<SubTopic>> subTopicsByParent = new LinkedHashMap<>();
         for (SubTopic st : subTopics) {

@@ -4,6 +4,7 @@ import com.dmvmotor.api.authaccess.application.AccessService;
 import com.dmvmotor.api.authaccess.infrastructure.UserRepository;
 import com.dmvmotor.api.common.BusinessException;
 import com.dmvmotor.api.common.ResourceNotFoundException;
+import com.dmvmotor.api.content.application.ExamContext;
 import com.dmvmotor.api.content.domain.QuestionDetail;
 import com.dmvmotor.api.content.infrastructure.QuestionRepository;
 import com.dmvmotor.api.mistakereview.infrastructure.MistakeListRepository;
@@ -34,6 +35,7 @@ public class PracticeService {
     private final MistakeListRepository     mistakeListRepo;
     private final AccessService             accessService;
     private final UserRepository            userRepo;
+    private final ExamContext               examContext;
 
     public PracticeService(PracticeSessionRepository sessionRepo,
                            PracticeQuestionSelector questionSelector,
@@ -42,7 +44,8 @@ public class PracticeService {
                            MistakeRepository mistakeRepo,
                            MistakeListRepository mistakeListRepo,
                            AccessService accessService,
-                           UserRepository userRepo) {
+                           UserRepository userRepo,
+                           ExamContext examContext) {
         this.sessionRepo      = sessionRepo;
         this.questionSelector = questionSelector;
         this.historyDao       = historyDao;
@@ -51,6 +54,7 @@ public class PracticeService {
         this.mistakeListRepo  = mistakeListRepo;
         this.accessService    = accessService;
         this.userRepo         = userRepo;
+        this.examContext      = examContext;
     }
 
     public SessionHistoryResult listHistory(Long userId, int requestedLimit) {
@@ -117,17 +121,22 @@ public class PracticeService {
             cycle = userRepo.findById(userId).map(u -> u.resetCount()).orElse(0);
         }
 
-        int total = sessionRepo.countTotal(language, entryType);
+        // Snapshot the exam at start (the user's current exam, or the default
+        // for anonymous / pre-onboarding) so a mid-session exam switch never
+        // rewires the in-flight pool — same pattern as the language/cycle snapshots.
+        Long examId = examContext.resolveExamId(userId);
+
+        int total = sessionRepo.countTotal(language, entryType, examId);
         if (total == 0) {
             throw new BusinessException("NO_QUESTIONS_AVAILABLE",
                     "No practice questions available for language: " + language,
                     HttpStatus.UNPROCESSABLE_ENTITY);
         }
 
-        Long sessionId = sessionRepo.create(userId, entryType, language, cycle, filter);
+        Long sessionId = sessionRepo.create(userId, entryType, language, cycle, examId, filter);
 
         QuestionDetail first = questionSelector
-                .findNextUnansweredQuestion(sessionId, language, entryType, userId, cycle, filter)
+                .findNextUnansweredQuestion(sessionId, language, entryType, userId, cycle, examId, filter)
                 .orElseThrow(() -> new BusinessException("NO_QUESTIONS_AVAILABLE",
                         "No questions available for the selected topics",
                         HttpStatus.UNPROCESSABLE_ENTITY));
@@ -169,7 +178,7 @@ public class PracticeService {
 
         return questionSelector.findNextUnansweredQuestion(
                         sessionId, effectiveLang, session.entryType(),
-                        session.userId(), cycle, session.topicFilter())
+                        session.userId(), cycle, session.examId(), session.topicFilter())
                 .orElseThrow(() -> new BusinessException("SESSION_COMPLETED",
                         "No more questions in this session",
                         HttpStatus.NOT_FOUND));
@@ -183,7 +192,7 @@ public class PracticeService {
         // whole bank capped, which would over-report the total.
         int total    = Math.min(PracticeSessionRepository.capFor(session.entryType()),
                 sessionRepo.countTotal(session.languageCode(), session.entryType(),
-                        session.topicFilter()));
+                        session.examId(), session.topicFilter()));
         return new SessionStatus(sessionId, session.status(), answered, total);
     }
 
@@ -202,7 +211,7 @@ public class PracticeService {
                     "Question already answered in this session", HttpStatus.CONFLICT);
         }
 
-        if (!sessionRepo.existsInSessionPool(questionId, session.entryType())) {
+        if (!sessionRepo.existsInSessionPool(questionId, session.entryType(), session.examId())) {
             throw new BusinessException("QUESTION_NOT_IN_SESSION",
                     "Question is not part of this session's pool",
                     HttpStatus.BAD_REQUEST);

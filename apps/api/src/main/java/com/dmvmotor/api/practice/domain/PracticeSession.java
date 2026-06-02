@@ -12,6 +12,7 @@ public record PracticeSession(
         String languageCode,
         OffsetDateTime startedAt,
         OffsetDateTime completedAt,
+        Long examId,
         List<Long> topicFilter
 ) {
     public boolean isInProgress() { return "in_progress".equals(status); }

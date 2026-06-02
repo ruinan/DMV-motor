@@ -6,7 +6,10 @@ import com.dmvmotor.api.authaccess.application.AccessService.AccessInfo;
 import com.dmvmotor.api.common.ApiResponse;
 import com.dmvmotor.api.common.BusinessException;
 import com.dmvmotor.api.common.CurrentUser;
+import com.dmvmotor.api.common.Ids;
+import com.dmvmotor.api.content.domain.Exam;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
 import org.springframework.http.HttpStatus;
@@ -40,6 +43,14 @@ public class AccountController {
         return ApiResponse.ok(Map.of("language", updated));
     }
 
+    @PutMapping("/exam")
+    public ApiResponse<?> updateExam(@CurrentUser Long userId,
+                                     @Valid @RequestBody ExamRequest req) {
+        requireAuth(userId);
+        Exam exam = accountService.updateExam(userId, Ids.parse(req.examId(), "exam_id"));
+        return ApiResponse.ok(Map.of("current_exam", examDto(exam)));
+    }
+
     @PostMapping("/reset-learning")
     public ApiResponse<?> resetLearning(@CurrentUser Long userId,
                                          @Valid @RequestBody ResetRequest req) {
@@ -64,6 +75,12 @@ public class AccountController {
     ) {
         @jakarta.validation.constraints.AssertTrue(message = "must be true")
         public boolean isConfirm() { return Boolean.TRUE.equals(confirm); }
+    }
+
+    record ExamRequest(
+            @NotBlank(message = "must not be blank") String exam_id
+    ) {
+        String examId() { return exam_id; }
     }
 
     // ---------------------------------------------------------------
@@ -107,11 +124,25 @@ public class AccountController {
         learning.put("has_in_progress_review",   me.hasInProgressReview());
 
         Map<String, Object> dto = new HashMap<>();
-        dto.put("user_id",  String.valueOf(me.userId()));
-        dto.put("email",    me.email() != null ? me.email() : "");
-        dto.put("language", me.language());
-        dto.put("access",   access);
-        dto.put("learning", learning);
+        dto.put("user_id",      String.valueOf(me.userId()));
+        dto.put("email",        me.email() != null ? me.email() : "");
+        dto.put("language",     me.language());
+        dto.put("access",       access);
+        dto.put("learning",     learning);
+        // null until the user picks an exam (onboarding); existing users were
+        // backfilled to CA-M1 by V26.
+        dto.put("current_exam", me.currentExam() != null ? examDto(me.currentExam()) : null);
         return dto;
+    }
+
+    /** Exam shape shared by /me and /me/exam — frontend localizes name by language. */
+    private static Map<String, Object> examDto(Exam exam) {
+        Map<String, Object> m = new HashMap<>();
+        m.put("id",            String.valueOf(exam.id()));
+        m.put("state_code",    exam.stateCode());
+        m.put("license_class", exam.licenseClass());
+        m.put("name_en",       exam.nameEn());
+        m.put("name_zh",       exam.nameZh());
+        return m;
     }
 }

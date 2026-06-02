@@ -23,6 +23,11 @@ import java.util.Optional;
 @Repository
 public class PracticeQuestionSelector {
 
+    // V26 questions.exam_id, qualified so it never collides with topics.exam_id
+    // (the main query joins both). Dynamic ref — no jOOQ regen.
+    private static final Field<Long> Q_EXAM_ID =
+            DSL.field(DSL.name("questions", "exam_id"), Long.class);
+
     private final DSLContext   dsl;
     private final ObjectMapper objectMapper;
 
@@ -62,14 +67,14 @@ public class PracticeQuestionSelector {
      */
     public Optional<QuestionDetail> findNextUnansweredQuestion(
             Long sessionId, String languageCode, String entryType,
-            Long userId, int learningCycle) {
+            Long userId, int learningCycle, Long examId) {
         return findNextUnansweredQuestion(sessionId, languageCode, entryType,
-                userId, learningCycle, List.of());
+                userId, learningCycle, examId, List.of());
     }
 
     public Optional<QuestionDetail> findNextUnansweredQuestion(
             Long sessionId, String languageCode, String entryType,
-            Long userId, int learningCycle, List<Long> topicFilter) {
+            Long userId, int learningCycle, Long examId, List<Long> topicFilter) {
         var q  = Tables.QUESTIONS;
         var qv = Tables.QUESTION_VARIANTS;
         var t  = Tables.TOPICS;
@@ -77,8 +82,10 @@ public class PracticeQuestionSelector {
         var mr = Tables.MISTAKE_RECORDS;
 
         // -------- pool filter (unchanged contract: never widen) --------
+        // Exam scope first: a session only ever serves its own exam's bank.
         var condition = q.ALLOW_IN_PRACTICE.isTrue()
                 .and(q.STATUS.eq("active"))
+                .and(Q_EXAM_ID.eq(examId))
                 .and(q.ID.notIn(
                         dsl.select(pa.QUESTION_ID)
                            .from(pa)

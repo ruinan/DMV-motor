@@ -13,15 +13,24 @@ class MockScoringPolicyTest {
     private final MockScoringPolicy policy = new MockScoringPolicy();
 
     @Test
-    void maxAllowedWrong_30Question_tolerates5() {
-        // docs/parameters.md: 85% pass → ceil(30 × 0.15) = ceil(4.5) = 5.
-        assertEquals(5, policy.maxAllowedWrong(30));
+    void maxAllowedWrong_30Question_at85_tolerates5() {
+        // CA-M1: 85% pass → ceil(30 × 0.15) = ceil(4.5) = 5.
+        assertEquals(5, policy.maxAllowedWrong(30, 85));
     }
 
     @Test
     void maxAllowedWrong_roundsUp() {
-        assertEquals(2, policy.maxAllowedWrong(10));  // ceil(1.5) = 2
-        assertEquals(0, policy.maxAllowedWrong(0));   // ceil(0)   = 0
+        assertEquals(2, policy.maxAllowedWrong(10, 85));  // ceil(1.5) = 2
+        assertEquals(0, policy.maxAllowedWrong(0, 85));   // ceil(0)   = 0
+    }
+
+    @Test
+    void maxAllowedWrong_perExamThreshold() {
+        // The threshold now comes from the exam (V26), so a stricter or looser
+        // standard changes the tolerance: 30 questions at 90% → ceil(3) = 3;
+        // at 80% → ceil(6) = 6.
+        assertEquals(3, policy.maxAllowedWrong(30, 90));
+        assertEquals(6, policy.maxAllowedWrong(30, 80));
     }
 
     @Test
@@ -32,7 +41,7 @@ class MockScoringPolicyTest {
         // preserve it). The production exam is 30 questions → ceil(4.5) = 5,
         // where the quirk doesn't bite. Flagged to product as a minor latent
         // nuance, deliberately not "fixed" here (would change behavior).
-        assertEquals(4, policy.maxAllowedWrong(20));
+        assertEquals(4, policy.maxAllowedWrong(20, 85));
     }
 
     @Test

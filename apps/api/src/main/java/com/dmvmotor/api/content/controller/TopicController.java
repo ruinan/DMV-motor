@@ -3,13 +3,16 @@ package com.dmvmotor.api.content.controller;
 import com.dmvmotor.api.common.CurrentUser;
 import com.dmvmotor.api.common.ApiResponse;
 import com.dmvmotor.api.common.BusinessException;
+import com.dmvmotor.api.common.Ids;
 import com.dmvmotor.api.content.application.ContentService;
+import com.dmvmotor.api.content.application.ExamContext;
 import com.dmvmotor.api.content.domain.Topic;
 import com.dmvmotor.api.progressreadiness.application.MasteryViewService;
 import com.dmvmotor.api.progressreadiness.application.MasteryViewService.TopicMasteryView;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
@@ -21,15 +24,25 @@ public class TopicController {
 
     private final ContentService contentService;
     private final MasteryViewService masteryViewService;
+    private final ExamContext examContext;
 
-    public TopicController(ContentService contentService, MasteryViewService masteryViewService) {
+    public TopicController(ContentService contentService,
+                           MasteryViewService masteryViewService,
+                           ExamContext examContext) {
         this.contentService = contentService;
         this.masteryViewService = masteryViewService;
+        this.examContext = examContext;
     }
 
     @GetMapping
-    public ApiResponse<?> listTopics() {
-        List<TopicDto> items = contentService.listTopics().stream()
+    public ApiResponse<?> listTopics(@CurrentUser Long userId,
+                                     @RequestParam(name = "exam_id", required = false) String examId) {
+        // Public endpoint (topic picker before/at sign-in). Scope to the
+        // explicit ?exam_id if given, else the caller's current exam, else the
+        // default exam for anonymous / pre-onboarding callers.
+        Long resolved = examId != null ? Ids.parse(examId, "exam_id")
+                : examContext.resolveExamId(userId);
+        List<TopicDto> items = contentService.listTopics(resolved).stream()
                 .map(TopicDto::from)
                 .toList();
         return ApiResponse.ok(Map.of("items", items));

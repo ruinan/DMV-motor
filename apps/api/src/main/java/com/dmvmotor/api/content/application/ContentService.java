@@ -25,8 +25,9 @@ public class ContentService {
         this.accessService      = accessService;
     }
 
-    public List<Topic> listTopics() {
-        return topicRepository.findAllOrderBySortOrder();
+    /** Topics for the given exam, in display order. */
+    public List<Topic> listTopics(Long examId) {
+        return topicRepository.findByExam(examId);
     }
 
     /**
