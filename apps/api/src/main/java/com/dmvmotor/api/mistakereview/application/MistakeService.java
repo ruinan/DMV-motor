@@ -2,6 +2,7 @@ package com.dmvmotor.api.mistakereview.application;
 
 import com.dmvmotor.api.authaccess.infrastructure.UserRepository;
 import com.dmvmotor.api.common.ResourceNotFoundException;
+import com.dmvmotor.api.content.application.ExamContext;
 import com.dmvmotor.api.content.domain.QuestionDetail;
 import com.dmvmotor.api.content.infrastructure.QuestionRepository;
 import com.dmvmotor.api.mistakereview.domain.MistakeRecord;
@@ -16,13 +17,16 @@ public class MistakeService {
     private final MistakeListRepository mistakeListRepo;
     private final QuestionRepository    questionRepo;
     private final UserRepository        userRepo;
+    private final ExamContext           examContext;
 
     public MistakeService(MistakeListRepository mistakeListRepo,
                           QuestionRepository questionRepo,
-                          UserRepository userRepo) {
+                          UserRepository userRepo,
+                          ExamContext examContext) {
         this.mistakeListRepo = mistakeListRepo;
         this.questionRepo    = questionRepo;
         this.userRepo        = userRepo;
+        this.examContext     = examContext;
     }
 
     /**
@@ -45,8 +49,11 @@ public class MistakeService {
 
     public MistakeListResult listMistakes(Long userId, Long topicId, int page, int pageSize) {
         int cycle = userRepo.findById(userId).map(u -> u.resetCount()).orElse(0);
-        List<MistakeRecord> items = mistakeListRepo.findActiveMistakes(userId, topicId, page, pageSize, cycle);
-        int total = mistakeListRepo.countActiveMistakes(userId, topicId, cycle);
+        // Scoped to the user's current exam — the mistakes "memory" switches
+        // with the exam.
+        Long examId = examContext.resolveExamId(userId);
+        List<MistakeRecord> items = mistakeListRepo.findActiveMistakes(userId, examId, topicId, page, pageSize, cycle);
+        int total = mistakeListRepo.countActiveMistakes(userId, examId, topicId, cycle);
         return new MistakeListResult(items, page, pageSize, total);
     }
 

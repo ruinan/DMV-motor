@@ -285,13 +285,16 @@ public class MockExamService {
 
     public AttemptHistoryResult listHistory(Long userId, int requestedLimit) {
         int limit = Math.min(Math.max(requestedLimit, 1), MAX_HISTORY_LIMIT);
-        var rows = historyDao.findRecentByUser(userId, limit);
-        int totalInDb = historyDao.countAttemptsByUser(userId);
+        // Scoped to the user's current exam — switching exam shows that exam's
+        // attempts only.
+        Long examId = examContext.resolveExamId(userId);
+        var rows = historyDao.findRecentByUser(userId, examId, limit);
+        int totalInDb = historyDao.countAttemptsByUser(userId, examId);
         return new AttemptHistoryResult(rows, totalInDb);
     }
 
     public MockHistoryDao.AttemptStats getStats(Long userId) {
-        return historyDao.aggregateStats(userId);
+        return historyDao.aggregateStats(userId, examContext.resolveExamId(userId));
     }
 
     public record AttemptHistoryResult(

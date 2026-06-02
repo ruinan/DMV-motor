@@ -376,6 +376,91 @@ class ExamScopingTest extends IntegrationTestBase {
     }
 
     // ---------------------------------------------------------------
+    // History + mistakes ("memory") switch with the exam
+    // ---------------------------------------------------------------
+
+    @Test
+    void practiceHistory_switchesWithExam() throws Exception {
+        Long examB = fixtures.insertExam("TX", "M1", "Texas Motorcycle", "德州摩托车", 80);
+        fixtures.insertPracticeSessionForExam(userId, 0, caM1);   // CA-M1 session
+        fixtures.insertPracticeSessionForExam(userId, 0, examB);  // exam-B session
+        fixtures.insertPracticeSessionForExam(userId, 0, examB);  // another B session
+
+        // Default exam (CA-M1) → only the CA session
+        mockMvc.perform(get("/api/v1/practice/sessions/history")
+                        .header("Authorization", "Bearer " + userId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.sessions", hasSize(1)))
+                .andExpect(jsonPath("$.data.total_in_db").value(1));
+
+        // Switch to exam B → only the two B sessions
+        fixtures.setUserCurrentExam(userId, examB);
+        mockMvc.perform(get("/api/v1/practice/sessions/history")
+                        .header("Authorization", "Bearer " + userId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.sessions", hasSize(2)))
+                .andExpect(jsonPath("$.data.total_in_db").value(2));
+    }
+
+    @Test
+    void mockHistory_switchesWithExam() throws Exception {
+        Long examB = fixtures.insertExam("TX", "M1", "Texas Motorcycle", "德州摩托车", 80);
+        Long caMock = fixtures.insertMockExam("CA_MOCK", 2);
+        Long bMock = fixtures.insertMockExamForExam("TX_MOCK", 2, examB);
+        fixtures.insertMockAttemptWithScore(userId, caMock, 90); // CA-M1 attempt
+        fixtures.insertMockAttemptWithScore(userId, bMock, 70);  // exam-B attempt
+
+        mockMvc.perform(get("/api/v1/mock-exams/attempts/history")
+                        .header("Authorization", "Bearer " + userId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.attempts", hasSize(1)))
+                .andExpect(jsonPath("$.data.total_in_db").value(1));
+
+        fixtures.setUserCurrentExam(userId, examB);
+        mockMvc.perform(get("/api/v1/mock-exams/attempts/history")
+                        .header("Authorization", "Bearer " + userId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.attempts", hasSize(1)))
+                .andExpect(jsonPath("$.data.attempts[0].score_percent").value(70));
+    }
+
+    @Test
+    void activeMistakes_switchWithExam() throws Exception {
+        // A mistake on a CA-M1 topic and one on an exam-B topic. The mistakes
+        // "memory" the user sees must be only the current exam's.
+        Long caTopic = fixtures.insertTopic("CA_T", "CA", "加州", true, 1);
+        Long caQ = fixtures.insertQuestion(caTopic, "A");
+        fixtures.insertMistakeRecord(userId, caQ, caTopic, 2, "practice");
+
+        Long examB = fixtures.insertExam("TX", "M1", "Texas Motorcycle", "德州摩托车", 80);
+        Long bTopic = fixtures.insertTopicForExam(examB, "TX_T", "TX", "德州", true, 1);
+        Long bQ = fixtures.insertQuestion(bTopic, "A");
+        fixtures.insertMistakeRecord(userId, bQ, bTopic, 1, "practice");
+
+        // Default (CA-M1): only the CA mistake; stats agree.
+        mockMvc.perform(get("/api/v1/mistakes")
+                        .header("Authorization", "Bearer " + userId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.items", hasSize(1)))
+                .andExpect(jsonPath("$.data.items[0].topic_id").value(caTopic.toString()));
+        mockMvc.perform(get("/api/v1/practice/sessions/stats")
+                        .header("Authorization", "Bearer " + userId))
+                .andExpect(jsonPath("$.data.active_mistakes_count").value(1));
+
+        // Switch to exam B: only the B mistake.
+        fixtures.setUserCurrentExam(userId, examB);
+        mockMvc.perform(get("/api/v1/mistakes")
+                        .header("Authorization", "Bearer " + userId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.items", hasSize(1)))
+                .andExpect(jsonPath("$.data.items[0].topic_id").value(bTopic.toString()));
+        mockMvc.perform(get("/api/v1/practice/sessions/stats")
+                        .header("Authorization", "Bearer " + userId))
+                .andExpect(jsonPath("$.data.active_mistakes_count").value(1))
+                .andExpect(jsonPath("$.data.active_mistakes_topic_count").value(1));
+    }
+
+    // ---------------------------------------------------------------
     // Helpers
     // ---------------------------------------------------------------
 

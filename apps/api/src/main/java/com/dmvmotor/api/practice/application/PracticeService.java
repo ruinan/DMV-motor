@@ -59,17 +59,21 @@ public class PracticeService {
 
     public SessionHistoryResult listHistory(Long userId, int requestedLimit) {
         int limit = Math.min(Math.max(requestedLimit, 1), MAX_HISTORY_LIMIT);
-        List<SessionHistoryRow> rows = historyDao.findRecentByUserWithStats(userId, limit);
-        int totalInDb = historyDao.countByUser(userId);
+        // History is scoped to the exam the user is currently preparing for —
+        // switching exam shows that exam's sessions only.
+        Long examId = examContext.resolveExamId(userId);
+        List<SessionHistoryRow> rows = historyDao.findRecentByUserWithStats(userId, examId, limit);
+        int totalInDb = historyDao.countByUser(userId, examId);
         return new SessionHistoryResult(rows, totalInDb);
     }
 
     public PracticeStats getStats(Long userId) {
-        int totalSessions = historyDao.countByUser(userId);
-        AttemptTotals totals = historyDao.attemptTotals(userId);
+        Long examId = examContext.resolveExamId(userId);
+        int totalSessions = historyDao.countByUser(userId, examId);
+        AttemptTotals totals = historyDao.attemptTotals(userId, examId);
         int cycle = userRepo.findById(userId).map(UserRepository.UserRow::resetCount).orElse(0);
-        int activeMistakes = mistakeListRepo.countActive(userId, cycle);
-        int activeMistakeTopics = mistakeListRepo.countDistinctActiveTopics(userId, cycle);
+        int activeMistakes = mistakeListRepo.countActive(userId, examId, cycle);
+        int activeMistakeTopics = mistakeListRepo.countDistinctActiveTopics(userId, examId, cycle);
         int accuracy = totals.answered() == 0
                 ? 0
                 : (int) Math.round(totals.correct() * 100.0 / totals.answered());

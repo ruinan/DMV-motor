@@ -422,6 +422,17 @@ public class TestFixtures {
                 """, Long.class, userId, learningCycle);
     }
 
+    /** Completed practice session belonging to a specific exam (cross-exam
+     *  history isolation tests). */
+    public Long insertPracticeSessionForExam(Long userId, int learningCycle, Long examId) {
+        return jdbc.queryForObject("""
+                INSERT INTO practice_sessions
+                    (user_id, status, entry_type, language_code, learning_cycle, exam_id)
+                VALUES (?, 'completed', 'full', 'en', ?, ?)
+                RETURNING id
+                """, Long.class, userId, learningCycle, examId);
+    }
+
     public Long insertInProgressPracticeSession(Long userId, int learningCycle,
                                                  String entryType, String language) {
         return jdbc.queryForObject("""

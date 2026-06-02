@@ -2,6 +2,8 @@ package com.dmvmotor.api.mockexam.infrastructure;
 
 import com.dmvmotor.api.infrastructure.jooq.generated.Tables;
 import org.jooq.DSLContext;
+import org.jooq.Field;
+import org.jooq.impl.DSL;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
@@ -15,20 +17,25 @@ import java.util.List;
 @Repository
 public class MockHistoryDao {
 
+    // V26 mock_attempts.exam_id (dynamic ref, no jOOQ regen). Qualified so it
+    // never collides with mock_exams.exam_id in the joined history query.
+    private static final Field<Long> MA_EXAM_ID =
+            DSL.field(DSL.name("mock_attempts", "exam_id"), Long.class);
+
     private final DSLContext dsl;
 
     public MockHistoryDao(DSLContext dsl) {
         this.dsl = dsl;
     }
 
-    public List<AttemptHistoryRow> findRecentByUser(Long userId, int limit) {
+    public List<AttemptHistoryRow> findRecentByUser(Long userId, Long examId, int limit) {
         var ma = Tables.MOCK_ATTEMPTS;
         var me = Tables.MOCK_EXAMS;
         return dsl.select(ma.ID, ma.MOCK_EXAM_ID, me.CODE, ma.STATUS, ma.SCORE_PERCENT,
                           ma.CORRECT_COUNT, ma.ANSWERED_COUNT, ma.STARTED_AT, ma.SUBMITTED_AT)
                 .from(ma)
                 .join(me).on(me.ID.eq(ma.MOCK_EXAM_ID))
-                .where(ma.USER_ID.eq(userId))
+                .where(ma.USER_ID.eq(userId).and(MA_EXAM_ID.eq(examId)))
                 .orderBy(ma.STARTED_AT.desc(), ma.ID.desc())
                 .limit(limit)
                 .fetch(r -> new AttemptHistoryRow(
@@ -44,30 +51,31 @@ public class MockHistoryDao {
                 ));
     }
 
-    public AttemptStats aggregateStats(Long userId) {
+    public AttemptStats aggregateStats(Long userId, Long examId) {
         var ma = Tables.MOCK_ATTEMPTS;
-        int total = dsl.selectCount().from(ma).where(ma.USER_ID.eq(userId))
+        var owned = ma.USER_ID.eq(userId).and(MA_EXAM_ID.eq(examId));
+        int total = dsl.selectCount().from(ma).where(owned)
                 .fetchOne(0, Integer.class);
         int submitted = dsl.selectCount().from(ma)
-                .where(ma.USER_ID.eq(userId).and(ma.STATUS.eq("submitted")))
+                .where(owned.and(ma.STATUS.eq("submitted")))
                 .fetchOne(0, Integer.class);
         int exited = dsl.selectCount().from(ma)
-                .where(ma.USER_ID.eq(userId).and(ma.STATUS.eq("ended_by_exit")))
+                .where(owned.and(ma.STATUS.eq("ended_by_exit")))
                 .fetchOne(0, Integer.class);
         // Scored attempts = clean submits + timeouts (a timeout still produces a
         // real score). Fail-outs / exits are excluded from best/avg/latest.
         var scored = ma.STATUS.in("submitted", "ended_by_timeout");
         // best/latest CAN legitimately be null (no scored attempts yet).
         Integer best = dsl.select(org.jooq.impl.DSL.max(ma.SCORE_PERCENT)).from(ma)
-                .where(ma.USER_ID.eq(userId).and(scored))
+                .where(owned.and(scored))
                 .fetchOne(0, Integer.class);
         Integer latest = dsl.select(ma.SCORE_PERCENT).from(ma)
-                .where(ma.USER_ID.eq(userId).and(scored))
+                .where(owned.and(scored))
                 .orderBy(ma.SUBMITTED_AT.desc(), ma.ID.desc())
                 .limit(1)
                 .fetchOne(0, Integer.class);
         List<Integer> recent3 = dsl.select(ma.SCORE_PERCENT).from(ma)
-                .where(ma.USER_ID.eq(userId).and(scored))
+                .where(owned.and(scored))
                 .orderBy(ma.SUBMITTED_AT.desc(), ma.ID.desc())
                 .limit(3)
                 .fetch(ma.SCORE_PERCENT);
@@ -76,9 +84,10 @@ public class MockHistoryDao {
         return new AttemptStats(total, submitted, exited, recentAvg, best, latest);
     }
 
-    public int countAttemptsByUser(Long userId) {
+    public int countAttemptsByUser(Long userId, Long examId) {
         var ma = Tables.MOCK_ATTEMPTS;
-        return dsl.selectCount().from(ma).where(ma.USER_ID.eq(userId))
+        return dsl.selectCount().from(ma)
+                .where(ma.USER_ID.eq(userId).and(MA_EXAM_ID.eq(examId)))
                 .fetchOne(0, Integer.class);
     }
 

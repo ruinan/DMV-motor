@@ -4,6 +4,8 @@ import com.dmvmotor.api.infrastructure.jooq.generated.Tables;
 import com.dmvmotor.api.mistakereview.domain.MistakeRecord;
 import org.jooq.Condition;
 import org.jooq.DSLContext;
+import org.jooq.Field;
+import org.jooq.impl.DSL;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
@@ -11,26 +13,39 @@ import java.util.List;
 @Repository
 public class MistakeListRepository {
 
+    // V26: mistake_records carries no exam_id of its own — a mistake inherits
+    // the exam from its topic. Scope by joining topics and filtering its exam_id
+    // (dynamic ref, no jOOQ regen), so switching exam shows only that exam's
+    // mistakes.
+    private static final Field<Long> TOPIC_EXAM_ID =
+            DSL.field(DSL.name("topics", "exam_id"), Long.class);
+
     private final DSLContext dsl;
 
     public MistakeListRepository(DSLContext dsl) {
         this.dsl = dsl;
     }
 
-    public List<MistakeRecord> findActiveMistakes(Long userId, Long topicId,
+    public List<MistakeRecord> findActiveMistakes(Long userId, Long examId, Long topicId,
                                                    int page, int pageSize,
                                                    int learningCycle) {
         var mr = Tables.MISTAKE_RECORDS;
+        var t  = Tables.TOPICS;
         Condition condition = mr.USER_ID.eq(userId)
                 .and(mr.IS_ACTIVE.isTrue())
-                .and(mr.LEARNING_CYCLE.eq(learningCycle));
+                .and(mr.LEARNING_CYCLE.eq(learningCycle))
+                .and(TOPIC_EXAM_ID.eq(examId));
         if (topicId != null) {
             condition = condition.and(mr.PRIMARY_TOPIC_ID.eq(topicId));
         }
 
         int offset = (page - 1) * pageSize;
 
-        return dsl.selectFrom(mr)
+        // Explicit select (not selectFrom) so we can join topics for the exam
+        // filter; only mr columns are read back.
+        return dsl.select(mr.fields())
+                .from(mr)
+                .join(t).on(t.ID.eq(mr.PRIMARY_TOPIC_ID))
                 .where(condition)
                 .orderBy(mr.LAST_WRONG_AT.desc().nullsLast(), mr.ID.asc())
                 .limit(pageSize)
@@ -46,23 +61,29 @@ public class MistakeListRepository {
                 ));
     }
 
-    public int countActive(Long userId, int learningCycle) {
+    public int countActive(Long userId, Long examId, int learningCycle) {
         var mr = Tables.MISTAKE_RECORDS;
+        var t  = Tables.TOPICS;
         return dsl.selectCount()
                 .from(mr)
+                .join(t).on(t.ID.eq(mr.PRIMARY_TOPIC_ID))
                 .where(mr.USER_ID.eq(userId)
                         .and(mr.IS_ACTIVE.isTrue())
-                        .and(mr.LEARNING_CYCLE.eq(learningCycle)))
+                        .and(mr.LEARNING_CYCLE.eq(learningCycle))
+                        .and(TOPIC_EXAM_ID.eq(examId)))
                 .fetchOne(0, Integer.class);
     }
 
-    public int countDistinctActiveTopics(Long userId, int learningCycle) {
+    public int countDistinctActiveTopics(Long userId, Long examId, int learningCycle) {
         var mr = Tables.MISTAKE_RECORDS;
+        var t  = Tables.TOPICS;
         return dsl.select(org.jooq.impl.DSL.countDistinct(mr.PRIMARY_TOPIC_ID))
                 .from(mr)
+                .join(t).on(t.ID.eq(mr.PRIMARY_TOPIC_ID))
                 .where(mr.USER_ID.eq(userId)
                         .and(mr.IS_ACTIVE.isTrue())
-                        .and(mr.LEARNING_CYCLE.eq(learningCycle)))
+                        .and(mr.LEARNING_CYCLE.eq(learningCycle))
+                        .and(TOPIC_EXAM_ID.eq(examId)))
                 .fetchOne(0, Integer.class);
     }
 
@@ -109,14 +130,20 @@ public class MistakeListRepository {
                 .execute();
     }
 
-    public int countActiveMistakes(Long userId, Long topicId, int learningCycle) {
+    public int countActiveMistakes(Long userId, Long examId, Long topicId, int learningCycle) {
         var mr = Tables.MISTAKE_RECORDS;
+        var t  = Tables.TOPICS;
         Condition condition = mr.USER_ID.eq(userId)
                 .and(mr.IS_ACTIVE.isTrue())
-                .and(mr.LEARNING_CYCLE.eq(learningCycle));
+                .and(mr.LEARNING_CYCLE.eq(learningCycle))
+                .and(TOPIC_EXAM_ID.eq(examId));
         if (topicId != null) {
             condition = condition.and(mr.PRIMARY_TOPIC_ID.eq(topicId));
         }
-        return dsl.fetchCount(mr, condition);
+        return dsl.selectCount()
+                .from(mr)
+                .join(t).on(t.ID.eq(mr.PRIMARY_TOPIC_ID))
+                .where(condition)
+                .fetchOne(0, Integer.class);
     }
 }

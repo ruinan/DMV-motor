@@ -4,6 +4,7 @@ import com.dmvmotor.api.authaccess.application.AccessService;
 import com.dmvmotor.api.authaccess.infrastructure.UserRepository;
 import com.dmvmotor.api.common.BusinessException;
 import com.dmvmotor.api.common.ResourceNotFoundException;
+import com.dmvmotor.api.content.application.ExamContext;
 import com.dmvmotor.api.content.domain.QuestionDetail;
 import com.dmvmotor.api.content.infrastructure.QuestionRepository;
 import com.dmvmotor.api.mistakereview.domain.MistakeRecord;
@@ -39,6 +40,7 @@ public class ReviewService {
     private final UserRepository            userRepo;
     private final PracticeHistoryRepository historyRepo;
     private final MasteryEvaluator          masteryEvaluator;
+    private final ExamContext               examContext;
 
     public ReviewService(ReviewRepository reviewRepo,
                          MistakeListRepository mistakeListRepo,
@@ -47,7 +49,8 @@ public class ReviewService {
                          AccessService accessService,
                          UserRepository userRepo,
                          PracticeHistoryRepository historyRepo,
-                         MasteryEvaluator masteryEvaluator) {
+                         MasteryEvaluator masteryEvaluator,
+                         ExamContext examContext) {
         this.reviewRepo       = reviewRepo;
         this.mistakeListRepo  = mistakeListRepo;
         this.mistakeRepo      = mistakeRepo;
@@ -56,6 +59,7 @@ public class ReviewService {
         this.userRepo         = userRepo;
         this.historyRepo      = historyRepo;
         this.masteryEvaluator = masteryEvaluator;
+        this.examContext      = examContext;
     }
 
     @Transactional
@@ -70,7 +74,8 @@ public class ReviewService {
         }
 
         List<MistakeRecord> mistakes = mistakeListRepo
-                .findActiveMistakes(userId, null, 1, Integer.MAX_VALUE, cycle);
+                .findActiveMistakes(userId, examContext.resolveExamId(userId), null,
+                        1, Integer.MAX_VALUE, cycle);
         if (mistakes.isEmpty()) {
             throw new BusinessException("NO_MISTAKES_TO_REVIEW",
                     "No active mistakes to review", HttpStatus.NOT_FOUND);

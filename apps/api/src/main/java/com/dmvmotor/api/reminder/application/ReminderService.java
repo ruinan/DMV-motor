@@ -3,6 +3,7 @@ package com.dmvmotor.api.reminder.application;
 import com.dmvmotor.api.authaccess.infrastructure.UserRepository;
 import com.dmvmotor.api.common.BusinessException;
 import com.dmvmotor.api.common.ResourceNotFoundException;
+import com.dmvmotor.api.content.application.ExamContext;
 import com.dmvmotor.api.mistakereview.infrastructure.MistakeListRepository;
 import com.dmvmotor.api.practice.infrastructure.PracticeHistoryDao;
 import com.dmvmotor.api.practice.infrastructure.PracticeSessionRepository;
@@ -37,17 +38,20 @@ public class ReminderService {
     private final MistakeListRepository    mistakeListRepo;
     private final PracticeHistoryDao       historyDao;
     private final UserRepository           userRepo;
+    private final ExamContext              examContext;
 
     public ReminderService(ReminderRepository repo,
                            PracticeSessionRepository practiceRepo,
                            MistakeListRepository mistakeListRepo,
                            PracticeHistoryDao historyDao,
-                           UserRepository userRepo) {
+                           UserRepository userRepo,
+                           ExamContext examContext) {
         this.repo            = repo;
         this.practiceRepo    = practiceRepo;
         this.mistakeListRepo = mistakeListRepo;
         this.historyDao      = historyDao;
         this.userRepo        = userRepo;
+        this.examContext     = examContext;
     }
 
     /**
@@ -78,15 +82,17 @@ public class ReminderService {
     /** Scenarios that currently apply, already in priority order. */
     private List<ReminderType> applicableTypes(Long userId, int cycle) {
         List<ReminderType> out = new ArrayList<>();
+        // Reminders reflect the exam the user is currently preparing for.
+        Long examId = examContext.resolveExamId(userId);
         boolean inProgress    = practiceRepo.existsInProgressByUserId(userId, cycle);
-        boolean hasWeakPoints = mistakeListRepo.countActive(userId, cycle) > 0;
+        boolean hasWeakPoints = mistakeListRepo.countActive(userId, examId, cycle) > 0;
 
         // 1 — an unfinished session to resume (复习包未完成 / 学习被中断).
         if (inProgress) out.add(ReminderType.RESUME_PRACTICE);
         // 2 — active mistakes still need clearing (关键薄弱点未补).
         if (hasWeakPoints) out.add(ReminderType.REVIEW_WEAK_POINTS);
         // 3 — studied with nothing open → validate with a mock (适合下一次 mock).
-        if (!inProgress && !hasWeakPoints && historyDao.countByUser(userId) > 0) {
+        if (!inProgress && !hasWeakPoints && historyDao.countByUser(userId, examId) > 0) {
             out.add(ReminderType.START_MOCK);
         }
         return out;
