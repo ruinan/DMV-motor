@@ -22,6 +22,7 @@ import { ReadinessRing } from "@/components/readiness-ring";
 import { CoverageDonut } from "@/components/study-hub/CoverageDonut";
 import { Sparkline } from "@/components/study-hub/Sparkline";
 import { ExamPicker } from "@/components/exam-picker";
+import { ExamSwitcher } from "@/components/exam-switcher";
 import type { Dictionary, Locale } from "@/lib/dictionaries";
 
 type Props = {
@@ -67,13 +68,23 @@ export function Dashboard({ t, lang }: Props) {
 
   return (
     <div className="flex flex-col gap-10">
-      <header>
-        <h1 className="text-3xl font-bold tracking-tight text-foreground">
-          {t.studyHub.title}
-        </h1>
-        <p className="mt-1 text-base text-muted-foreground">
-          {t.studyHub.subtitle}
-        </p>
+      <header className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight text-foreground">
+            {t.studyHub.title}
+          </h1>
+          <p className="mt-1 text-base text-muted-foreground">
+            {t.studyHub.subtitle}
+          </p>
+        </div>
+        {/* Renders only once an exam is picked; new users get the onboarding
+            card below instead. */}
+        <ExamSwitcher
+          lang={lang}
+          variant="chip"
+          prefix={t.studyHub.examSwitchPrefix}
+          switchLabel={t.nav.switchExam}
+        />
       </header>
 
       {/* Onboarding: a signed-in user who hasn't picked an exam yet. Existing

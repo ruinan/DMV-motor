@@ -44,7 +44,8 @@
     "mockExam": "Mock Exam",
     "progress": "Progress",
     "account": "Account",
-    "signOut": "Sign out"
+    "signOut": "Sign out",
+    "switchExam": "Switch exam"
   },
   "studyHub": {
     "title": "Study",
@@ -90,7 +91,8 @@
     "errorGeneric": "Something went wrong. Please try again.",
     "examOnboardingTitle": "Which exam are you preparing for?",
     "examOnboardingBody": "Pick your exam so practice, mock exams and progress are tailored to it. You can change it anytime in Settings.",
-    "examPickerEmpty": "No exams are available yet."
+    "examPickerEmpty": "No exams are available yet.",
+    "examSwitchPrefix": "Preparing for"
   },
   "dashboard": {
     "packTitle": "Today's review pack",

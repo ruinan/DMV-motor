@@ -2,10 +2,10 @@
 
 import { useState } from "react";
 import { CheckCircle2, Loader2 } from "lucide-react";
-import { useQueryClient } from "@tanstack/react-query";
-import { apiFetch, ApiError } from "@/lib/api-client";
+import { ApiError } from "@/lib/api-client";
 import { useExams } from "@/lib/hooks/use-exams";
 import { useMe } from "@/lib/hooks/use-me";
+import { useSetExam } from "@/lib/hooks/use-set-exam";
 import type { Locale } from "@/lib/dictionaries";
 
 type Labels = {
@@ -33,7 +33,7 @@ export function ExamPicker({
 }) {
   const exams = useExams(lang);
   const me = useMe();
-  const queryClient = useQueryClient();
+  const setExam = useSetExam();
   const [submitting, setSubmitting] = useState<string | null>(null);
   const [errMsg, setErrMsg] = useState<string | null>(null);
 
@@ -44,12 +44,7 @@ export function ExamPicker({
     setSubmitting(examId);
     setErrMsg(null);
     try {
-      await apiFetch("/api/v1/me/exam", {
-        method: "PUT",
-        body: JSON.stringify({ exam_id: examId }),
-      });
-      // Exam scope changed — refetch every exam-scoped surface.
-      await queryClient.invalidateQueries();
+      await setExam(examId);
       onPicked?.();
     } catch (e) {
       setErrMsg(e instanceof ApiError ? e.message : labels.errorGeneric);

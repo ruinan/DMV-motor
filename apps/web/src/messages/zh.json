@@ -44,7 +44,8 @@
     "mockExam": "模拟考试",
     "progress": "进度",
     "account": "账户",
-    "signOut": "退出登录"
+    "signOut": "退出登录",
+    "switchExam": "切换考试"
   },
   "studyHub": {
     "title": "学习中心",
@@ -90,7 +91,8 @@
     "errorGeneric": "出错了，请重试。",
     "examOnboardingTitle": "你在备考哪个考试？",
     "examOnboardingBody": "选择你的考试，练习、模考和进度都会围绕它定制。随时可在设置中更改。",
-    "examPickerEmpty": "暂无可选考试。"
+    "examPickerEmpty": "暂无可选考试。",
+    "examSwitchPrefix": "正在备考"
   },
   "dashboard": {
     "packTitle": "今日复习包",
