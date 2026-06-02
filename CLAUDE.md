@@ -242,7 +242,9 @@ Claude 在本项目中扮演**小公司 CTO** 的角色：
 - `/study` 独立页面（`mvp.md §6` 没列；Study Hub 即 `/dashboard`）
 - 显式 "study plan" 实体（spec 用 pace + next_action + review pack 替代）
 
-**下一阶段：** ①把本会话改动部署 prod（启 Cloud SQL + cost approval + smoke test）②按 backlog severity 排：付费流程 / reminder 模块 / AI 推荐 endpoint。等用户定优先级。
+**【2026-06-01 会话3 — 多考试地基 ✅ 本地完成，2 commit 未 push】** 新需求：不强调加州，扩展到别的州 + 别的驾照类型。本批只搭地基（schema + 后端 scoping + 前端选择器），CA-M1 仍唯一 seed，行为不变；落地页文案 held。后端 `ea525b4`：V26 `exams`(state×license, 自带 pass_threshold) + 给 topics/questions/mock_exams/practice_sessions/mock_attempts 加 exam_id(NOT NULL backfill) + users.current_exam_id(nullable)，全 dynamic jOOQ ref 不 regen；`ExamContext` 统一解析当前考试；practice/mock snapshot exam_id + pool/模板按它 scope（跨考试隔离）；`GET /exams`、`PUT /me/exam`、`/me.current_exam`；`/topics`/donut/recommendations 按考试 scope；`MockScoringPolicy` 阈值从 exam 读（不再硬编码 0.85）。前端 `ad490db`：useExams + useMe.current_exam + `ExamPicker`（PUT /me/exam→全 invalidate）+ MeView Exam section + Dashboard onboarding 卡 + sidebar 显示考试名 + de-brand authed shell（appBrand→"DMV Prep" / appTagline→"DMV written-exam prep" / metadata 中性，落地页 home.* 未动）。409 tests 绿、JaCoCo≥0.90、lint+build clean。本地 backend 已重启到 V26（`/exams` 返 CA-M1 en+zh）。Plan `~/.claude/plans/cosmic-bouncing-mochi.md`，详见 progress §38。
+
+**下一阶段：** ①把累积的本地改动一次性部署 prod（启 Cloud SQL + cost approval + smoke test）——含 dev-audit / enhance1 / reminder（已做）/ AI 推荐 endpoint（已做）/ 多考试地基（已做）。②等用户定扩张优先级：别的州/驾照类型的真题内容 + 落地页重定位文案（held）。
 
 **未解决的决策点：** 无
 
