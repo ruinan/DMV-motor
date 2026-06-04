@@ -5,7 +5,7 @@ import com.dmvmotor.api.aiqgen.domain.GenerationGateResult;
 import com.dmvmotor.api.aiqgen.domain.SubTopicSpec;
 
 /**
- * Anchors the correct answer to the DMV M1 Motorcycle Handbook. The judge is
+ * Anchors the correct answer to the provided handbook excerpt. The judge is
  * given a curated handbook excerpt for the sub-topic and asked whether the
  * candidate's marked-correct answer matches what the handbook says. If model
  * opinion disagrees with handbook, handbook wins.
@@ -16,9 +16,9 @@ import com.dmvmotor.api.aiqgen.domain.SubTopicSpec;
 public class RunbookFactChecker {
 
     private static final String SYSTEM =
-            "You are a fact-checker for California M1 motorcycle permit test questions. "
+            "You are a fact-checker for DMV written knowledge test questions. "
             + "You are given a candidate question + the marked correct answer + an excerpt from "
-            + "the official California DMV Motorcycle Handbook. "
+            + "the official driver handbook. "
             + "Decide whether the marked correct answer is supported by the handbook excerpt. "
             + "Use the handbook as the SOLE authority — if you personally believe a different "
             + "answer is correct, defer to the handbook. "

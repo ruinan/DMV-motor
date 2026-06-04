@@ -149,16 +149,20 @@ public final class GenerateCli {
         sb.append("DECLARE\n");
         sb.append("    st_id      BIGINT;\n");
         sb.append("    parent_id  BIGINT;\n");
+        sb.append("    v_exam_id  BIGINT;\n");
         sb.append("    new_q_id   BIGINT;\n");
         sb.append("BEGIN\n");
         sb.append("    SELECT id, parent_topic_id INTO st_id, parent_id FROM sub_topics WHERE code = '")
-                .append(subTopicCode).append("';\n\n");
+                .append(subTopicCode).append("';\n");
+        // questions.exam_id is NOT NULL (V26): inherit it from the parent topic so
+        // generated rows are scoped to the right exam (CA-M1, CA-C, ...).
+        sb.append("    SELECT t.exam_id INTO v_exam_id FROM topics t WHERE t.id = parent_id;\n\n");
         int n = 0;
         for (GeneratedQuestion q : accepted) {
             n++;
             sb.append("    -- Q").append(n).append(": ").append(escapeComment(q.en().stem())).append('\n');
-            sb.append("    INSERT INTO questions (primary_topic_id, sub_topic_id, correct_choice_key, status, allow_in_free_trial, allow_in_practice, allow_in_mock_exam, allow_in_review)\n");
-            sb.append("    VALUES (parent_id, st_id, '").append(q.correctChoiceKey())
+            sb.append("    INSERT INTO questions (primary_topic_id, sub_topic_id, exam_id, correct_choice_key, status, allow_in_free_trial, allow_in_practice, allow_in_mock_exam, allow_in_review)\n");
+            sb.append("    VALUES (parent_id, st_id, v_exam_id, '").append(q.correctChoiceKey())
                     .append("', 'active', false, true, true, true)\n");
             sb.append("    RETURNING id INTO new_q_id;\n");
 

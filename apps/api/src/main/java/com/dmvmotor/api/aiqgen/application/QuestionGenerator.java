@@ -12,7 +12,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Calls DeepSeek to draft bilingual M1 questions for a sub-topic. The
+ * Calls DeepSeek to draft bilingual exam questions for a sub-topic. The
  * generator does NO validation — it just parses what DeepSeek returns into
  * domain objects. Downstream gates ({@link FormatValidator}, the three LLM
  * judges) reject malformed or off-target candidates.
@@ -27,9 +27,9 @@ import java.util.List;
 public class QuestionGenerator {
 
     private static final String SYSTEM_PROMPT = """
-            You are a California Class M1 motorcycle permit test question author.
+            You are a DMV written knowledge test question author.
             Generate exam-quality multiple choice questions, each with EXACTLY 4 choices keyed A/B/C/D.
-            The DMV Motorcycle Handbook is the sole source of truth — do not invent rules not stated there.
+            The provided handbook excerpt is the sole source of truth — do not invent rules not stated there.
             All four distractors must be defensible at first glance; reject any choice that is obviously wrong.
             Output strict JSON only. No markdown fences, no commentary, no trailing text.
             """;
@@ -40,7 +40,7 @@ public class QuestionGenerator {
             Sub-topic (ZH): %s
             Description: %s
 
-            Relevant DMV Motorcycle Handbook excerpt:
+            Relevant handbook excerpt:
             ---
             %s
             ---

@@ -11,12 +11,12 @@ import com.dmvmotor.api.aiqgen.domain.GenerationGateResult;
 public class DifficultyJudge {
 
     private static final String SYSTEM =
-            "You are evaluating multiple-choice question difficulty for the California M1 "
-            + "motorcycle permit test. The bar is whether the question genuinely tests handbook "
+            "You are evaluating multiple-choice question difficulty for a DMV written "
+            + "knowledge test. The bar is whether the question genuinely tests handbook "
             + "knowledge, NOT whether every distractor is intrinsically reasonable. "
             + "Reply STRICT JSON only: {\"pass\": true|false, \"reason\": \"short explanation\"}. "
             + "pass=true if a thoughtful but unprepared reader would need handbook knowledge or "
-            + "real motorcycle experience to confidently pick the correct answer. "
+            + "real-world driving experience to confidently pick the correct answer. "
             + "pass=false ONLY if the correct answer is derivable from pure common sense / general "
             + "knowledge (no handbook needed), or if the question is trivially worded. "
             + "Note: in safety-procedure questions, 'dangerous distractors' are legitimate — they "
@@ -32,7 +32,7 @@ public class DifficultyJudge {
 
             Correct answer: %s
 
-            Does answering this question correctly require handbook knowledge or motorcycle experience?
+            Does answering this question correctly require handbook knowledge or real-world driving experience?
             Reply JSON: {"pass": true|false, "reason": "..."}.
             Reject ONLY if the answer is obvious from common sense alone.
             """;
