@@ -52,6 +52,10 @@ build/
 *.secret
 application-local.yml
 application-local.yaml
+# Transient AI-Q-gen handbook excerpts — the source handbook is NEVER vendored
+# (copyright). Fetched on demand into this cache, used to generate questions,
+# then discarded; only the generated questions are committed (as migrations).
+handbook-cache/
 
 ### Terraform ###
 # provider plugins + module cache (large, machine-specific)

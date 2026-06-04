@@ -35,8 +35,9 @@ import java.util.Locale;
  * </pre>
  *
  * <p>Reads sub-topic identity (name_en/name_zh/description) from the local
- * Postgres so generated rows match the V14 catalog exactly. Reads the DMV
- * handbook excerpt from {@code docs/dmv-m1-handbook.md} (working dir = repo root).
+ * Postgres so generated rows match the catalog exactly. Reads each sub-topic's
+ * handbook excerpt from the transient, gitignored cache (see {@link RunbookExcerpts})
+ * — the source handbook is intentionally never vendored into the repo (copyright).
  */
 public final class GenerateCli {
 

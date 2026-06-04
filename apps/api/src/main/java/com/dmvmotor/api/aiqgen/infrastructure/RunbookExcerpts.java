@@ -1,75 +1,67 @@
 package com.dmvmotor.api.aiqgen.infrastructure;
 
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.List;
-import java.util.Map;
 
 /**
- * Loads {@code docs/dmv-m1-handbook.md} from disk and extracts a per-sub-topic
- * excerpt for the AI Q-gen pipeline. Line ranges are hand-curated against the
- * 1661-line handbook to give the fact-checker focused context (~ tens to a
- * couple hundred lines per sub-topic).
+ * Reads a per-sub-topic handbook excerpt from a transient, <b>gitignored</b>
+ * local cache directory (default {@code apps/api/handbook-cache}, overridable via
+ * the {@code HANDBOOK_CACHE_DIR} env var). One UTF-8 text file per sub-topic
+ * code: {@code <cacheDir>/<SUB_TOPIC_CODE>.txt}.
  *
- * <p>Single-instance reader: load the handbook once, slice on demand. Designed
- * to be invoked from the CLI runner (working dir = repo root).
+ * <p><b>Copyright stance</b>: the source DMV handbook is never vendored into the
+ * repo. A refresh step fetches the relevant section text transiently and drops it
+ * into this cache; the AI Q-gen pipeline consumes it to generate <em>original</em>
+ * questions; only those generated questions are persisted (as Flyway migrations).
+ * Anchoring on per-sub-topic files (not line ranges into a committed handbook)
+ * means a periodic refresh just overwrites the cache and nothing downstream
+ * changes — and works for any exam (the code is the key, exams use distinct
+ * prefixes, e.g. {@code CAC_*}).
  */
 public final class RunbookExcerpts {
 
-    private static final Path DEFAULT_HANDBOOK_PATH = Path.of("docs/dmv-m1-handbook.md");
+    /** Repo-relative default; gitignored. Run the CLI with working dir = repo root. */
+    public static final String DEFAULT_CACHE_DIR = "apps/api/handbook-cache";
+
+    private final Path cacheDir;
+
+    public RunbookExcerpts() {
+        this(Path.of(System.getenv().getOrDefault("HANDBOOK_CACHE_DIR", DEFAULT_CACHE_DIR)));
+    }
+
+    public RunbookExcerpts(Path cacheDir) {
+        this.cacheDir = cacheDir;
+    }
 
     /**
-     * Inclusive 1-based line ranges in {@code docs/dmv-m1-handbook.md} that
-     * give each sub-topic a focused but sufficient context window.
+     * The cached handbook excerpt for a sub-topic. Throws (with guidance) if it
+     * hasn't been fetched into the cache yet — generation must not silently run
+     * without grounding text.
      */
-    private static final Map<String, int[]> RANGES = Map.ofEntries(
-            Map.entry("TRAFFIC_REGULATORY_SIGNS",  new int[]{807, 845}),
-            Map.entry("TRAFFIC_LANE_MARKINGS",     new int[]{629, 670}),
-            Map.entry("ROW_INTERSECTIONS",         new int[]{807, 832}),
-            Map.entry("ROW_VULNERABLE_USERS",      new int[]{833, 870}),
-            Map.entry("SPEED_FOLLOWING_DISTANCE",  new int[]{679, 730}),
-            Map.entry("SPEED_LIMITS_PASSING",      new int[]{725, 770}),
-            Map.entry("LANE_POSITION_SELECTION",   new int[]{629, 680}),
-            Map.entry("LANE_SPLITTING_SHARING",    new int[]{735, 770}),
-            Map.entry("TURNING_CURVES",            new int[]{973, 1011}),
-            Map.entry("MANEUVERS_SWERVE_BRAKE",    new int[]{945, 975}),
-            Map.entry("ALCOHOL_BAC_LAW",           new int[]{1281, 1591}),
-            Map.entry("DRUGS_IMPAIRMENT",          new int[]{1565, 1595}),
-            Map.entry("SURFACES_SLIPPERY_TRACKS",  new int[]{1011, 1063}),
-            Map.entry("EMERGENCIES_MECHANICAL",    new int[]{1063, 1140}),
-            Map.entry("BASICS_PPE",                new int[]{369, 460}),
-            Map.entry("BASICS_CONTROL_INSPECTION", new int[]{325, 595})
-    );
-
-    private final List<String> lines;
-
-    public RunbookExcerpts() throws IOException {
-        this(DEFAULT_HANDBOOK_PATH);
-    }
-
-    public RunbookExcerpts(Path handbookPath) throws IOException {
-        this.lines = Files.readAllLines(handbookPath);
-    }
-
     public String forSubTopic(String code) {
-        int[] range = RANGES.get(code);
-        if (range == null) {
-            throw new IllegalArgumentException("No runbook excerpt range defined for sub-topic: " + code);
+        Path file = cacheDir.resolve(code + ".txt");
+        if (!Files.isRegularFile(file)) {
+            throw new IllegalStateException(
+                    "No handbook excerpt cached for sub-topic '" + code + "' at " + file
+                    + ". Fetch the relevant handbook section into the cache first — "
+                    + "the source handbook is intentionally not vendored (copyright).");
         }
-        int start = Math.max(1, range[0]) - 1;
-        int end = Math.min(lines.size(), range[1]);
-        StringBuilder sb = new StringBuilder();
-        for (int i = start; i < end; i++) {
-            String line = lines.get(i);
-            // Skip PDF-conversion artifacts that don't carry content.
-            if (line.contains("<!-- PAGE_BREAK -->")) continue;
-            sb.append(line).append('\n');
+        String text;
+        try {
+            text = Files.readString(file).trim();
+        } catch (IOException e) {
+            throw new UncheckedIOException("Failed reading cached excerpt for '" + code + "': " + file, e);
         }
-        return sb.toString().trim();
+        if (text.isEmpty()) {
+            throw new IllegalStateException("Cached excerpt for '" + code + "' is empty: " + file);
+        }
+        return text;
     }
 
-    public static boolean hasRangeFor(String code) {
-        return RANGES.containsKey(code);
+    /** Whether an excerpt has been cached for this sub-topic code. */
+    public boolean hasExcerptFor(String code) {
+        return Files.isRegularFile(cacheDir.resolve(code + ".txt"));
     }
 }
