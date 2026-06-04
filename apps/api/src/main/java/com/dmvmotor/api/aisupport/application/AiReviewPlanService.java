@@ -30,7 +30,6 @@ import java.util.Optional;
 public class AiReviewPlanService {
 
     private static final Logger log = LoggerFactory.getLogger(AiReviewPlanService.class);
-    private static final double PASS_THRESHOLD = 0.85;
 
     private final MockExamRepository       mockExamRepo;
     private final ReviewPlanRepository     reviewPlanRepo;
@@ -87,7 +86,10 @@ public class AiReviewPlanService {
             int correctCount = mockExamRepo.countCorrectAnswers(attemptId);
             int total = mockExamRepo.findMockExamQuestionCount(attempt.mockExamId());
             int scorePercent = total == 0 ? 0 : (int) Math.round(100.0 * correctCount / total);
-            boolean passed = scorePercent >= (int) Math.round(PASS_THRESHOLD * 100);
+            // Pass standard comes from the attempt's exam (exams.pass_threshold_percent),
+            // not a hardcoded 85% — each state × license type sets its own bar.
+            int passThresholdPercent = mockExamRepo.findPassThresholdPercent(attempt.mockExamId());
+            boolean passed = scorePercent >= passThresholdPercent;
 
             // Wrong-answer detail in the REQUESTED language so the plan's
             // question references read in that language too.

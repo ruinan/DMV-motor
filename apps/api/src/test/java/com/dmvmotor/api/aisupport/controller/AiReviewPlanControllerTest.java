@@ -211,6 +211,36 @@ class AiReviewPlanControllerTest extends IntegrationTestBase {
                 .andExpect(jsonPath("$.data.status").value("ready"));
     }
 
+    @Test
+    void generateAndCache_passFlagUsesExamThreshold_notHardcoded85() throws Exception {
+        // Decoupling fix: the plan's pass/fail must come from the attempt's exam
+        // threshold, not a hardcoded 85%. This exam passes at 40%, so a 50% score
+        // passes — even though the old hardcoded 85% would have marked it failed.
+        Long lowBarExam = fixtures.insertExam("TX", "C", "Texas Class C", "德州 C 类", 40);
+        Long topicId = fixtures.insertTopicForExam(lowBarExam, "TX_T", "Texas Topic", "德州", false, 5);
+        Long q1 = fixtures.insertQuestion(topicId, "B");
+        Long v1 = fixtures.insertVariantReturningId(q1, "en", "Q1 stem",
+                "[{\"key\":\"A\",\"text\":\"a\"},{\"key\":\"B\",\"text\":\"b\"}]", "e1");
+        Long q2 = fixtures.insertQuestion(topicId, "A");
+        Long v2 = fixtures.insertVariantReturningId(q2, "en", "Q2 stem",
+                "[{\"key\":\"A\",\"text\":\"a\"},{\"key\":\"B\",\"text\":\"b\"}]", "e2");
+        Long mockId = fixtures.insertMockExamForExam("TX_MOCK", 2, lowBarExam);
+        fixtures.insertMockExamQuestion(mockId, q1, 1);
+        fixtures.insertMockExamQuestion(mockId, q2, 2);
+
+        Long attemptId = fixtures.insertMockAttemptWithScore(userId, mockId, 50);
+        fixtures.insertMockAttemptResult(attemptId, q1, v1, "B", true);   // correct
+        fixtures.insertMockAttemptResult(attemptId, q2, v2, "B", false);  // wrong → 1/2 = 50%
+
+        reviewPlanService.generateAndCache(attemptId, userId);
+
+        mockMvc.perform(get("/api/v1/ai/review-plan")
+                        .header("Authorization", "Bearer " + userId)
+                        .param("mock_attempt_id", String.valueOf(attemptId)))
+                .andExpect(jsonPath("$.data.status").value("ready"))
+                .andExpect(jsonPath("$.data.plan").value(containsString("passed=true")));
+    }
+
     // ===== Auto-trigger wiring =====
 
     @Test
