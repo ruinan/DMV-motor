@@ -33,37 +33,44 @@ import java.util.Map;
 @ConditionalOnProperty(prefix = "app.ai", name = "provider", havingValue = "deepseek")
 public class DeepSeekAiExplanationProvider implements AiExplanationProvider {
 
+    // Exam-aware persona: %s = exam label (e.g. "California Class C (Car)"), so
+    // the same provider serves any state × license type rather than hardcoding M1.
     private static final String SYSTEM_PROMPT_EN =
-            "You are a California Class M1 motorcycle permit test tutor. "
+            "You are a tutor for the %s written knowledge test. "
             + "The user picked a wrong choice. In 2-3 sentences, explain "
             + "why their choice is wrong and why the correct one is right. "
             + "Plain English. Don't repeat the question. Plain text only — no markdown.";
 
     private static final String SYSTEM_PROMPT_ZH =
-            "你是加州 M1 摩托车驾照笔试辅导员。用户选错了。"
+            "你是 %s 笔试辅导员。用户选错了。"
             + "用 2-3 句话解释为什么他们选错以及正确答案为什么对。"
             + "用简单中文。不要重复题目。纯文本输出，不要 markdown。";
 
     // enhance1 "深入分析": the learner tapped a direction (aspect) to go deeper.
-    // The prompt is built from a per-aspect focus + the thread so far (fed back
-    // so the layer is progressive and doesn't repeat). %1$d = depth, %2$s =
-    // aspect focus instruction.
+    // The prompt is built from the exam label + a per-aspect focus + the thread
+    // so far (fed back so the layer is progressive and doesn't repeat).
+    // %1$s = exam label, %2$d = depth, %3$s = aspect focus instruction.
     private static final String DEEP_DIVE_PROMPT_EN =
-            "You are a California Class M1 motorcycle permit test tutor. The "
+            "You are a tutor for the %1$s written knowledge test. The "
             + "learner already read an explanation of this question and tapped "
-            + "to go deeper (layer %1$d). %2$s Build on what was already said — "
+            + "to go deeper (layer %2$d). %3$s Build on what was already said — "
             + "do NOT repeat earlier points; add something new and more specific. "
             + "3-4 sentences, plain English, plain text only (no markdown).";
 
     private static final String DEEP_DIVE_PROMPT_ZH =
-            "你是加州 M1 摩托车驾照笔试辅导员。学员已看过这道题的解释并点击继续"
-            + "深入（第 %1$d 层）。%2$s 要在已说内容的基础上递进——**不要重复**"
+            "你是 %1$s 笔试辅导员。学员已看过这道题的解释并点击继续"
+            + "深入（第 %2$d 层）。%3$s 要在已说内容的基础上递进——**不要重复**"
             + "前面的要点，补充更新、更具体的内容。3-4 句，简单中文，纯文本（不要 markdown）。";
+
+    private static String examLabelOrDefault(String label, boolean zh) {
+        if (label != null && !label.isBlank()) return label;
+        return zh ? "加州 DMV" : "California DMV";
+    }
 
     /** Per-aspect focus instruction. Keys must match the frontend buttons. */
     private static String aspectFocusEn(String aspect) {
         return switch (aspect == null ? "" : aspect) {
-            case "example"     -> "Focus: give a concrete real-world riding scenario that illustrates the rule.";
+            case "example"     -> "Focus: give a concrete real-world driving scenario that illustrates the rule.";
             case "mnemonic"    -> "Focus: give a memory aid or mnemonic that makes the answer stick.";
             case "distractors" -> "Focus: explain why each of the other (wrong) choices is tempting but wrong.";
             case "rule"        -> "Focus: explain the underlying law/regulation and the safety reason behind it.";
@@ -73,7 +80,7 @@ public class DeepSeekAiExplanationProvider implements AiExplanationProvider {
 
     private static String aspectFocusZh(String aspect) {
         return switch (aspect == null ? "" : aspect) {
-            case "example"     -> "重点：举一个具体的真实骑行场景来说明这条规则。";
+            case "example"     -> "重点：举一个具体的真实驾驶场景来说明这条规则。";
             case "mnemonic"    -> "重点：给一个让答案好记的记忆方法或口诀。";
             case "distractors" -> "重点：逐个说明其他（错误）选项为什么有迷惑性、为什么错。";
             case "rule"        -> "重点：讲清楚背后的法规和安全原理。";
@@ -108,10 +115,11 @@ public class DeepSeekAiExplanationProvider implements AiExplanationProvider {
     @Override
     public Output explain(Input in) {
         boolean zh = "zh".equalsIgnoreCase(in.language());
+        String examLabel = examLabelOrDefault(in.examLabel(), zh);
         String systemPrompt = in.depth() > 0
                 ? String.format(zh ? DEEP_DIVE_PROMPT_ZH : DEEP_DIVE_PROMPT_EN,
-                        in.depth(), zh ? aspectFocusZh(in.aspect()) : aspectFocusEn(in.aspect()))
-                : (zh ? SYSTEM_PROMPT_ZH : SYSTEM_PROMPT_EN);
+                        examLabel, in.depth(), zh ? aspectFocusZh(in.aspect()) : aspectFocusEn(in.aspect()))
+                : String.format(zh ? SYSTEM_PROMPT_ZH : SYSTEM_PROMPT_EN, examLabel);
 
         Map<String, Object> body = new LinkedHashMap<>();
         body.put("model",       model);

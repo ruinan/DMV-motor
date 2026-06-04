@@ -31,15 +31,17 @@ import java.util.Map;
 @ConditionalOnProperty(prefix = "app.ai", name = "provider", havingValue = "deepseek")
 public class DeepSeekAiReviewPlanProvider implements AiReviewPlanProvider {
 
+    // Exam-aware persona: %s = exam label (e.g. "California Class C (Car)"), so the
+    // coach is not hardcoded to one license type.
     private static final String SYSTEM_PROMPT_EN =
-            "You are a California Class M1 motorcycle permit-test coach. The user just "
+            "You are a coach for the %s written knowledge test. The user just "
             + "finished a mock exam. Given their score and the questions they got wrong "
             + "(with topics), write a concise, encouraging review plan: 1) one-line "
             + "verdict on readiness, 2) the 2-3 weakest topics to focus on, 3) a short "
             + "ordered action list. Plain text, no markdown. Keep under 180 words.";
 
     private static final String SYSTEM_PROMPT_ZH =
-            "你是加州 M1 摩托车驾照笔试教练。用户刚做完一次模拟考试。根据分数和答错的题"
+            "你是 %s 笔试教练。用户刚做完一次模拟考试。根据分数和答错的题"
             + "（含知识点），写一份简洁、鼓励性的复习计划：1) 一句话判断是否接近通过，"
             + "2) 最该补的 2-3 个知识点，3) 简短有序的行动清单。纯文本，不要 markdown，"
             + "控制在 200 字以内。";
@@ -66,8 +68,10 @@ public class DeepSeekAiReviewPlanProvider implements AiReviewPlanProvider {
 
     @Override
     public Output generate(Input in) {
-        String systemPrompt = "zh".equalsIgnoreCase(in.language())
-                ? SYSTEM_PROMPT_ZH : SYSTEM_PROMPT_EN;
+        boolean zh = "zh".equalsIgnoreCase(in.language());
+        String examLabel = (in.examLabel() != null && !in.examLabel().isBlank())
+                ? in.examLabel() : (zh ? "加州 DMV" : "California DMV");
+        String systemPrompt = String.format(zh ? SYSTEM_PROMPT_ZH : SYSTEM_PROMPT_EN, examLabel);
 
         Map<String, Object> body = new LinkedHashMap<>();
         body.put("model",       model);

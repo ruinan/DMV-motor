@@ -30,7 +30,10 @@ public class StubAiExplanationProvider implements AiExplanationProvider {
         // tests can tell layers apart.
         String text = "stub:explanation:q=" + in.questionId() + ":lang=" + in.language()
                 + (in.depth() > 0 ? ":depth=" + in.depth() : "")
-                + (in.aspect() != null && !in.aspect().isBlank() ? ":aspect=" + in.aspect() : "");
+                + (in.aspect() != null && !in.aspect().isBlank() ? ":aspect=" + in.aspect() : "")
+                // The service always resolves a non-null exam label; echo it so
+                // wiring tests can assert which exam reached the provider.
+                + ":exam=" + in.examLabel();
         return new Output(text, 0, 0);
     }
 

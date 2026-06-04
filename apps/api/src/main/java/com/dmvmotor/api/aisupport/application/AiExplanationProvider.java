@@ -39,7 +39,12 @@ public interface AiExplanationProvider {
             // The thread so far (base + prior layers, the AI's OWN earlier
             // output) fed back so the next layer is progressive and doesn't
             // repeat. Server-truncated; null/blank for the base.
-            String                        priorContext
+            String                        priorContext,
+            // The exam this question belongs to, as a human label in the request
+            // language (e.g. "California Class C (Car)"), so the prompt is
+            // exam-aware instead of hardcoded to one license type. Resolved by
+            // the service; null/blank → the provider uses a generic fallback.
+            String                        examLabel
     ) {}
 
     record Output(

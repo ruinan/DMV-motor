@@ -100,9 +100,13 @@ public class AiReviewPlanService {
                             w.selectedChoiceKey(), w.correctChoiceKey()))
                     .toList();
 
+            // Exam-aware coach prompt: label the plan with the attempt's exam
+            // (state × license type), not a hardcoded motorcycle persona.
+            String examLabel = mockExamRepo.findExamLabel(attempt.mockExamId(), language);
+
             AiReviewPlanProvider.Output out = provider.generate(
                     new AiReviewPlanProvider.Input(
-                            scorePercent, correctCount, total, passed, wrongItems, language));
+                            scorePercent, correctCount, total, passed, wrongItems, language, examLabel));
 
             reviewPlanRepo.markReady(attemptId, language, out.text(), provider.modelName());
         } catch (RuntimeException e) {

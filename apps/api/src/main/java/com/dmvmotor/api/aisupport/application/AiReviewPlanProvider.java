@@ -30,7 +30,11 @@ public interface AiReviewPlanProvider {
             int             totalQuestions,
             boolean         passed,
             List<WrongItem> wrongItems,
-            String          language
+            String          language,
+            // Exam label in the request language (e.g. "California M1 (Motorcycle)")
+            // so the coach prompt is exam-aware, not hardcoded. Null/blank →
+            // the provider uses a generic fallback.
+            String          examLabel
     ) {}
 
     record Output(

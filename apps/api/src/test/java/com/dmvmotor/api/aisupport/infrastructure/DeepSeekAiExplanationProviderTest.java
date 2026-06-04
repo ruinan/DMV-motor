@@ -68,7 +68,7 @@ class DeepSeekAiExplanationProviderTest {
                 "A",
                 "A stop sign requires a full stop.",
                 language,
-                0, null, null);
+                0, null, null, "California Class C (Car)");
     }
 
     private static String chatCompletionsJson(String content,
@@ -150,9 +150,53 @@ class DeepSeekAiExplanationProviderTest {
         RecordedRequest req = server.takeRequest(2, TimeUnit.SECONDS);
         JsonNode body = JSON.readTree(req.getBody().readUtf8());
         String systemPrompt = body.get("messages").get(0).get("content").asText();
-        // "motorcycle" only appears in the EN system prompt (ZH uses 摩托车).
-        assertTrue(systemPrompt.toLowerCase().contains("motorcycle"),
+        // "tutor" appears only in the EN system prompt (ZH uses 辅导员).
+        assertTrue(systemPrompt.toLowerCase().contains("tutor"),
                 "EN request should carry the English system prompt, got: " + systemPrompt);
+    }
+
+    @Test
+    void explain_systemPrompt_isExamAware_notHardcodedToOneLicenseType() throws Exception {
+        server.enqueue(new MockResponse()
+                .setHeader("Content-Type", "application/json")
+                .setBody(chatCompletionsJson("ok", 1, 1)));
+
+        DeepSeekAiExplanationProvider provider = buildProvider(30);
+        provider.explain(sampleInput("en")); // examLabel = "California Class C (Car)"
+
+        RecordedRequest req = server.takeRequest(2, TimeUnit.SECONDS);
+        JsonNode body = JSON.readTree(req.getBody().readUtf8());
+        String systemPrompt = body.get("messages").get(0).get("content").asText();
+        // The exam label drives the persona — no hardcoded motorcycle/M1 wording.
+        assertTrue(systemPrompt.contains("California Class C (Car)"),
+                "system prompt should name the exam, got: " + systemPrompt);
+        assertFalse(systemPrompt.toLowerCase().contains("motorcycle"),
+                "system prompt must not hardcode motorcycle for a car exam, got: " + systemPrompt);
+    }
+
+    @Test
+    void explain_nullOrBlankExamLabel_usesGenericFallbackPersona() throws Exception {
+        DeepSeekAiExplanationProvider provider = buildProvider(30);
+
+        // null label (en) → generic "California DMV"
+        server.enqueue(new MockResponse().setHeader("Content-Type", "application/json")
+                .setBody(chatCompletionsJson("ok", 1, 1)));
+        provider.explain(new AiExplanationProvider.Input(
+                1L, "Q?", List.of(Map.of("key", "A", "text", "x")),
+                "A", "B", null, "en", 0, null, null, null));
+        String enPrompt = JSON.readTree(server.takeRequest(2, TimeUnit.SECONDS).getBody().readUtf8())
+                .get("messages").get(0).get("content").asText();
+        assertTrue(enPrompt.contains("California DMV"), enPrompt);
+
+        // blank label (zh) → generic "加州 DMV"
+        server.enqueue(new MockResponse().setHeader("Content-Type", "application/json")
+                .setBody(chatCompletionsJson("ok", 1, 1)));
+        provider.explain(new AiExplanationProvider.Input(
+                1L, "Q?", List.of(Map.of("key", "A", "text", "x")),
+                "A", "B", null, "zh", 0, null, null, "   "));
+        String zhPrompt = JSON.readTree(server.takeRequest(2, TimeUnit.SECONDS).getBody().readUtf8())
+                .get("messages").get(0).get("content").asText();
+        assertTrue(zhPrompt.contains("加州 DMV"), zhPrompt);
     }
 
     // ---------------- 3. privacy — no user_id leak ----------------
@@ -280,7 +324,7 @@ class DeepSeekAiExplanationProviderTest {
 
         AiExplanationProvider.Input noRef = new AiExplanationProvider.Input(
                 7L, "Q?", List.of(Map.of("key", "A", "text", "x")),
-                "A", "B", null, "en", 0, null, null);
+                "A", "B", null, "en", 0, null, null, "California Class C (Car)");
 
         DeepSeekAiExplanationProvider provider = buildProvider(30);
         provider.explain(noRef);
@@ -313,7 +357,7 @@ class DeepSeekAiExplanationProviderTest {
                                 List.of(Map.of("key", "A", "text", "x"),
                                         Map.of("key", "B", "text", "y")),
                                 "A", "B", "ref", lang, 2, aspect,
-                                "earlier explanation of the basics"));
+                                "earlier explanation of the basics", "California Class C (Car)"));
 
                 assertEquals("deeper", out.text());
                 RecordedRequest req = server.takeRequest(2, TimeUnit.SECONDS);
@@ -339,7 +383,7 @@ class DeepSeekAiExplanationProviderTest {
         DeepSeekAiExplanationProvider provider = buildProvider(30);
         provider.explain(new AiExplanationProvider.Input(
                 9L, "Q?", List.of(Map.of("key", "A", "text", "x")),
-                "A", "B", null, "en", 1, "example", longContext));
+                "A", "B", null, "en", 1, "example", longContext, "California Class C (Car)"));
 
         RecordedRequest req = server.takeRequest(2, TimeUnit.SECONDS);
         JsonNode body = JSON.readTree(req.getBody().readUtf8());

@@ -19,7 +19,9 @@ public class StubAiReviewPlanProvider implements AiReviewPlanProvider {
         StringBuilder sb = new StringBuilder();
         sb.append("stub:review-plan score=").append(in.scorePercent())
           .append("% passed=").append(in.passed())
-          .append(" wrong=").append(in.wrongItems().size());
+          .append(" wrong=").append(in.wrongItems().size())
+          // The service always resolves a non-null exam label; echo it.
+          .append(" exam=").append(in.examLabel());
         if (!in.wrongItems().isEmpty()) {
             sb.append(" topics=");
             in.wrongItems().forEach(w -> sb.append(w.topicLabel()).append(","));

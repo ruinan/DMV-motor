@@ -59,7 +59,7 @@ class DeepSeekAiReviewPlanProviderTest {
                                 "Lane Use & Positioning",
                                 null,
                                 "B", "D")),
-                language);
+                language, "California Class C (Car)");
     }
 
     @Test
@@ -104,6 +104,41 @@ class DeepSeekAiReviewPlanProviderTest {
         RecordedRequest req = server.takeRequest(2, TimeUnit.SECONDS);
         assertNotNull(req);
         assertTrue(req.getBody().readUtf8().contains("笔试"));
+    }
+
+    @Test
+    void generate_systemPrompt_isExamAware_notHardcodedToOneLicenseType() throws InterruptedException {
+        server.enqueue(new MockResponse()
+                .setHeader("Content-Type", "application/json")
+                .setBody("{\"choices\":[{\"message\":{\"content\":\"ok\"}}],\"usage\":{}}"));
+
+        buildProvider(5).generate(sampleInput("en")); // examLabel = "California Class C (Car)"
+
+        RecordedRequest req = server.takeRequest(2, TimeUnit.SECONDS);
+        assertNotNull(req);
+        String body = req.getBody().readUtf8();
+        // The exam label drives the coach persona — no hardcoded motorcycle wording.
+        assertTrue(body.contains("California Class C (Car)"),
+                "review-plan prompt should name the exam, got: " + body);
+        assertTrue(!body.toLowerCase().contains("motorcycle"),
+                "review-plan prompt must not hardcode motorcycle for a car exam, got: " + body);
+    }
+
+    @Test
+    void generate_nullOrBlankExamLabel_usesGenericFallbackPersona() throws InterruptedException {
+        // null (en) → generic "California DMV"
+        server.enqueue(new MockResponse().setHeader("Content-Type", "application/json")
+                .setBody("{\"choices\":[{\"message\":{\"content\":\"ok\"}}],\"usage\":{}}"));
+        buildProvider(5).generate(new AiReviewPlanProvider.Input(
+                90, 27, 30, true, List.of(), "en", null));
+        assertTrue(server.takeRequest(2, TimeUnit.SECONDS).getBody().readUtf8().contains("California DMV"));
+
+        // blank (zh) → generic "加州 DMV"
+        server.enqueue(new MockResponse().setHeader("Content-Type", "application/json")
+                .setBody("{\"choices\":[{\"message\":{\"content\":\"ok\"}}],\"usage\":{}}"));
+        buildProvider(5).generate(new AiReviewPlanProvider.Input(
+                90, 27, 30, true, List.of(), "zh", "  "));
+        assertTrue(server.takeRequest(2, TimeUnit.SECONDS).getBody().readUtf8().contains("加州 DMV"));
     }
 
     @Test
@@ -169,7 +204,7 @@ class DeepSeekAiReviewPlanProviderTest {
                 50, 1, 2, false,
                 List.of(new AiReviewPlanProvider.WrongItem(
                         "stem", "Topic", "   ", "A", "B")),
-                "en");
+                "en", "California Class C (Car)");
         buildProvider(5).generate(in);
         RecordedRequest req = server.takeRequest(2, TimeUnit.SECONDS);
         assertNotNull(req);
@@ -184,7 +219,7 @@ class DeepSeekAiReviewPlanProviderTest {
                         {"choices":[{"message":{"content":"Great job!"}}],"usage":{}}
                         """));
         AiReviewPlanProvider.Input perfect = new AiReviewPlanProvider.Input(
-                100, 30, 30, true, List.of(), "en");
+                100, 30, 30, true, List.of(), "en", "California Class C (Car)");
         AiReviewPlanProvider.Output out = buildProvider(5).generate(perfect);
         assertEquals("Great job!", out.text());
 

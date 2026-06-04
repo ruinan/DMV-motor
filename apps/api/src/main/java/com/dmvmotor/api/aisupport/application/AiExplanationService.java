@@ -6,7 +6,9 @@ import com.dmvmotor.api.aisupport.infrastructure.AiDeepDiveLogRepository;
 import com.dmvmotor.api.aisupport.infrastructure.AiExplanationRepository;
 import com.dmvmotor.api.common.BusinessException;
 import com.dmvmotor.api.content.application.ContentService;
+import com.dmvmotor.api.content.application.ExamContext;
 import com.dmvmotor.api.content.domain.QuestionDetail;
+import com.dmvmotor.api.content.infrastructure.ExamRepository;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 
@@ -40,17 +42,23 @@ public class AiExplanationService {
     private final AiDeepDiveLogRepository deepDiveRepo;
     private final AiExplanationProvider   provider;
     private final ContentService          contentService;
+    private final ExamContext             examContext;
+    private final ExamRepository          examRepo;
     private final AiProperties            props;
 
     public AiExplanationService(AiExplanationRepository repo,
                                  AiDeepDiveLogRepository deepDiveRepo,
                                  AiExplanationProvider provider,
                                  ContentService contentService,
+                                 ExamContext examContext,
+                                 ExamRepository examRepo,
                                  AiProperties props) {
         this.repo           = repo;
         this.deepDiveRepo   = deepDiveRepo;
         this.provider       = provider;
         this.contentService = contentService;
+        this.examContext    = examContext;
+        this.examRepo       = examRepo;
         this.props          = props;
     }
 
@@ -91,7 +99,8 @@ public class AiExplanationService {
         enforceRateLimit(userId);
 
         // 4. Provider call (depth 0) — minimal context per docs/ai-architecture.md §11.
-        AiExplanationProvider.Output out = provider.explain(toInput(question, selectedChoiceKey, language, 0));
+        AiExplanationProvider.Output out = provider.explain(
+                toInput(question, selectedChoiceKey, language, 0, resolveExamLabel(userId, language)));
 
         // 5. Persist + return.
         AiExplanation saved = repo.insert(
@@ -124,7 +133,7 @@ public class AiExplanationService {
 
         AiExplanationProvider.Output out =
                 provider.explain(toInput(question, selectedChoiceKey, language, depth,
-                        aspect, priorContext));
+                        aspect, priorContext, resolveExamLabel(userId, language)));
 
         // Log metadata only (no text). One row per LLM call, including re-burns.
         deepDiveRepo.insert(userId, questionId, language, depth);
@@ -137,14 +146,16 @@ public class AiExplanationService {
 
     private AiExplanationProvider.Input toInput(QuestionDetail question,
                                                 String selectedChoiceKey,
-                                                String language, int depth) {
-        return toInput(question, selectedChoiceKey, language, depth, null, null);
+                                                String language, int depth,
+                                                String examLabel) {
+        return toInput(question, selectedChoiceKey, language, depth, null, null, examLabel);
     }
 
     private AiExplanationProvider.Input toInput(QuestionDetail question,
                                                 String selectedChoiceKey,
                                                 String language, int depth,
-                                                String aspect, String priorContext) {
+                                                String aspect, String priorContext,
+                                                String examLabel) {
         List<Map<String, String>> choices = question.choices().stream()
                 .map(c -> Map.of("key", c.key(), "text", c.text()))
                 .toList();
@@ -158,7 +169,16 @@ public class AiExplanationService {
                 language,
                 depth,
                 aspect,
-                priorContext);
+                priorContext,
+                examLabel);
+    }
+
+    /** Human exam label in the request language so the provider prompt is exam-aware. */
+    private String resolveExamLabel(Long userId, String language) {
+        Long examId = examContext.resolveExamId(userId);
+        return examRepo.findById(examId)
+                .map(e -> "zh".equalsIgnoreCase(language) ? e.nameZh() : e.nameEn())
+                .orElse(null);
     }
 
     /**

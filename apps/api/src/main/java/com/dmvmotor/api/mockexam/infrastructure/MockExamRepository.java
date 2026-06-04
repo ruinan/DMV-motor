@@ -57,6 +57,25 @@ public class MockExamRepository {
         return java.util.Optional.ofNullable(v).orElse(85);  // default mirrors the old constant
     }
 
+    /**
+     * Human label of the mock's parent exam in the given language (name_zh for
+     * "zh", else name_en) — e.g. "California Class C (Car)" — so the AI review-plan
+     * prompt is exam-aware. Null if the mock or exam is missing.
+     */
+    public String findExamLabel(Long mockExamId, String language) {
+        var me = Tables.MOCK_EXAMS;
+        var exams = DSL.table(DSL.name("exams"));
+        Field<Long>   meExamId = DSL.field(DSL.name("mock_exams", "exam_id"), Long.class);
+        Field<Long>   examsId  = DSL.field(DSL.name("exams", "id"), Long.class);
+        Field<String> name     = DSL.field(DSL.name("exams",
+                "zh".equalsIgnoreCase(language) ? "name_zh" : "name_en"), String.class);
+        return dsl.select(name)
+                .from(me)
+                .join(exams).on(meExamId.eq(examsId))
+                .where(me.ID.eq(mockExamId))
+                .fetchOne(0, String.class);
+    }
+
     public List<Long> findQuestionIdsByMockExamId(Long mockExamId) {
         var meq = Tables.MOCK_EXAM_QUESTIONS;
         return dsl.select(meq.QUESTION_ID)

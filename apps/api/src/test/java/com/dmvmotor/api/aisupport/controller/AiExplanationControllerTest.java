@@ -106,6 +106,44 @@ class AiExplanationControllerTest extends IntegrationTestBase {
     }
 
     @Test
+    void explain_isExamAware_resolvesUsersCurrentExamLabel() throws Exception {
+        // Decoupling: the explanation persona follows the user's current exam
+        // (state × license type), not a hardcoded one. Put the user on a distinct
+        // exam and assert the resolved exam label reaches the provider (the stub
+        // echoes it as ":exam=<label>").
+        Long txExam = fixtures.insertExam("TX", "C", "Texas Class C (Car)", "德州 C 类", 85);
+        Long txTopic = fixtures.insertTopicForExam(txExam, "TX_SIGNS", "TX Signs", "德州标志", false, 5);
+        Long txQuestion = fixtures.insertQuestion(txTopic, "A");
+        fixtures.insertEnVariant(txQuestion, "What does a stop sign mean?", "Stop fully.");
+        fixtures.setUserCurrentExam(userId, txExam);
+
+        mockMvc.perform(post("/api/v1/ai/explain")
+                        .header("Authorization", "Bearer " + userId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body(txQuestion.toString(), "B", "en")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.explanation", containsString("exam=Texas Class C (Car)")));
+    }
+
+    @Test
+    void explain_zh_resolvesExamLabelInChinese() throws Exception {
+        // The zh request resolves the exam's Chinese name (name_zh).
+        Long txExam = fixtures.insertExam("TX", "C", "Texas Class C (Car)", "德州 C 类", 85);
+        Long txTopic = fixtures.insertTopicForExam(txExam, "TX_SIGNS_ZH", "TX Signs", "德州标志", false, 5);
+        Long txQuestion = fixtures.insertQuestion(txTopic, "A");
+        fixtures.insertEnVariant(txQuestion, "What does a stop sign mean?", "Stop fully.");
+        fixtures.insertZhVariant(txQuestion, "停车标志什么意思？", "完全停下。");
+        fixtures.setUserCurrentExam(otherUserId, txExam);
+
+        mockMvc.perform(post("/api/v1/ai/explain")
+                        .header("Authorization", "Bearer " + otherUserId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body(txQuestion.toString(), "B", "zh")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.explanation", containsString("exam=德州 C 类")));
+    }
+
+    @Test
     void explain_freeTrial_paidOnlyQuestion_returns404() throws Exception {
         mockMvc.perform(post("/api/v1/ai/explain")
                         .header("Authorization", "Bearer " + userId)
