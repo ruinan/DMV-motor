@@ -13,6 +13,9 @@ import com.dmvmotor.api.aiqgen.domain.SubTopicSpec;
 import com.dmvmotor.api.aiqgen.infrastructure.RunbookExcerpts;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
@@ -83,9 +86,9 @@ public final class GenerateCli {
         String dbPass = System.getenv().getOrDefault("PGPASSWORD", "dmv_motor");
 
         StringBuilder sql = new StringBuilder();
-        sql.append("-- V16: AI-generated questions filling thin sub-topics from B3 retag.\n");
-        sql.append("-- Source: aiqgen pipeline (see apps/api/.../aiqgen/), DeepSeek-chat.\n");
-        sql.append("-- Generation control loop: 4 gates (format / coverage / difficulty / runbook fact-check).\n\n");
+        sql.append("-- AI-generated questions (aiqgen pipeline, DeepSeek-chat).\n");
+        sql.append("-- Generation control loop: 4 gates (format / coverage / difficulty / runbook fact-check).\n");
+        sql.append("-- Grounding excerpts fetched transiently from the official handbook (not vendored).\n\n");
 
         try (Connection conn = DriverManager.getConnection(dbUrl, dbUser, dbPass)) {
             for (Request req : requests) {
@@ -106,7 +109,16 @@ public final class GenerateCli {
             }
         }
 
-        System.out.print(sql);
+        // Write SQL as explicit UTF-8 to OUT_SQL (so bilingual ZH text survives the
+        // Windows console codepage, and logback noise on stdout can't corrupt it).
+        // Falls back to stdout if OUT_SQL is unset.
+        String outPath = System.getenv("OUT_SQL");
+        if (outPath != null && !outPath.isBlank()) {
+            Files.writeString(Path.of(outPath), sql.toString(), StandardCharsets.UTF_8);
+            System.err.println("Wrote SQL (" + sql.length() + " chars, UTF-8) to " + outPath);
+        } else {
+            System.out.print(sql);
+        }
     }
 
     // --------- helpers ---------
