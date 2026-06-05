@@ -1,6 +1,7 @@
 "use client";
 
-import { Loader2, Sparkles } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Clock, Loader2, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAiExplain } from "@/lib/hooks/use-ai-explain";
 
@@ -15,6 +16,7 @@ export type AiExplainLabels = {
   aiExplainCached: string;
   aiExplainError: string;
   aiExplainCooldown: string;
+  aiExplainCoolingDown: string;
   aiExplainUnavailable: string;
   aiExplainAuthRequired: string;
   aiExplainDeepen: string;
@@ -78,6 +80,29 @@ export function AiExplainBlock({
   });
   const loading = state.status === "loading";
 
+  // Cooldown: the backend RATE_LIMITED error for the thinking-time cooldown
+  // carries the retry-after seconds ("…try again in Ns"). Disable the AI buttons
+  // and count down, then auto-re-enable. The limit is enforced server-side; this
+  // just reflects it. (Daily / deep-dive caps are also RATE_LIMITED but have no
+  // "Ns", so they show the message instead of a countdown.)
+  const [cooldownFor, setCooldownFor] = useState<string | null>(null);
+  const [cooldown, setCooldown] = useState(0);
+  if (
+    state.errorCode === "RATE_LIMITED" &&
+    cooldownFor !== (state.errorMessage ?? "")
+  ) {
+    setCooldownFor(state.errorMessage ?? "");
+    const m = state.errorMessage?.match(/in\s+(\d+)\s*s/);
+    setCooldown(m ? Math.min(parseInt(m[1], 10), 120) : 0);
+  }
+  useEffect(() => {
+    if (cooldown <= 0) return;
+    const id = setTimeout(() => setCooldown((s) => s - 1), 1000);
+    return () => clearTimeout(id);
+  }, [cooldown]);
+  const cooling = cooldown > 0;
+  const coolingLabel = t.aiExplainCoolingDown.replace("{n}", String(cooldown));
+
   function errorMessage(): string {
     if (state.errorCode === "RATE_LIMITED") return t.aiExplainCooldown;
     if (state.errorCode === "AI_UNAVAILABLE") return t.aiExplainUnavailable;
@@ -88,22 +113,24 @@ export function AiExplainBlock({
   if (state.layers.length === 0) {
     return (
       <div className="mt-3 border-t border-border/60 pt-3">
-        {state.status === "error" && (
+        {state.status === "error" && !cooling && (
           <p className="mb-2 text-sm text-muted-foreground">{errorMessage()}</p>
         )}
         <Button
           variant="outline"
           size="sm"
           onClick={explain}
-          disabled={!isLoggedIn || loading}
+          disabled={!isLoggedIn || loading || cooling}
           className="gap-1.5"
         >
-          {loading ? (
+          {cooling ? (
+            <Clock className="size-4" />
+          ) : loading ? (
             <Loader2 className="size-4 animate-spin" />
           ) : (
             <Sparkles className="size-4" />
           )}
-          {loading ? t.aiExplainLoading : t.aiExplainButton}
+          {cooling ? coolingLabel : loading ? t.aiExplainLoading : t.aiExplainButton}
         </Button>
         {!isLoggedIn && (
           <p className="mt-2 text-xs text-muted-foreground">{t.aiExplainAuthRequired}</p>
@@ -135,14 +162,20 @@ export function AiExplainBlock({
         </div>
       ))}
 
-      {state.status === "error" && (
+      {state.status === "error" && !cooling && (
         <p className="text-sm text-muted-foreground">{errorMessage()}</p>
       )}
 
       {/* Deep-dive: pick a direction. Each is progressive + non-repeating
-          (server is fed the thread so far). Hidden once the depth cap is hit. */}
+          (server is fed the thread so far). Hidden once the depth cap is hit,
+          and replaced by a countdown while the AI is cooling down. */}
       {capReached ? (
         <p className="text-xs text-muted-foreground">{t.aiExplainDepthReached}</p>
+      ) : cooling ? (
+        <span className="inline-flex items-center gap-1.5 text-sm text-muted-foreground">
+          <Clock className="size-4" />
+          {coolingLabel}
+        </span>
       ) : loading ? (
         <span className="inline-flex items-center gap-1.5 text-sm text-primary">
           <Loader2 className="size-4 animate-spin" />
