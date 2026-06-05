@@ -272,6 +272,8 @@
     "reviewMistakes": "复习错题",
     "exitedSummary": "你在完成前退出了这次考试，所以没有计分。",
     "reviewTitle": "逐题复盘",
+    "reviewEmpty": "这次考试没有可复盘的已答题目。",
+    "loading": "加载中…",
     "correct": "答对",
     "incorrect": "答错",
     "explanation": "解析",

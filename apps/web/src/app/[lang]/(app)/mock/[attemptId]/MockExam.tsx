@@ -261,6 +261,7 @@ export function MockExam({ t, lang, attemptId }: Props) {
           questions={attempt.data.questions}
           answers={attempt.data.saved_answers}
           isLoggedIn={!!user}
+          loading={attempt.isFetching}
         />
       </div>
     );
@@ -283,6 +284,7 @@ export function MockExam({ t, lang, attemptId }: Props) {
         questions={attempt.data.questions}
         answers={attempt.data.saved_answers}
         isLoggedIn={!!user}
+        loading={attempt.isFetching}
         onNewMock={() => router.push(`/${lang}/mock`)}
         onMistakes={() => router.push(`/${lang}/mistakes`)}
         onBack={() => router.push(`/${lang}/dashboard`)}
@@ -698,6 +700,7 @@ function FinishedView({
   questions,
   answers,
   isLoggedIn,
+  loading,
   onNewMock,
   onMistakes,
   onBack,
@@ -712,6 +715,7 @@ function FinishedView({
   questions: MockAttemptQuestion[];
   answers: MockSavedAnswer[];
   isLoggedIn: boolean;
+  loading: boolean;
   onNewMock: () => void;
   onMistakes: () => void;
   onBack: () => void;
@@ -775,6 +779,7 @@ function FinishedView({
         questions={questions}
         answers={answers}
         isLoggedIn={isLoggedIn}
+        loading={loading}
       />
 
       <div className="flex flex-col gap-3 sm:flex-row sm:justify-end">

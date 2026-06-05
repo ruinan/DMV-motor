@@ -272,6 +272,8 @@
     "reviewMistakes": "Review mistakes",
     "exitedSummary": "You exited this attempt before finishing, so it wasn't scored.",
     "reviewTitle": "Question review",
+    "reviewEmpty": "No answered questions to review for this attempt.",
+    "loading": "Loading…",
     "correct": "Correct",
     "incorrect": "Incorrect",
     "explanation": "Explanation",

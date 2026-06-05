@@ -1,6 +1,6 @@
 "use client";
 
-import { CheckCircle2, XCircle } from "lucide-react";
+import { CheckCircle2, Loader2, XCircle } from "lucide-react";
 import { AiExplainBlock } from "@/components/ai-explain-block";
 import type {
   MockAttemptQuestion,
@@ -14,40 +14,62 @@ type Props = {
   questions: MockAttemptQuestion[];
   answers: MockSavedAnswer[];
   isLoggedIn: boolean;
+  // True while the attempt detail is (re)fetching — show a spinner rather than
+  // a misleading empty state. The review data itself is served from cache (no
+  // AI call); AI is only invoked when the learner taps a deep-dive.
+  loading?: boolean;
 };
 
 /**
  * Post-exam per-question review: each answered question marked right/wrong with
- * its explanation and an "Ask AI why" button on wrong answers. Mirrors the
- * practice attempt review; the AI payload is locked to structured fields.
+ * its explanation and an "Ask AI why" button on wrong answers. The section is
+ * always rendered (heading + list / spinner / empty note) so it never silently
+ * disappears — the old version returned null when there were no items, which
+ * looked like the review was missing entirely.
  */
-export function MockReview({ t, lang, questions, answers, isLoggedIn }: Props) {
+export function MockReview({
+  t,
+  lang,
+  questions,
+  answers,
+  isLoggedIn,
+  loading = false,
+}: Props) {
   const qById = new Map(questions.map((q) => [q.question_id, q]));
   const items = answers
     .map((a) => ({ a, q: qById.get(a.question_id) }))
     .filter((x): x is { a: MockSavedAnswer; q: MockAttemptQuestion } => !!x.q);
-
-  if (items.length === 0) return null;
 
   return (
     <section className="flex flex-col gap-4">
       <h2 className="text-lg font-semibold tracking-tight text-foreground">
         {t.reviewTitle}
       </h2>
-      <ol className="flex flex-col gap-4">
-        {items.map(({ a, q }, idx) => (
-          <li key={a.question_id}>
-            <MockReviewItem
-              t={t}
-              lang={lang}
-              index={idx}
-              q={q}
-              a={a}
-              isLoggedIn={isLoggedIn}
-            />
-          </li>
-        ))}
-      </ol>
+      {items.length > 0 ? (
+        <ol className="flex flex-col gap-4">
+          {items.map(({ a, q }, idx) => (
+            <li key={a.question_id}>
+              <MockReviewItem
+                t={t}
+                lang={lang}
+                index={idx}
+                q={q}
+                a={a}
+                isLoggedIn={isLoggedIn}
+              />
+            </li>
+          ))}
+        </ol>
+      ) : loading ? (
+        <div className="flex items-center justify-center gap-2 rounded-xl border border-dashed border-border bg-card p-8 text-sm text-muted-foreground">
+          <Loader2 className="size-4 animate-spin" />
+          {t.loading ?? "Loading…"}
+        </div>
+      ) : (
+        <p className="rounded-xl border border-dashed border-border bg-card p-6 text-center text-sm text-muted-foreground">
+          {t.reviewEmpty}
+        </p>
+      )}
     </section>
   );
 }
