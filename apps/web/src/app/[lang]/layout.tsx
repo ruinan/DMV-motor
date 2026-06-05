@@ -27,7 +27,7 @@ const mono = localFont({
 });
 
 export const metadata: Metadata = {
-  title: "DMV Motor — DMV written-exam prep",
+  title: "DMV Prep — DMV written-exam prep",
   description:
     "DMV written-exam prep. Practice, mistakes, and timed mock exams.",
 };

@@ -1,6 +1,6 @@
 {
   "site": {
-    "brand": "DMV Motor",
+    "brand": "DMV 备考",
     "signIn": "登录",
     "switchLanguage": "切换语言"
   },
@@ -38,7 +38,7 @@
     "empty": "暂无可选考试。"
   },
   "footer": {
-    "copyright": "© 2026 DMV Motor。本应用与加州 DMV 无关联。",
+    "copyright": "© 2026 DMV 备考。本应用与加州 DMV 无关联。",
     "about": "关于",
     "privacy": "隐私",
     "terms": "条款"
@@ -164,7 +164,7 @@
     "resetNeedEmail": "请先填写上方的邮箱。",
     "securedBy": "由 Firebase Authentication 保护",
     "backToLanding": "回到主页",
-    "signInTitle": "登录 DMV Motor",
+    "signInTitle": "登录 DMV 备考",
     "verifying": "正在验证登录状态…",
     "stuckTitle": "好像卡住了",
     "stuckBody": "无法确认你的登录状态。请刷新重试，或重新登录。",

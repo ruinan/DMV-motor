@@ -3,7 +3,7 @@
 import { useState, type FormEvent } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Bike, Eye, EyeOff, Shield } from "lucide-react";
+import { ArrowLeft, GraduationCap, Eye, EyeOff, Shield } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import type { Dictionary, Locale } from "@/lib/dictionaries";
 
@@ -81,10 +81,10 @@ export function LoginForm({ t, lang }: Props) {
       {/* Brand */}
       <div className="mb-8 flex flex-col items-center text-center">
         <div className="mb-3 flex size-12 items-center justify-center rounded-full bg-primary/10 text-primary">
-          <Bike className="size-7" strokeWidth={2.25} />
+          <GraduationCap className="size-7" strokeWidth={2.25} />
         </div>
         <h1 className="text-2xl font-bold tracking-tight text-foreground">
-          DMV Motor
+          DMV Prep
         </h1>
         <p className="mt-1 text-sm text-muted-foreground">{t.appTagline}</p>
       </div>

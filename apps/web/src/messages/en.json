@@ -1,6 +1,6 @@
 {
   "site": {
-    "brand": "DMV Motor",
+    "brand": "DMV Prep",
     "signIn": "Sign in",
     "switchLanguage": "Switch language"
   },
@@ -38,7 +38,7 @@
     "empty": "No exams available yet."
   },
   "footer": {
-    "copyright": "© 2026 DMV Motor. Not affiliated with the California DMV.",
+    "copyright": "© 2026 DMV Prep. Not affiliated with the California DMV.",
     "about": "About",
     "privacy": "Privacy",
     "terms": "Terms"
@@ -164,7 +164,7 @@
     "resetNeedEmail": "Enter your email above first.",
     "securedBy": "Secured by Firebase Authentication",
     "backToLanding": "Back to home",
-    "signInTitle": "Sign in to DMV Motor",
+    "signInTitle": "Sign in to DMV Prep",
     "verifying": "Verifying your session…",
     "stuckTitle": "Taking longer than expected",
     "stuckBody": "We couldn't confirm your sign-in. Refresh to retry, or go to sign in again.",
