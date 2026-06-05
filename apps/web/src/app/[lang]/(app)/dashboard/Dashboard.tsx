@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { ArrowRight, ChevronDown, Info, Loader2, PlayCircle, Sparkles } from "lucide-react";
 import { AttemptHistory } from "../../practice/AttemptHistory";
@@ -104,18 +104,10 @@ export function Dashboard({ t, lang }: Props) {
             label={t.studyHub.readinessLabel}
             lockedLabel={t.studyHub.readinessLocked}
           />
-          <div className="group relative flex items-center gap-1">
-            <p className="text-center text-sm font-semibold text-foreground">
-              {t.studyHub.readinessTitle}
-            </p>
-            <Info className="size-3.5 cursor-help text-muted-foreground" aria-hidden />
-            <span
-              role="tooltip"
-              className="pointer-events-none absolute bottom-full left-1/2 z-20 mb-2 hidden w-60 -translate-x-1/2 rounded-lg border border-border bg-card px-3 py-2 text-left text-xs font-normal leading-snug text-muted-foreground shadow-lg group-hover:block"
-            >
-              {t.studyHub.readinessTooltip}
-            </span>
-          </div>
+          <ReadinessInfo
+            title={t.studyHub.readinessTitle}
+            tooltip={t.studyHub.readinessTooltip}
+          />
           {!isPaid && (
             <Link
               href={`/${lang}/me#subscription`}
@@ -153,6 +145,47 @@ export function Dashboard({ t, lang }: Props) {
         )}
         totalInDb={mockHistory.data?.total_in_db ?? 0}
       />
+    </div>
+  );
+}
+
+/**
+ * Readiness label + info affordance. The tooltip opens on hover AND on click/tap
+ * (the old hover-only tooltip couldn't be opened on touch devices), and closes
+ * on outside click.
+ */
+function ReadinessInfo({ title, tooltip }: { title: string; tooltip: string }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    function onDocClick(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    }
+    document.addEventListener("mousedown", onDocClick);
+    return () => document.removeEventListener("mousedown", onDocClick);
+  }, [open]);
+
+  return (
+    <div ref={ref} className="group relative flex items-center gap-1">
+      <p className="text-center text-sm font-semibold text-foreground">{title}</p>
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        aria-label={title}
+        aria-expanded={open}
+        className="rounded-full text-muted-foreground transition-colors hover:text-foreground"
+      >
+        <Info className="size-3.5" aria-hidden />
+      </button>
+      <span
+        role="tooltip"
+        className={`absolute bottom-full left-1/2 z-20 mb-2 w-60 -translate-x-1/2 rounded-lg border border-border bg-card px-3 py-2 text-left text-xs font-normal leading-snug text-muted-foreground shadow-lg group-hover:block ${
+          open ? "block" : "hidden"
+        }`}
+      >
+        {tooltip}
+      </span>
     </div>
   );
 }
