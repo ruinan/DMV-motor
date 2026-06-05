@@ -30,6 +30,17 @@ export default async function Home({ params }: PageProps<"/[lang]">) {
         <p className="max-w-xl text-lg leading-relaxed text-muted-foreground">
           {t.home.subtitle}
         </p>
+        <div className="flex flex-wrap items-center justify-center gap-2 text-sm">
+          <span className="text-muted-foreground">
+            {t.home.examsCoveredLabel}:
+          </span>
+          <span className="rounded-full border border-border bg-card px-3 py-1 font-medium text-foreground">
+            {t.home.examClassC}
+          </span>
+          <span className="rounded-full border border-border bg-card px-3 py-1 font-medium text-foreground">
+            {t.home.examM1}
+          </span>
+        </div>
         <Link
           href={`/${lang}/practice`}
           className={`${buttonVariants({ size: "lg" })} mt-2 gap-2 px-7 py-6 text-base shadow-md transition-all hover:-translate-y-0.5 hover:shadow-lg`}

@@ -42,7 +42,9 @@ export function LoginForm({ t, lang }: Props) {
       } else {
         await signUp(email, password);
       }
-      router.push(`/${lang}/me`);
+      // Land on the study hub; the app shell's gate sends the user to /start
+      // first if they haven't chosen an exam yet.
+      router.push(`/${lang}/dashboard`);
     } catch {
       setError(mode === "signin" ? t.error : t.errorCreate);
     } finally {

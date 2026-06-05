@@ -5,16 +5,19 @@
     "switchLanguage": "Switch language"
   },
   "home": {
-    "badge": "Built for first-time M1 riders",
-    "title": "Ace your California M1 written exam",
-    "subtitle": "Free trial — no signup needed. Master the rules of the road with our DMV-style practice tests.",
+    "badge": "California DMV written-test prep",
+    "title": "Ace your California DMV written exam",
+    "subtitle": "Free practice for the California Class C (car) and M1 (motorcycle) written tests — no signup needed.",
     "ctaPractice": "Start free practice",
     "ctaSignIn": "Sign in",
-    "heroImageAlt": "Motorcyclist riding on a scenic California highway at sunset",
+    "examsCoveredLabel": "Now covering",
+    "examClassC": "California Class C (Car)",
+    "examM1": "California M1 (Motorcycle)",
+    "heroImageAlt": "A scenic California highway at sunset",
     "features": {
       "questions": {
         "title": "Real DMV-style questions",
-        "body": "Practice with questions that closely mirror the actual California M1 exam format and difficulty."
+        "body": "Practice with questions that closely mirror the actual California DMV written exam format and difficulty."
       },
       "mistakes": {
         "title": "Mistakes tracked",
@@ -25,6 +28,14 @@
         "body": "Experience the pressure of the real test with our timed, high-stakes simulator mode."
       }
     }
+  },
+  "onboarding": {
+    "title": "Which test are you preparing for?",
+    "subtitle": "Pick the exam you want to study. You can switch anytime from the sidebar.",
+    "select": "Select",
+    "loading": "Loading exams…",
+    "error": "Couldn't load exams. Please try again.",
+    "empty": "No exams available yet."
   },
   "footer": {
     "copyright": "© 2026 DMV Motor. Not affiliated with the California DMV.",
