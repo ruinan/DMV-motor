@@ -92,7 +92,7 @@ public class ReminderService {
         // 2 — active mistakes still need clearing (关键薄弱点未补).
         if (hasWeakPoints) out.add(ReminderType.REVIEW_WEAK_POINTS);
         // 3 — studied with nothing open → validate with a mock (适合下一次 mock).
-        if (!inProgress && !hasWeakPoints && historyDao.countByUser(userId, examId) > 0) {
+        if (!inProgress && !hasWeakPoints && historyDao.countByUser(userId, examId, cycle) > 0) {
             out.add(ReminderType.START_MOCK);
         }
         return out;

@@ -221,7 +221,7 @@
     "sectionLearning": "学习数据",
     "sectionLearningBody": "重置练习 / 错题 / 复习的当前周期，开始新一轮学习。",
     "learningResetCta": "重置学习状态",
-    "learningResetWarn": "本操作将清除当前周期的错题、复习包和进度。模考历史保留。确认重置？",
+    "learningResetWarn": "重置 = 从头开始：会隐藏你当前的错题、复习包和进度，使其不再计入应考准备度。请勿随意重置——会丢失当前的学习数据，且很难撤销。（模考历史保留。）确认重置？",
     "learningResetConfirm": "确认重置",
     "learningResetSubmitting": "重置中…",
     "learningResetDone": "学习状态已重置，新一轮已开始。",

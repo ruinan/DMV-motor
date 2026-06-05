@@ -29,7 +29,8 @@ public class PracticeHistoryDao {
         this.dsl = dsl;
     }
 
-    public List<SessionHistoryRow> findRecentByUserWithStats(Long userId, Long examId, int limit) {
+    public List<SessionHistoryRow> findRecentByUserWithStats(Long userId, Long examId,
+                                                             int learningCycle, int limit) {
         var ps = Tables.PRACTICE_SESSIONS;
         var pa = Tables.PRACTICE_ATTEMPTS;
         Field<Integer> answered = DSL.count(pa.ID).as("answered");
@@ -41,7 +42,9 @@ public class PracticeHistoryDao {
                           ps.STARTED_AT, ps.COMPLETED_AT, answered, correct)
                 .from(ps)
                 .leftJoin(pa).on(pa.PRACTICE_SESSION_ID.eq(ps.ID))
-                .where(ps.USER_ID.eq(userId).and(PS_EXAM_ID.eq(examId)))
+                .where(ps.USER_ID.eq(userId)
+                        .and(PS_EXAM_ID.eq(examId))
+                        .and(ps.LEARNING_CYCLE.eq(learningCycle)))
                 .groupBy(ps.ID)
                 .orderBy(ps.STARTED_AT.desc(), ps.ID.desc())
                 .limit(limit)
@@ -57,15 +60,19 @@ public class PracticeHistoryDao {
                 ));
     }
 
-    public int countByUser(Long userId, Long examId) {
+    public int countByUser(Long userId, Long examId, int learningCycle) {
         var ps = Tables.PRACTICE_SESSIONS;
         // selectCount + fetchOne never returns null for an aggregate.
+        // Cycle-scoped so a learning reset clears it, consistent with the
+        // history strip, mistakes and readiness (all per current cycle).
         return dsl.selectCount().from(ps)
-                .where(ps.USER_ID.eq(userId).and(PS_EXAM_ID.eq(examId)))
+                .where(ps.USER_ID.eq(userId)
+                        .and(PS_EXAM_ID.eq(examId))
+                        .and(ps.LEARNING_CYCLE.eq(learningCycle)))
                 .fetchOne(0, Integer.class);
     }
 
-    public AttemptTotals attemptTotals(Long userId, Long examId) {
+    public AttemptTotals attemptTotals(Long userId, Long examId, int learningCycle) {
         var pa = Tables.PRACTICE_ATTEMPTS;
         var ps = Tables.PRACTICE_SESSIONS;
         Field<Integer> total = DSL.count(pa.ID);
@@ -74,11 +81,13 @@ public class PracticeHistoryDao {
         Field<Integer> correct = DSL.coalesce(
                 DSL.sum(DSL.when(pa.IS_CORRECT.isTrue(), 1).otherwise(0)),
                 0).cast(Integer.class);
-        // practice_attempts carries no exam_id — scope through its session.
+        // practice_attempts carries no exam_id / cycle — scope through its session.
         var record = dsl.select(total, correct)
                 .from(pa)
                 .join(ps).on(ps.ID.eq(pa.PRACTICE_SESSION_ID))
-                .where(pa.USER_ID.eq(userId).and(PS_EXAM_ID.eq(examId)))
+                .where(pa.USER_ID.eq(userId)
+                        .and(PS_EXAM_ID.eq(examId))
+                        .and(ps.LEARNING_CYCLE.eq(learningCycle)))
                 .fetchOne();
         return new AttemptTotals(record.get(total), record.get(correct));
     }

@@ -221,7 +221,7 @@
     "sectionLearning": "Learning data",
     "sectionLearningBody": "Reset your practice / mistake / review state to start a new study cycle.",
     "learningResetCta": "Reset learning",
-    "learningResetWarn": "This wipes mistakes, review packs, and progress for the current cycle. Mock attempt history is kept. Are you sure?",
+    "learningResetWarn": "Reset is a fresh start — it hides your current mistakes, review packs, and progress so they no longer count toward readiness. Don't reset casually: you'll lose your current study data and this is hard to undo. (Mock attempt history is kept.) Are you sure?",
     "learningResetConfirm": "Yes, reset",
     "learningResetSubmitting": "Resetting…",
     "learningResetDone": "Learning state reset. New cycle started.",

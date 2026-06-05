@@ -62,16 +62,17 @@ public class PracticeService {
         // History is scoped to the exam the user is currently preparing for —
         // switching exam shows that exam's sessions only.
         Long examId = examContext.resolveExamId(userId);
-        List<SessionHistoryRow> rows = historyDao.findRecentByUserWithStats(userId, examId, limit);
-        int totalInDb = historyDao.countByUser(userId, examId);
+        int cycle = userRepo.findById(userId).map(UserRepository.UserRow::resetCount).orElse(0);
+        List<SessionHistoryRow> rows = historyDao.findRecentByUserWithStats(userId, examId, cycle, limit);
+        int totalInDb = historyDao.countByUser(userId, examId, cycle);
         return new SessionHistoryResult(rows, totalInDb);
     }
 
     public PracticeStats getStats(Long userId) {
         Long examId = examContext.resolveExamId(userId);
-        int totalSessions = historyDao.countByUser(userId, examId);
-        AttemptTotals totals = historyDao.attemptTotals(userId, examId);
         int cycle = userRepo.findById(userId).map(UserRepository.UserRow::resetCount).orElse(0);
+        int totalSessions = historyDao.countByUser(userId, examId, cycle);
+        AttemptTotals totals = historyDao.attemptTotals(userId, examId, cycle);
         int activeMistakes = mistakeListRepo.countActive(userId, examId, cycle);
         int activeMistakeTopics = mistakeListRepo.countDistinctActiveTopics(userId, examId, cycle);
         int accuracy = totals.answered() == 0
