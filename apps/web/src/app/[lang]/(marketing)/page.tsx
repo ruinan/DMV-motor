@@ -41,6 +41,9 @@ export default async function Home({ params }: PageProps<"/[lang]">) {
             {t.home.examM1}
           </span>
         </div>
+        <p className="max-w-md text-xs text-muted-foreground">
+          {t.home.freeTierNote}
+        </p>
         <Link
           href={`/${lang}/practice`}
           className={`${buttonVariants({ size: "lg" })} mt-2 gap-2 px-7 py-6 text-base shadow-md transition-all hover:-translate-y-0.5 hover:shadow-lg`}
