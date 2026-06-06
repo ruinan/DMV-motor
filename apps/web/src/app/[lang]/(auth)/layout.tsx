@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import { getDictionary, hasLocale } from "@/lib/dictionaries";
-import { LanguageToggle } from "@/components/language-toggle";
+import { LanguageSelect } from "@/components/language-select";
 
 /**
  * Standalone layout for the auth funnel (login, future password reset, etc.).
@@ -18,7 +18,7 @@ export default async function AuthLayout({
   return (
     <div className="relative flex min-h-screen items-center justify-center bg-muted/40 p-4">
       <div className="absolute right-6 top-6 z-10">
-        <LanguageToggle
+        <LanguageSelect
           currentLang={lang}
           ariaLabel={t.site.switchLanguage}
         />

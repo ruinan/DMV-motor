@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { LanguageToggle } from "@/components/language-toggle";
+import { LanguageSelect } from "@/components/language-select";
 import type { Dictionary, Locale } from "@/lib/dictionaries";
 
 type Props = {
@@ -24,7 +24,7 @@ export function SiteHeader({ t, lang }: Props) {
           >
             {t.signIn}
           </Link>
-          <LanguageToggle currentLang={lang} ariaLabel={t.switchLanguage} />
+          <LanguageSelect currentLang={lang} ariaLabel={t.switchLanguage} />
         </div>
       </div>
     </header>

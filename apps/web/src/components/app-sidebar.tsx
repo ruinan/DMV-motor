@@ -10,7 +10,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
-import { LanguageToggle } from "@/components/language-toggle";
+import { LanguageSelect } from "@/components/language-select";
 import { ExamSwitcher } from "@/components/exam-switcher";
 import type { Dictionary, Locale } from "@/lib/dictionaries";
 
@@ -41,17 +41,19 @@ export function AppSidebar({ t, lang }: Props) {
 
   return (
     <aside className="hidden md:flex md:fixed md:inset-y-0 md:left-0 md:w-64 md:flex-col md:border-r md:border-border md:bg-card">
-      <div className="flex h-16 items-center justify-between px-6">
-        <div className="flex min-w-0 flex-col">
+      {/* Two rows so the exam switcher gets its own full-width line instead of
+          being squeezed against the language control. */}
+      <div className="flex flex-col gap-2.5 px-4 py-4">
+        <div className="flex items-center justify-between gap-2">
           <Link
             href={`/${lang}/dashboard`}
-            className="text-lg font-bold leading-tight tracking-tight text-primary"
+            className="truncate text-lg font-bold leading-tight tracking-tight text-primary"
           >
             {t.nav.appBrand}
           </Link>
-          <ExamSwitcher lang={lang} variant="plain" switchLabel={t.nav.switchExam} />
+          <LanguageSelect currentLang={lang} ariaLabel={t.site.switchLanguage} />
         </div>
-        <LanguageToggle currentLang={lang} ariaLabel={t.site.switchLanguage} />
+        <ExamSwitcher lang={lang} variant="plain" switchLabel={t.nav.switchExam} />
       </div>
 
       <nav className="flex flex-1 flex-col gap-1 px-3 pt-2">
