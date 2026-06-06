@@ -1,9 +1,11 @@
 package com.dmvmotor.api.progressreadiness.application;
 
 import com.dmvmotor.api.authaccess.infrastructure.UserRepository;
+import com.dmvmotor.api.content.application.ExamContext;
 import com.dmvmotor.api.infrastructure.jooq.generated.Tables;
 import com.dmvmotor.api.progressreadiness.config.ReadinessProperties;
 import org.jooq.DSLContext;
+import org.jooq.Field;
 import org.jooq.impl.DSL;
 import org.springframework.stereotype.Service;
 
@@ -13,23 +15,39 @@ import java.util.List;
 /**
  * Readiness / completion engine implementation for {@code docs/parameters.md} §7–§8.
  * All thresholds and weights come from {@link ReadinessProperties}; none are hardcoded.
+ *
+ * <p>Every component is scoped to the user's CURRENT exam ({@link ExamContext}) so
+ * readiness, coverage, mock and practice stats are independent per exam — switching
+ * exam shows that exam's own readiness, not a blend of all exams. exam_id columns
+ * (V26) aren't in the generated jOOQ classes, so they're referenced as dynamic
+ * fields (codebase convention for post-V1 columns). mistake_records carries no
+ * exam_id, so its queries scope through topics.exam_id.
  */
 @Service
 public class SummaryService {
 
+    private static final Field<Long> Q_EXAM_ID  = DSL.field(DSL.name("questions", "exam_id"), Long.class);
+    private static final Field<Long> PS_EXAM_ID = DSL.field(DSL.name("practice_sessions", "exam_id"), Long.class);
+    private static final Field<Long> MA_EXAM_ID = DSL.field(DSL.name("mock_attempts", "exam_id"), Long.class);
+    private static final Field<Long> T_EXAM_ID  = DSL.field(DSL.name("topics", "exam_id"), Long.class);
+
     private final DSLContext          dsl;
     private final UserRepository      userRepo;
     private final ReadinessProperties props;
+    private final ExamContext         examContext;
 
-    public SummaryService(DSLContext dsl, UserRepository userRepo, ReadinessProperties props) {
-        this.dsl      = dsl;
-        this.userRepo = userRepo;
-        this.props    = props;
+    public SummaryService(DSLContext dsl, UserRepository userRepo, ReadinessProperties props,
+                          ExamContext examContext) {
+        this.dsl         = dsl;
+        this.userRepo    = userRepo;
+        this.props       = props;
+        this.examContext = examContext;
     }
 
     public SummaryResult getSummary(Long userId) {
         int cycle = cycleFor(userId);
-        Components c = computeComponents(userId, cycle);
+        Long examId = examContext.resolveExamId(userId);
+        Components c = computeComponents(userId, cycle, examId);
 
         int completionScore = weighted(
                 c.keyCoverageRatio,  props.completionKeyCoverageWeight(),
@@ -46,7 +64,7 @@ public class SummaryService {
         boolean isReadyCandidate = readinessScore >= props.readyThreshold()
                 && missingGates.isEmpty();
 
-        List<WeakTopic> weakTopics = findWeakTopics(userId, cycle);
+        List<WeakTopic> weakTopics = findWeakTopics(userId, cycle, examId);
 
         String nextActionType;
         String nextActionLabel;
@@ -67,7 +85,8 @@ public class SummaryService {
 
     public ReadinessResult getReadiness(Long userId) {
         int cycle = cycleFor(userId);
-        Components c = computeComponents(userId, cycle);
+        Long examId = examContext.resolveExamId(userId);
+        Components c = computeComponents(userId, cycle, examId);
 
         int readinessScore = weighted(
                 c.mockScoreRatio,     props.mockWeight(),
@@ -99,13 +118,13 @@ public class SummaryService {
             int keyCoveragePercent
     ) {}
 
-    private Components computeComponents(Long userId, int cycle) {
-        MockStats mock = mockStats(userId, cycle);
-        CoverageStats key = keyCoverageStats(userId, cycle);
+    private Components computeComponents(Long userId, int cycle, Long examId) {
+        MockStats mock = mockStats(userId, cycle, examId);
+        CoverageStats key = keyCoverageStats(userId, cycle, examId);
         ReviewStats rev = reviewStats(userId, cycle);
-        double practice = basicPracticeRatio(userId, cycle);
-        double stability = recentStabilityRatio(userId, cycle);
-        boolean persistent = hasPersistentMistake(userId, cycle);
+        double practice = basicPracticeRatio(userId, cycle, examId);
+        double stability = recentStabilityRatio(userId, cycle, examId);
+        boolean persistent = hasPersistentMistake(userId, cycle, examId);
 
         // Mock: 0 when user hasn't taken any mocks; otherwise average score as a ratio of target.
         double mockRatio = mock.count == 0
@@ -157,14 +176,14 @@ public class SummaryService {
     }
 
     // ---------------------------------------------------------------
-    // Queries
+    // Queries (all scoped to the current exam)
     // ---------------------------------------------------------------
 
     private record MockStats(int count, double avgScore) {}
     private record CoverageStats(int answered, int total) {}
     private record ReviewStats(int completedQuestions, int totalQuestions) {}
 
-    private MockStats mockStats(Long userId, int cycle) {
+    private MockStats mockStats(Long userId, int cycle, Long examId) {
         var ma = Tables.MOCK_ATTEMPTS;
         List<Integer> recent = dsl.select(ma.SCORE_PERCENT)
                 .from(ma)
@@ -173,6 +192,7 @@ public class SummaryService {
                 .where(ma.USER_ID.eq(userId)
                         .and(ma.STATUS.in("submitted", "ended_by_timeout"))
                         .and(ma.LEARNING_CYCLE.eq(cycle))
+                        .and(MA_EXAM_ID.eq(examId))
                         .and(ma.SCORE_PERCENT.isNotNull()))
                 .orderBy(ma.CREATED_AT.desc())
                 .limit(props.mockMinimumCount())
@@ -182,13 +202,13 @@ public class SummaryService {
         return new MockStats(recent.size(), avg);
     }
 
-    private CoverageStats keyCoverageStats(Long userId, int cycle) {
+    private CoverageStats keyCoverageStats(Long userId, int cycle, Long examId) {
         var q  = Tables.QUESTIONS;
         var pa = Tables.PRACTICE_ATTEMPTS;
         var ps = Tables.PRACTICE_SESSIONS;
 
         int total = dsl.fetchCount(q,
-                q.IS_KEY_COVERAGE.isTrue().and(q.STATUS.eq("active")));
+                q.IS_KEY_COVERAGE.isTrue().and(q.STATUS.eq("active")).and(Q_EXAM_ID.eq(examId)));
         if (total == 0) return new CoverageStats(0, 0);
 
         int answered = dsl.fetchCount(
@@ -198,7 +218,8 @@ public class SummaryService {
                    .join(q).on(q.ID.eq(pa.QUESTION_ID))
                    .where(pa.USER_ID.eq(userId)
                            .and(ps.LEARNING_CYCLE.eq(cycle))
-                           .and(q.IS_KEY_COVERAGE.isTrue())));
+                           .and(q.IS_KEY_COVERAGE.isTrue())
+                           .and(Q_EXAM_ID.eq(examId))));
         return new CoverageStats(answered, total);
     }
 
@@ -219,31 +240,35 @@ public class SummaryService {
         return new ReviewStats(done, target);
     }
 
-    private double basicPracticeRatio(Long userId, int cycle) {
+    private double basicPracticeRatio(Long userId, int cycle, Long examId) {
         var q  = Tables.QUESTIONS;
         var pa = Tables.PRACTICE_ATTEMPTS;
         var ps = Tables.PRACTICE_SESSIONS;
 
         int totalActive = dsl.fetchCount(q,
-                q.ALLOW_IN_PRACTICE.isTrue().and(q.STATUS.eq("active")));
+                q.ALLOW_IN_PRACTICE.isTrue().and(q.STATUS.eq("active")).and(Q_EXAM_ID.eq(examId)));
         if (totalActive == 0) return 0.0;
 
         int answered = dsl.fetchCount(
                 dsl.selectDistinct(pa.QUESTION_ID)
                    .from(pa)
                    .join(ps).on(ps.ID.eq(pa.PRACTICE_SESSION_ID))
-                   .where(pa.USER_ID.eq(userId).and(ps.LEARNING_CYCLE.eq(cycle))));
+                   .where(pa.USER_ID.eq(userId)
+                           .and(ps.LEARNING_CYCLE.eq(cycle))
+                           .and(PS_EXAM_ID.eq(examId))));
         return Math.min(1.0, (double) answered / totalActive);
     }
 
-    private double recentStabilityRatio(Long userId, int cycle) {
+    private double recentStabilityRatio(Long userId, int cycle, Long examId) {
         var pa = Tables.PRACTICE_ATTEMPTS;
         var ps = Tables.PRACTICE_SESSIONS;
 
         List<Boolean> recent = dsl.select(pa.IS_CORRECT)
                 .from(pa)
                 .join(ps).on(ps.ID.eq(pa.PRACTICE_SESSION_ID))
-                .where(pa.USER_ID.eq(userId).and(ps.LEARNING_CYCLE.eq(cycle)))
+                .where(pa.USER_ID.eq(userId)
+                        .and(ps.LEARNING_CYCLE.eq(cycle))
+                        .and(PS_EXAM_ID.eq(examId)))
                 .orderBy(pa.CREATED_AT.desc())
                 .limit(props.recentPracticeWindow())
                 .fetch(pa.IS_CORRECT);
@@ -254,16 +279,22 @@ public class SummaryService {
         return Math.min(1.0, accuracy / (double) props.recentAccuracyThreshold());
     }
 
-    private boolean hasPersistentMistake(Long userId, int cycle) {
+    private boolean hasPersistentMistake(Long userId, int cycle, Long examId) {
         var mr = Tables.MISTAKE_RECORDS;
-        return dsl.fetchExists(mr,
-                mr.USER_ID.eq(userId)
-                        .and(mr.IS_ACTIVE.isTrue())
-                        .and(mr.LEARNING_CYCLE.eq(cycle))
-                        .and(mr.WRONG_COUNT.greaterOrEqual(props.persistentMistakeWrongCount())));
+        var t  = Tables.TOPICS;
+        // mistake_records has no exam_id — scope through its primary topic's exam.
+        return dsl.fetchExists(
+                dsl.selectOne()
+                   .from(mr)
+                   .join(t).on(t.ID.eq(mr.PRIMARY_TOPIC_ID))
+                   .where(mr.USER_ID.eq(userId)
+                           .and(mr.IS_ACTIVE.isTrue())
+                           .and(mr.LEARNING_CYCLE.eq(cycle))
+                           .and(mr.WRONG_COUNT.greaterOrEqual(props.persistentMistakeWrongCount()))
+                           .and(T_EXAM_ID.eq(examId))));
     }
 
-    private List<WeakTopic> findWeakTopics(Long userId, int cycle) {
+    private List<WeakTopic> findWeakTopics(Long userId, int cycle, Long examId) {
         var mr = Tables.MISTAKE_RECORDS;
         var t  = Tables.TOPICS;
         return dsl.select(t.ID, t.NAME_EN, DSL.sum(mr.WRONG_COUNT))
@@ -271,7 +302,8 @@ public class SummaryService {
                 .join(t).on(t.ID.eq(mr.PRIMARY_TOPIC_ID))
                 .where(mr.USER_ID.eq(userId)
                         .and(mr.IS_ACTIVE.isTrue())
-                        .and(mr.LEARNING_CYCLE.eq(cycle)))
+                        .and(mr.LEARNING_CYCLE.eq(cycle))
+                        .and(T_EXAM_ID.eq(examId)))
                 .groupBy(t.ID, t.NAME_EN)
                 .orderBy(DSL.sum(mr.WRONG_COUNT).desc())
                 .limit(5)
