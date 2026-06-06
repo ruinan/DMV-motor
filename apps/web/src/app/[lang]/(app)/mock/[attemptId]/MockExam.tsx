@@ -663,6 +663,9 @@ function ResultView({
             </p>
           </div>
         </div>
+        <p className="mt-5 text-sm font-medium text-success">
+          {t.readinessCounted}
+        </p>
       </section>
 
       <section className="rounded-xl border bg-card p-6 shadow-sm">
@@ -780,6 +783,9 @@ function FinishedView({
               </p>
             </div>
           </div>
+          <p className="mt-5 text-sm font-medium text-success">
+            {t.readinessCounted}
+          </p>
         </section>
       ) : (
         <section className="rounded-xl border border-dashed border-border bg-card p-6 text-center text-sm text-muted-foreground shadow-sm">

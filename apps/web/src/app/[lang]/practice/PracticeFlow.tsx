@@ -500,6 +500,9 @@ export function PracticeFlow({ t, lang }: Props) {
           <p className="mt-2 text-muted-foreground">
             {isExited ? t.exitedBody : t.completedBody}
           </p>
+          <p className="mt-3 text-sm font-medium text-success">
+            {t.readinessCounted}
+          </p>
           <div className="mt-6 flex flex-wrap justify-center gap-3">
             <Button onClick={() => setHistoryOpen(true)} size="lg">
               <History className="size-4" />
