@@ -173,6 +173,20 @@ STILL TODO (backend, need Docker):
   Phase 2+. Needs: last-activity tracking, an archive flag/table, a scheduled job,
   and a rehydrate-on-return path.
 
+## Session 6d (2026-06-06)
+
+- **B24 (BIG) — landing/auth state inconsistent.** On the marketing index a
+  logged-in user is shown as logged OUT (header shows "Sign in", no account state),
+  but clicking "free practice" drops them into the SIGNED-IN practice UI. Root
+  cause (likely): marketing `SiteHeader` is a static/server component that always
+  renders "Sign in" and never reflects the Firebase auth state, while `/practice`
+  (`PracticeShell` via `useAuth`) sees the persisted Firebase session → signed-in
+  chrome. Fix options: (a) make SiteHeader auth-aware (client) — show Dashboard/
+  account when signed in; and/or (b) redirect signed-in users off the marketing
+  landing to /dashboard. Decide whether a signed-in user should even see the
+  marketing index. File: `src/components/site-header.tsx`, `src/app/[lang]/
+  (marketing)/...`, `src/lib/auth-context.tsx`.
+
 ## Backlog (from earlier)
 D1 dashboard engagement (streak/daily goal/next-best-action) · Phase 2 per-exam
 billing + paid remote backup · B11 mock-in-readiness verify · SummaryService
