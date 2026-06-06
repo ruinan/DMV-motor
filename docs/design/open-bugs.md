@@ -220,6 +220,19 @@ STILL TODO (backend, need Docker):
   via gcloud) instead of the APP_AI_PROVIDER=stub launch. Files: AiReviewPlan
   build path (weak-topic collection), the stub provider output.
 
+- **B28 — client AI history survives "clear history" (likely == B22, verify).**
+  After clearing history the deep-dive (深入分析) layers still show. B22 already
+  wired `clearAllAiThreads()` into /me "重置学习状态" (commit pushed) — so two
+  possibilities: (a) the running dev frontend predates B22 (I only restarted the
+  backend after committing B22; user's tab may be stale) → HARD-REFRESH and retest;
+  (b) the user's "清除历史记录" is a DIFFERENT action than /me reset-learning (e.g.
+  a clear button in practice/mistakes) that does NOT call clearAllAiThreads → wire
+  it there too. Also confirm there's no duplicate-append bug (saw 错项辨析 ×3 for
+  one question — with stub AI there's no cooldown/auto-retry, so likely just stale
+  pre-reset layers, but double-check call() isn't appending dupes). Verify (a)
+  first; if still broken, find the other clear path. File: use-ai-explain
+  clearAllAiThreads + every reset/clear entry point.
+
 ## Backlog (from earlier)
 D1 dashboard engagement (streak/daily goal/next-best-action) · Phase 2 per-exam
 billing + paid remote backup · B11 mock-in-readiness verify · SummaryService
