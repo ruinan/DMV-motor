@@ -102,6 +102,12 @@ export function AiExplainBlock({
   }, [cooldown]);
   const cooling = cooldown > 0;
   const coolingLabel = t.aiExplainCoolingDown.replace("{n}", String(cooldown));
+  // A cooldown error (has "in Ns") is conveyed entirely by the button countdown,
+  // so never also show the text message for it — that caused a duplicate while
+  // counting down and a stale "cooling down" line that lingered after it hit 0.
+  // Daily / per-question caps (RATE_LIMITED without "Ns") still show their message.
+  const isCooldownErr =
+    state.errorCode === "RATE_LIMITED" && /in\s+\d+\s*s/.test(state.errorMessage ?? "");
 
   function errorMessage(): string {
     if (state.errorCode === "RATE_LIMITED") return t.aiExplainCooldown;
@@ -113,7 +119,7 @@ export function AiExplainBlock({
   if (state.layers.length === 0) {
     return (
       <div className="mt-3 border-t border-border/60 pt-3">
-        {state.status === "error" && !cooling && (
+        {state.status === "error" && !isCooldownErr && (
           <p className="mb-2 text-sm text-muted-foreground">{errorMessage()}</p>
         )}
         <Button
@@ -162,7 +168,7 @@ export function AiExplainBlock({
         </div>
       ))}
 
-      {state.status === "error" && !cooling && (
+      {state.status === "error" && !isCooldownErr && (
         <p className="text-sm text-muted-foreground">{errorMessage()}</p>
       )}
 
