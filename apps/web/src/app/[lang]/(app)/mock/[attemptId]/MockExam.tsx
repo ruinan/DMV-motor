@@ -499,14 +499,16 @@ export function MockExam({ t, lang, attemptId }: Props) {
 
       {/* Question card */}
       <div className="rounded-xl border bg-card p-6 shadow-sm md:p-8">
-        <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-          {t.questionLabel.replace("{n}", String(index + 1))}
-        </p>
-        <p className="mt-2 text-base leading-relaxed sm:text-lg">
-          {question.stem}
-        </p>
+        <div className="mx-auto max-w-xl text-center">
+          <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+            {t.questionLabel.replace("{n}", String(index + 1))}
+          </p>
+          <p className="mt-2 text-base leading-relaxed sm:text-lg">
+            {question.stem}
+          </p>
+        </div>
 
-        <ul className="mt-6 flex flex-col gap-3">
+        <ul className="mx-auto mt-6 flex max-w-xl flex-col gap-3">
           {question.choices.map((c) => {
             const selected = pickedKey === c.key;
             const fb = feedback.get(question.question_id);
