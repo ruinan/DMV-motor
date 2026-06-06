@@ -187,6 +187,18 @@ STILL TODO (backend, need Docker):
   marketing index. File: `src/components/site-header.tsx`, `src/app/[lang]/
   (marketing)/...`, `src/lib/auth-context.tsx`.
 
+- **B25 (BIG) — "Session belongs to a different user" after re-login.** Stale
+  client cache from a previous user/anonymous leaks across a login. Likely the
+  react-query cache (and possibly a cached /me with the old user's
+  in_progress_practice session id) isn't cleared on auth change, so the new user
+  auto-resumes a session owned by someone else → backend requireSession ownership
+  check throws. FIX: on Firebase auth-state change (login AND logout) call
+  `queryClient.clear()` so no prior-user data persists; also ensure the practice
+  auto-resume only fires for the current user. User: "这个要有 TTL" — at minimum
+  clear-on-auth-change; optionally shorten /me staleTime. File: `src/lib/
+  auth-context.tsx` (wire in queryClient), `PracticeFlow` auto-resume guard.
+  WORKAROUND for now: hard-refresh / clear site data / incognito between users.
+
 ## Backlog (from earlier)
 D1 dashboard engagement (streak/daily goal/next-best-action) · Phase 2 per-exam
 billing + paid remote backup · B11 mock-in-readiness verify · SummaryService
