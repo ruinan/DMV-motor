@@ -34,7 +34,7 @@ public class PracticeSessionController {
                                         @Valid @RequestBody StartRequest req) {
         var result = practiceService.startSession(userId, req.entryType(),
                 req.language() != null ? req.language() : "en",
-                req.topicFilter());
+                req.topicFilter(), req.examId());
         return ApiResponse.ok(StartSessionDto.from(result));
     }
 
@@ -115,10 +115,15 @@ public class PracticeSessionController {
     record StartRequest(
             @NotBlank(message = "must not be blank") String entry_type,
             String language,
-            List<Long> topic_filter
+            List<Long> topic_filter,
+            // Anonymous visitors name the exam to practice (landing-page "choose
+            // then practice"). Ignored for signed-in users — they always get
+            // their server-side current exam. See ExamContext.resolveExamId.
+            Long exam_id
     ) {
         String entryType() { return entry_type; }
         List<Long> topicFilter() { return topic_filter; }
+        Long examId() { return exam_id; }
     }
 
     record AnswerRequest(

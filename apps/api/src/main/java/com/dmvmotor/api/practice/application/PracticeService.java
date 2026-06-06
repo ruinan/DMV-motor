@@ -97,12 +97,18 @@ public class PracticeService {
 
     @Transactional
     public StartSessionResult startSession(Long userId, String entryType, String language) {
-        return startSession(userId, entryType, language, null);
+        return startSession(userId, entryType, language, null, null);
     }
 
     @Transactional
     public StartSessionResult startSession(Long userId, String entryType, String language,
                                            List<Long> topicFilter) {
+        return startSession(userId, entryType, language, topicFilter, null);
+    }
+
+    @Transactional
+    public StartSessionResult startSession(Long userId, String entryType, String language,
+                                           List<Long> topicFilter, Long requestedExamId) {
         // entry_type=full requires an active access pass
         if ("full".equals(entryType)) {
             if (userId == null) {
@@ -126,10 +132,11 @@ public class PracticeService {
             cycle = userRepo.findById(userId).map(u -> u.resetCount()).orElse(0);
         }
 
-        // Snapshot the exam at start (the user's current exam, or the default
-        // for anonymous / pre-onboarding) so a mid-session exam switch never
-        // rewires the in-flight pool — same pattern as the language/cycle snapshots.
-        Long examId = examContext.resolveExamId(userId);
+        // Snapshot the exam at start. Signed-in users use their current exam;
+        // anonymous visitors pick on the landing page and pass requestedExamId
+        // (validated server-side, default fallback). Snapshotting means a later
+        // exam switch never rewires the in-flight pool — like language/cycle.
+        Long examId = examContext.resolveExamId(userId, requestedExamId);
 
         int total = sessionRepo.countTotal(language, entryType, examId);
         if (total == 0) {

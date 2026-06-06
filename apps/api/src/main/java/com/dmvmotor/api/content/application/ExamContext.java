@@ -42,6 +42,25 @@ public class ExamContext {
         return defaultExamId();
     }
 
+    /**
+     * Exam scope when the caller may name the exam they want — the landing-page
+     * "choose, then practice" flow for anonymous visitors. Signed-in users ALWAYS
+     * use their server-side current exam (the requested id is ignored; switching
+     * is a {@code /me/exam} action, not a per-request override — so this can't be
+     * used to bypass a user's chosen scope). Anonymous callers get the requested
+     * exam if it's a real active one, else the default.
+     */
+    public Long resolveExamId(Long userId, Long requestedExamId) {
+        if (userId != null) return resolveExamId(userId);
+        if (requestedExamId != null
+                && examRepo.findById(requestedExamId)
+                        .map(e -> "active".equals(e.status()))
+                        .orElse(false)) {
+            return requestedExamId;
+        }
+        return defaultExamId();
+    }
+
     public Long defaultExamId() {
         return examRepo.findDefaultActiveId()
                 .orElseThrow(() -> new BusinessException("NO_EXAM_CONFIGURED",
