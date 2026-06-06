@@ -77,6 +77,23 @@ function writeThread(key: string, thread: StoredThread): void {
 
 const EMPTY: AiExplainState = { status: "idle", layers: [], depthRemaining: null };
 
+/**
+ * Remove every saved AI-explanation thread from localStorage. Threads are keyed
+ * by question (not learning cycle), so a learning reset alone leaves stale
+ * deep-dive layers behind — the user then "starts fresh" but still sees a pile of
+ * old 深入分析 layers. Call this on reset so the browser side is truly cleared.
+ * Throws if localStorage can't be enumerated/written so the caller can retry.
+ */
+export function clearAllAiThreads(): void {
+  if (typeof window === "undefined") return;
+  const keys: string[] = [];
+  for (let i = 0; i < window.localStorage.length; i++) {
+    const k = window.localStorage.key(i);
+    if (k && k.startsWith(STORAGE_PREFIX)) keys.push(k);
+  }
+  for (const k of keys) window.localStorage.removeItem(k);
+}
+
 export function useAiExplain(identity: AiExplainIdentity) {
   const { questionId, variantId, selectedChoiceKey, language } = identity;
   const key = storageKey(questionId, language);

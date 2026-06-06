@@ -21,6 +21,7 @@ import { apiFetch, ApiError } from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
 import { ExamPicker } from "@/components/exam-picker";
 import { examName, type CurrentExam } from "@/lib/hooks/use-me";
+import { clearAllAiThreads } from "@/lib/hooks/use-ai-explain";
 import type { Dictionary, Locale } from "@/lib/dictionaries";
 
 type MeResponse = {
@@ -613,6 +614,20 @@ function ResetLearningRow({ t }: { t: Dictionary["me"] }) {
         method: "POST",
         body: JSON.stringify({ confirm: true }),
       });
+      // Also purge browser-side AI deep-dive threads — they're stored in
+      // localStorage keyed by question (not learning cycle), so a reset alone
+      // leaves stale 深入分析 layers behind. Retry a few times, then surface an
+      // error so the user can retry rather than silently keeping old data.
+      let cleared = false;
+      for (let attempt = 1; attempt <= 3 && !cleared; attempt++) {
+        try {
+          clearAllAiThreads();
+          cleared = true;
+        } catch {
+          if (attempt === 3) throw new Error(t.errorGeneric);
+          await new Promise((r) => setTimeout(r, 200));
+        }
+      }
       await queryClient.invalidateQueries();
       setInfo(t.learningResetDone);
       setConfirming(false);
