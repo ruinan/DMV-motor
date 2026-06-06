@@ -138,6 +138,42 @@ STILL TODO (backend, need Docker):
   count + exams.pass_threshold. DECISION: which C tier (36 vs 46)?
 - **B16** — by-topic chooser at practice start (frontend; topic_filter exists).
 
+## Session 6c (2026-06-06) — exam selection model + account mgmt
+
+- **U4 anonymous exam choice — BACKEND DONE (`feat U4 backend`, pushed), FRONTEND
+  PENDING.** POST /practice/sessions now takes `exam_id`; ExamContext.resolveExamId
+  (userId, requestedExamId) honors it for anonymous only (signed-in always use
+  their current exam). STILL TODO: frontend — landing/practice anonymous flow must
+  make the user CHOOSE the exam before starting (user: "没选考试就能 practice，违反
+  直觉，要先选再开始"). Add an exam chooser on the anonymous practice landing (or
+  per-exam buttons on the marketing index) that passes exam_id to the start call.
+  Also write the IT test (anonymous start with exam_id=C → session scoped to C;
+  signed-in ignores the param).
+- **B18 — reset must keep purchased pass: ALREADY CORRECT (verified by reading).**
+  resetLearning = incrementResetCount only; AccessRepository active-pass query is
+  user_id-scoped (no learning_cycle). Pass survives reset. (User saw it "gone" only
+  because the test-account TRUNCATE cleared access_passes too.) Consider adding a
+  regression IT test. NOTE user intent: "grant 买的考试都要在 + 可跨考试类型".
+- **B19 (design) — Settings exam section = switch + choose + OPEN NEW.** User wants
+  /me exam area to not only show/switch the current exam but also list exams they
+  haven't started, and be the place to "open a new exam". Proposed model: all exams
+  are available; the dropdown switcher = quick-switch (shows all active exams); the
+  Settings section = richer surface: current (highlighted) + other available exams
+  with a "Start preparing"/"Switch to" affordance. No separate enrollment entity
+  needed for MVP (current_exam_id is the only state); "open new" = switch to one
+  you haven't used (progress starts accruing for it). Revisit if we add per-exam
+  purchase/enrollment.
+- **B20 (decision) — does an access pass span exam types?** User: "考试 grant 可以
+  跨越考试类型，要不用户买了几个没用完." Tension with earlier per-exam pricing. DECIDE:
+  one pass unlocks ALL exams (simpler, user-friendly) vs per-exam passes. access_
+  passes today has no exam_id → currently a pass is global (spans exams) already.
+  Confirm that's the intended model before Phase 2 billing.
+- **B21 (feature) — archive cold accounts.** Periodic account management: move
+  inactive ("cold") accounts to an archive tier to save DB/compute. New feature,
+  Phase 2+. Needs: last-activity tracking, an archive flag/table, a scheduled job,
+  and a rehydrate-on-return path.
+
 ## Backlog (from earlier)
-U4 anonymous free-practice exam choice · D1 dashboard engagement (streak/daily
-goal/next-best-action) · Phase 2 per-exam billing + paid remote backup.
+D1 dashboard engagement (streak/daily goal/next-best-action) · Phase 2 per-exam
+billing + paid remote backup · B11 mock-in-readiness verify · SummaryService
+exam-scoping + keyCoverage-counts-mock · B14 mock question counts (C 36 vs 46).
