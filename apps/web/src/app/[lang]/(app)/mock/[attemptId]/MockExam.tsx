@@ -125,6 +125,25 @@ export function MockExam({ t, lang, attemptId }: Props) {
     return () => window.removeEventListener("beforeunload", onBeforeUnload);
   }, [examLive]);
 
+  // Refresh every Study-Hub surface a finished attempt feeds — mock history +
+  // stats, readiness/summary, mistakes, access/quota, and /me. Must run on ALL
+  // terminal paths (submit, timeout, exit, auto-terminate by failure) or the
+  // result won't appear in the Study Hub. (Inactive queries are marked stale and
+  // refetch when the dashboard mounts.)
+  const invalidateStudyHub = useCallback(() => {
+    for (const key of [
+      ["mock-access"],
+      ["mock-history"],
+      ["mock-stats"],
+      ["summary"],
+      ["mistakes"],
+      ["mistakes-count"],
+      ["me"],
+    ]) {
+      queryClient.invalidateQueries({ queryKey: key });
+    }
+  }, [queryClient]);
+
   // Submit the attempt — manual on the last question, or auto when the timer
   // hits zero. Hoisted as a callback so the countdown effect can fire it.
   // The server records a timeout as ended_by_timeout if the limit truly elapsed.
@@ -138,19 +157,14 @@ export function MockExam({ t, lang, attemptId }: Props) {
         `/api/v1/mock-exams/attempts/${attemptId}/submit`,
         { method: "POST" },
       );
-      queryClient.invalidateQueries({ queryKey: ["mock-access"] });
-      queryClient.invalidateQueries({ queryKey: ["mistakes"] });
-      queryClient.invalidateQueries({ queryKey: ["mistakes-count"] });
-      queryClient.invalidateQueries({ queryKey: ["summary"] });
-      queryClient.invalidateQueries({ queryKey: ["mock-history"] });
-      queryClient.invalidateQueries({ queryKey: ["mock-stats"] });
+      invalidateStudyHub();
       setResult(res);
     } catch (err) {
       setErrorMsg(err instanceof ApiError ? err.message : t.errorGeneric);
       setSubmitting(false);
       submittingRef.current = false;
     }
-  }, [attemptId, queryClient, t]);
+  }, [attemptId, t, invalidateStudyHub]);
 
   // Server-anchored countdown: deadline = started_at + time_limit. Re-derived
   // (not restarted) on refresh. At zero we auto-submit.
@@ -385,7 +399,10 @@ export function MockExam({ t, lang, attemptId }: Props) {
       setSaveStatus("saved");
       savedTimer.current = setTimeout(() => setSaveStatus("idle"), 1500);
       if (res.should_terminate) {
+        // Server already finalized this attempt as ended_by_failure — refresh
+        // the Study Hub so the result shows there too.
         setTerminated(true);
+        invalidateStudyHub();
       }
     } catch (err) {
       // Time ran out mid-answer: the server finalized the attempt as a timeout.
@@ -417,8 +434,7 @@ export function MockExam({ t, lang, attemptId }: Props) {
       await apiFetch(`/api/v1/mock-exams/attempts/${attemptId}/exit`, {
         method: "POST",
       });
-      queryClient.invalidateQueries({ queryKey: ["mock-access"] });
-      queryClient.invalidateQueries({ queryKey: ["mock-history"] });
+      invalidateStudyHub();
       router.push(`/${lang}/mock`);
     } catch (err) {
       setErrorMsg(err instanceof ApiError ? err.message : t.errorGeneric);
