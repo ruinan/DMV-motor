@@ -65,6 +65,29 @@
   --sidebar-ring: #1b5e9b;
 }
 
+/* ============================================================
+ * Per-exam accent themes. The authed shell sets data-exam=<license_class>
+ * so the accent + a faint background tint reflect which exam the learner is
+ * studying — a constant "which test am I in?" cue. Class C (car) and anything
+ * unmapped keep the blue above; motorcycle (M1/M2) gets a warm amber. CSS
+ * variables cascade, so these override :root/.dark for the shell subtree only.
+ * Keep new palettes WCAG-AA against white text on --primary.
+ * ============================================================ */
+[data-exam="M1"],
+[data-exam="M2"] {
+  --background: #fffaf3;
+  --primary: #b45309;
+  --primary-foreground: #ffffff;
+  --accent: #fdebd2;
+  --accent-foreground: #b45309;
+  --ring: #b45309;
+  --chart-1: #b45309;
+  --sidebar-primary: #b45309;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent-foreground: #b45309;
+  --sidebar-ring: #b45309;
+}
+
 .dark {
   --background: oklch(0.145 0 0);
   --foreground: oklch(0.985 0 0);

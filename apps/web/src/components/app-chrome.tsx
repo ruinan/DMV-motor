@@ -44,6 +44,9 @@ export function AppChrome({ t, lang, children }: Props) {
 
   const loadingMe = me.isLoading;
   const hasExam = !!me.data?.current_exam;
+  // Drives the per-exam accent theme (see theme.css [data-exam=…]) so the shell
+  // always reflects which exam the learner is studying.
+  const examClass = me.data?.current_exam?.license_class;
 
   // Onboarding gate: force exam selection before any app surface, and bounce
   // an already-onboarded user off /start.
@@ -73,7 +76,7 @@ export function AppChrome({ t, lang, children }: Props) {
 
   if (inExamAttempt) {
     return (
-      <div className="min-h-screen bg-background">
+      <div className="min-h-screen bg-background" data-exam={examClass}>
         <main>
           <div className="mx-auto w-full max-w-3xl px-4 py-6 md:px-8 md:py-10">
             {children}
@@ -84,7 +87,7 @@ export function AppChrome({ t, lang, children }: Props) {
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background" data-exam={examClass}>
       <AppSidebar t={t} lang={lang} />
       <MobileAppBar t={t} lang={lang} />
       <main className="md:pl-64">

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Check, ChevronDown, Loader2 } from "lucide-react";
+import { Bike, Car, Check, ChevronDown, Loader2 } from "lucide-react";
 import { useExams } from "@/lib/hooks/use-exams";
 import { useMe, examName } from "@/lib/hooks/use-me";
 import { useSetExam } from "@/lib/hooks/use-set-exam";
@@ -57,6 +57,7 @@ export function ExamSwitcher({
 
   const currentLabel = examName(current, lang);
   const options = exams.data ?? [];
+  const ExamIcon = current.license_class.startsWith("M") ? Bike : Car;
 
   async function pick(id: string) {
     if (id === currentId) {
@@ -72,10 +73,13 @@ export function ExamSwitcher({
     }
   }
 
+  // Both variants are accent-tinted so the switcher is an obvious, tappable
+  // control (the old "plain" was muted grey text that users missed) and it picks
+  // up the per-exam accent color (theme.css [data-exam]).
   const trigger =
     variant === "chip"
-      ? "inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-3 py-1.5 text-sm font-medium text-foreground hover:bg-muted"
-      : "inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground";
+      ? "inline-flex items-center gap-1.5 rounded-full border border-primary/40 bg-accent px-3 py-1.5 text-sm font-medium text-primary hover:bg-primary/10"
+      : "inline-flex items-center gap-1.5 rounded-md border border-primary/40 bg-accent px-2.5 py-1.5 text-xs font-semibold text-primary hover:bg-primary/10";
 
   return (
     <div ref={ref} className="relative">
@@ -91,6 +95,7 @@ export function ExamSwitcher({
         {variant === "chip" && prefix && (
           <span className="text-muted-foreground">{prefix}:</span>
         )}
+        <ExamIcon className="size-3.5 shrink-0" aria-hidden />
         <span className="max-w-[12rem] truncate">{currentLabel}</span>
         {pending ? (
           <Loader2 className="size-3.5 animate-spin" />
