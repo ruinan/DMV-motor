@@ -532,6 +532,15 @@ export function PracticeFlow({ t, lang }: Props) {
   const correctKey = isFeedback ? phase.result.correct_choice_key : null;
   const pickedKey =
     phase.kind === "answering" ? phase.picked : phase.kind === "feedback" ? phase.picked : null;
+  // Question number for the "第 N / total" header. In feedback we're reviewing
+  // the question we just answered — answeredCount has already been incremented to
+  // include it, so its number IS answeredCount. In answering it's the next
+  // unanswered one, answeredCount + 1. Using +1 in both made the feedback header
+  // read one ahead of the question on screen (answer Q14 -> header said "15/30").
+  const displayNumber = Math.min(
+    isFeedback ? answeredCount : answeredCount + 1,
+    totalCount,
+  );
 
   return (
     <Container>
@@ -561,7 +570,7 @@ export function PracticeFlow({ t, lang }: Props) {
         <div className="mx-auto max-w-xl text-center">
           <p className="text-xs font-semibold uppercase tracking-wider text-primary">
             {t.questionOf
-              .replace("{current}", String(Math.min(answeredCount + 1, totalCount)))
+              .replace("{current}", String(displayNumber))
               .replace("{total}", String(totalCount))}
           </p>
           <h2 className="mt-2 text-xl font-semibold leading-8 text-foreground sm:text-2xl sm:leading-9">
