@@ -208,6 +208,18 @@ STILL TODO (backend, need Docker):
   (setTerminated) currently swaps the whole view; instead keep the question view,
   hide Next when terminated, surface a terminated banner + Exit/Review CTAs.
 
+- **B27 — AI review-plan: stub debug text + dup/English topics.** Local backend is
+  running APP_AI_PROVIDER=stub (I set it to avoid the Secret Manager DeepSeek-key
+  dependency on restart), so the review-plan shows raw "stub:review-plan score=…
+  topics=…" debug text instead of a real summary — expected in stub, real DeepSeek
+  gives proper zh prose. REAL sub-bugs to fix regardless: (1) weak_topics are NOT
+  deduplicated (showed "Traffic Signs & Signals" ×3, "Right of Way" ×2) — dedupe
+  before feeding the AI prompt / building the list; (2) topic labels passed to the
+  review-plan are English even when language=zh — pass localized topic names. For
+  real local AI: restart backend via `bash apps/api/run-local.sh` (fetches the key
+  via gcloud) instead of the APP_AI_PROVIDER=stub launch. Files: AiReviewPlan
+  build path (weak-topic collection), the stub provider output.
+
 ## Backlog (from earlier)
 D1 dashboard engagement (streak/daily goal/next-best-action) · Phase 2 per-exam
 billing + paid remote backup · B11 mock-in-readiness verify · SummaryService
