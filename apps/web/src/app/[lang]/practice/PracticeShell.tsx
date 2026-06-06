@@ -1,6 +1,7 @@
 "use client";
 
 import { useAuth } from "@/lib/auth-context";
+import { useMe } from "@/lib/hooks/use-me";
 import { AppSidebar } from "@/components/app-sidebar";
 import { MobileAppBar } from "@/components/mobile-app-bar";
 import { MobileTabBar } from "@/components/mobile-tab-bar";
@@ -23,6 +24,7 @@ type Props = {
  */
 export function PracticeShell({ t, lang }: Props) {
   const { user, loading } = useAuth();
+  const me = useMe();
 
   // Anonymous/free practice must not block on Firebase rehydration. If auth
   // later resolves to a user, the signed-in chrome replaces this shell.
@@ -30,9 +32,15 @@ export function PracticeShell({ t, lang }: Props) {
     return <PracticeFlow t={t.practice} lang={lang} />;
   }
 
-  // Signed in: same chrome as the rest of the (app) surfaces.
+  // Signed in: same chrome as the rest of the (app) surfaces, including the
+  // per-exam accent theme (theme.css [data-exam=…]) — /practice lives outside
+  // the (app) group so it must set data-exam itself, or it stays the default
+  // (car) blue even when the learner is studying the amber motorcycle exam.
   return (
-    <div className="min-h-screen bg-background">
+    <div
+      className="min-h-screen bg-background"
+      data-exam={me.data?.current_exam?.license_class}
+    >
       <AppSidebar t={t} lang={lang} />
       <MobileAppBar t={t} lang={lang} />
       <main className="md:pl-64">
