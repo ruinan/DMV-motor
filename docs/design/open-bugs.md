@@ -199,6 +199,15 @@ STILL TODO (backend, need Docker):
   auth-context.tsx` (wire in queryClient), `PracticeFlow` auto-resume guard.
   WORKAROUND for now: hard-refresh / clear site data / incognito between users.
 
+- **B26 — mock auto-terminate UX too abrupt.** When a mock fails (wrong > 15%
+  threshold), answering the failing question immediately whisks the user to the
+  "考试自动终止/错题过多" screen. Desired: stay on the current question's feedback,
+  just REMOVE the "下一题/Next" button (can't continue) and show only Exit + Review
+  (复习). i.e. terminate = disable progression + offer exit/review inline, not an
+  instant page jump. File: `mock/[attemptId]/MockExam.tsx` — the terminate branch
+  (setTerminated) currently swaps the whole view; instead keep the question view,
+  hide Next when terminated, surface a terminated banner + Exit/Review CTAs.
+
 ## Backlog (from earlier)
 D1 dashboard engagement (streak/daily goal/next-best-action) · Phase 2 per-exam
 billing + paid remote backup · B11 mock-in-readiness verify · SummaryService
