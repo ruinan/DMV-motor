@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { apiFetch, ApiError } from "@/lib/api-client";
 
 /**
@@ -82,15 +82,37 @@ export function useAiExplain(identity: AiExplainIdentity) {
   const key = storageKey(questionId, language);
   const [state, setState] = useState<AiExplainState>(EMPTY);
 
+  // Thinking-time cooldown: the backend RATE_LIMITED error carries retry-after
+  // seconds ("…try again in Ns"). We remember when it ends (epoch ms) so the UI
+  // can disable the buttons + count down, and — crucially — we auto-retry the
+  // SAME request when it elapses. The user clicked once to wait for THAT answer;
+  // making them click again (and re-enter the cooldown) is wrong.
+  const [cooldownUntil, setCooldownUntil] = useState(0);
+  const retryTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   // Hydrate the saved thread when the question/language changes. Showing the
   // history straight from localStorage avoids a server hit on revisit.
   useEffect(() => {
-    const saved = readThread(key);
-    setState(
-      saved
-        ? { status: "idle", layers: saved.layers, depthRemaining: saved.depthRemaining }
-        : EMPTY,
-    );
+    const hydrate = () => {
+      const saved = readThread(key);
+      setState(
+        saved
+          ? { status: "idle", layers: saved.layers, depthRemaining: saved.depthRemaining }
+          : EMPTY,
+      );
+      setCooldownUntil(0);
+    };
+    hydrate();
+  }, [key]);
+
+  // Cancel a scheduled auto-retry when the question/language changes or on unmount.
+  useEffect(() => {
+    return () => {
+      if (retryTimer.current) {
+        clearTimeout(retryTimer.current);
+        retryTimer.current = null;
+      }
+    };
   }, [key]);
 
   async function call(depth: number, aspect?: string) {
@@ -98,6 +120,11 @@ export function useAiExplain(identity: AiExplainIdentity) {
     // repeat (the server truncates). Only for deep dives (depth > 0).
     const priorContext =
       depth > 0 ? state.layers.map((l) => l.text).join("\n\n") : "";
+    // A fresh request supersedes any scheduled auto-retry.
+    if (retryTimer.current) {
+      clearTimeout(retryTimer.current);
+      retryTimer.current = null;
+    }
     setState((s) => ({ ...s, status: "loading", errorCode: undefined, errorMessage: undefined }));
     try {
       const res = await apiFetch<AiExplainResponse>("/api/v1/ai/explain", {
@@ -120,14 +147,24 @@ export function useAiExplain(identity: AiExplainIdentity) {
         writeThread(key, { layers, depthRemaining: res.depth_remaining });
         return { status: "idle", layers, depthRemaining: res.depth_remaining };
       });
+      setCooldownUntil(0);
     } catch (err) {
+      const code = err instanceof ApiError ? err.code : undefined;
+      const message = err instanceof ApiError ? err.message : "Network error";
       // Keep the layers we already have — only the new request failed.
-      setState((s) => ({
-        ...s,
-        status: "error",
-        errorCode: err instanceof ApiError ? err.code : undefined,
-        errorMessage: err instanceof ApiError ? err.message : "Network error",
-      }));
+      setState((s) => ({ ...s, status: "error", errorCode: code, errorMessage: message }));
+      // Thinking-time cooldown ("…try again in Ns"): count it down and auto-retry
+      // this exact request when it elapses, so the user gets the answer they
+      // waited for without clicking again. Cap at 120s as a sanity bound.
+      const m = code === "RATE_LIMITED" ? message.match(/in\s+(\d+)\s*s/) : null;
+      if (m) {
+        const secs = Math.min(parseInt(m[1], 10), 120);
+        setCooldownUntil(Date.now() + secs * 1000);
+        retryTimer.current = setTimeout(() => {
+          retryTimer.current = null;
+          void call(depth, aspect);
+        }, secs * 1000);
+      }
     }
   }
 
@@ -142,5 +179,5 @@ export function useAiExplain(identity: AiExplainIdentity) {
     void call(state.layers.length, aspect);
   }
 
-  return { state, explain, deepen };
+  return { state, explain, deepen, cooldownUntil };
 }

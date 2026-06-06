@@ -72,7 +72,7 @@ export function AiExplainBlock({
   t,
   isLoggedIn,
 }: Props) {
-  const { state, explain, deepen } = useAiExplain({
+  const { state, explain, deepen, cooldownUntil } = useAiExplain({
     questionId,
     variantId,
     selectedChoiceKey,
@@ -80,32 +80,28 @@ export function AiExplainBlock({
   });
   const loading = state.status === "loading";
 
-  // Cooldown: the backend RATE_LIMITED error for the thinking-time cooldown
-  // carries the retry-after seconds ("…try again in Ns"). Disable the AI buttons
-  // and count down, then auto-re-enable. The limit is enforced server-side; this
-  // just reflects it. (Daily / deep-dive caps are also RATE_LIMITED but have no
-  // "Ns", so they show the message instead of a countdown.)
-  const [cooldownFor, setCooldownFor] = useState<string | null>(null);
-  const [cooldown, setCooldown] = useState(0);
-  if (
-    state.errorCode === "RATE_LIMITED" &&
-    cooldownFor !== (state.errorMessage ?? "")
-  ) {
-    setCooldownFor(state.errorMessage ?? "");
-    const m = state.errorMessage?.match(/in\s+(\d+)\s*s/);
-    setCooldown(m ? Math.min(parseInt(m[1], 10), 120) : 0);
-  }
+  // Cooldown countdown — display only. The hook owns the auto-retry: when the
+  // thinking-time cooldown elapses it re-fires the SAME request, so the user who
+  // already clicked just waits and sees the answer (no second click). We tick
+  // every 500ms while it's pending so the button shows the remaining seconds;
+  // when it's over the hook flips us to loading, then the result. Buttons stay
+  // disabled the whole time. (Daily / deep-dive caps are also RATE_LIMITED but
+  // have no "Ns", so cooldownUntil is 0 and they show their message instead.)
+  const [cooldownSec, setCooldownSec] = useState(0);
   useEffect(() => {
-    if (cooldown <= 0) return;
-    const id = setTimeout(() => setCooldown((s) => s - 1), 1000);
-    return () => clearTimeout(id);
-  }, [cooldown]);
-  const cooling = cooldown > 0;
-  const coolingLabel = t.aiExplainCoolingDown.replace("{n}", String(cooldown));
-  // A cooldown error (has "in Ns") is conveyed entirely by the button countdown,
-  // so never also show the text message for it — that caused a duplicate while
-  // counting down and a stale "cooling down" line that lingered after it hit 0.
-  // Daily / per-question caps (RATE_LIMITED without "Ns") still show their message.
+    const tick = () => {
+      setCooldownSec(Math.max(0, Math.ceil((cooldownUntil - Date.now()) / 1000)));
+    };
+    tick();
+    if (cooldownUntil <= Date.now()) return;
+    const id = setInterval(tick, 500);
+    return () => clearInterval(id);
+  }, [cooldownUntil]);
+  const cooling = cooldownSec > 0;
+  const coolingLabel = t.aiExplainCoolingDown.replace("{n}", String(cooldownSec));
+  // A cooldown error is conveyed entirely by the button countdown (and the hook
+  // auto-retries), so never also show its text message — that caused a duplicate
+  // line while counting down and a stale one that lingered after it hit 0.
   const isCooldownErr =
     state.errorCode === "RATE_LIMITED" && /in\s+\d+\s*s/.test(state.errorMessage ?? "");
 
