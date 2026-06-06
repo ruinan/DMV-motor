@@ -91,13 +91,14 @@ public class PracticeSessionRepository {
 
     /**
      * Max questions served per practice session, by entry type. A session is a
-     * bounded study chunk; once this many are answered it completes. Paid full
-     * practice gives more per round (30) than the free taste (15) — free is
-     * deliberately the smaller sampler. Displayed total is min(cap, pool) so a
-     * small pool (narrow topic filter) still shows its real size.
+     * bounded study chunk; once this many are answered it completes. Full
+     * practice is 20 per round — small enough to retain ("多了记不住"), bigger
+     * than the free taste (15) which stays the deliberate smaller sampler.
+     * Displayed total is min(cap, pool) so a small pool (narrow topic filter)
+     * still shows its real size.
      */
     public static final int FREE_TRIAL_QUESTION_CAP = 15;
-    public static final int FULL_QUESTION_CAP       = 30;
+    public static final int FULL_QUESTION_CAP       = 20;
 
     public static int capFor(String entryType) {
         return "free_trial".equals(entryType) ? FREE_TRIAL_QUESTION_CAP : FULL_QUESTION_CAP;

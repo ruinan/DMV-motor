@@ -132,9 +132,9 @@ class PracticeSessionControllerTest extends IntegrationTestBase {
     }
 
     @Test
-    void fullSession_cappedAt30() throws Exception {
+    void fullSession_cappedAt20() throws Exception {
         // 35 active questions; a paid full-practice session gives the bigger
-        // 30-question round (more than the free taster).
+        // 20-question round (more than the free taster's 15).
         seedExtraFreeTrialQuestions(34);
         Long paidUser = fixtures.insertUser("full-practice@example.com");
         fixtures.insertAccessPass(paidUser, "active",
@@ -153,7 +153,7 @@ class PracticeSessionControllerTest extends IntegrationTestBase {
         mockMvc.perform(get("/api/v1/practice/sessions/{id}", sessionId)
                         .header("Authorization", "Bearer " + paidUser))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.total_count").value(30));
+                .andExpect(jsonPath("$.data.total_count").value(20));
     }
 
     @Test
