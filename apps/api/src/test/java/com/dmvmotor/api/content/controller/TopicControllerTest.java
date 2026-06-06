@@ -126,6 +126,37 @@ class TopicControllerTest extends IntegrationTestBase {
     }
 
     @Test
+    void getMastery_countsMockAnswers_towardCoverage() throws Exception {
+        // "模考也算覆盖" — answers submitted in a mock exam count toward sub-topic
+        // coverage + mastery just like practice, so a learner who only took mocks
+        // doesn't see an empty 0/16 donut.
+        Long userId = fixtures.insertUser("mastery-mock@test.com");
+        Long topicId = fixtures.insertTopic("LANES", "Lane Use", "车道", false, 10);
+        Long q1 = fixtures.insertQuestion(topicId, "A");
+        Long v1 = fixtures.insertEnVariantReturningId(q1, "stem 1", "expl 1");
+        Long q2 = fixtures.insertQuestion(topicId, "A");
+        Long v2 = fixtures.insertEnVariantReturningId(q2, "stem 2", "expl 2");
+        Long q3 = fixtures.insertQuestion(topicId, "A");
+        Long v3 = fixtures.insertEnVariantReturningId(q3, "stem 3", "expl 3");
+        Long q4 = fixtures.insertQuestion(topicId, "A");
+        Long v4 = fixtures.insertEnVariantReturningId(q4, "stem 4", "expl 4");
+
+        // No practice at all — only a (scored) mock attempt with 4 correct answers.
+        Long mockExamId = fixtures.insertMockExam("COVERAGE_MOCK", 4);
+        Long attemptId = fixtures.insertMockAttemptWithScore(userId, mockExamId, 100);
+        fixtures.insertMockAttemptResult(attemptId, q1, v1, "A", true);
+        fixtures.insertMockAttemptResult(attemptId, q2, v2, "A", true);
+        fixtures.insertMockAttemptResult(attemptId, q3, v3, "A", true);
+        fixtures.insertMockAttemptResult(attemptId, q4, v4, "A", true);
+
+        mockMvc.perform(get("/api/v1/topics/mastery").header("Authorization", "Bearer " + userId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.topics[0].sub_topics[0].attempted_count").value(4))
+                .andExpect(jsonPath("$.data.topics[0].sub_topics[0].correct_count").value(4))
+                .andExpect(jsonPath("$.data.topics[0].sub_topics[0].is_mastered").value(true));
+    }
+
+    @Test
     void getMastery_belowRecentCorrect_subTopicNotMastered() throws Exception {
         Long userId = fixtures.insertUser("mastery-test@test.com");
         Long topicId = fixtures.insertTopic("LANES", "Lane Use", "车道", false, 10);

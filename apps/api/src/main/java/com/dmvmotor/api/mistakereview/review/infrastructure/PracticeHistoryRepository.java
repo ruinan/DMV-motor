@@ -14,10 +14,13 @@ import java.util.List;
 
 /**
  * Reads per-topic practice history for mastery evaluation. Sources attempts from
- * both the practice-session path (practice_attempts ⋈ practice_sessions) and the
- * review-task path (practice_attempts ⋈ review_tasks ⋈ review_packs) — per V4,
+ * three paths: the practice-session path (practice_attempts ⋈ practice_sessions),
+ * the review-task path (practice_attempts ⋈ review_tasks ⋈ review_packs) — per V4,
  * practice_attempts.practice_session_id is nullable and review-sourced attempts
- * carry review_task_id instead.
+ * carry review_task_id instead — and the mock path (mock_attempt_results ⋈
+ * mock_attempts), so sub-topic coverage/mastery counts mock answers too
+ * ("模考也算覆盖"). Mock answers are inherently exam-correct here: they're matched
+ * by the question's sub-topic, and a sub-topic belongs to exactly one exam.
  */
 @Repository
 public class PracticeHistoryRepository {
@@ -61,11 +64,13 @@ public class PracticeHistoryRepository {
     }
 
     public SubTopicStats subTopicStats(Long userId, Long subTopicId, int cycle) {
-        var pa = Tables.PRACTICE_ATTEMPTS;
-        var q  = Tables.QUESTIONS;
-        var ps = Tables.PRACTICE_SESSIONS;
-        var rt = Tables.REVIEW_TASKS;
-        var rp = Tables.REVIEW_PACKS;
+        var pa  = Tables.PRACTICE_ATTEMPTS;
+        var q   = Tables.QUESTIONS;
+        var ps  = Tables.PRACTICE_SESSIONS;
+        var rt  = Tables.REVIEW_TASKS;
+        var rp  = Tables.REVIEW_PACKS;
+        var mar = Tables.MOCK_ATTEMPT_RESULTS;
+        var ma  = Tables.MOCK_ATTEMPTS;
 
         List<Boolean> practicePath = dsl.select(pa.IS_CORRECT)
                 .from(pa)
@@ -86,19 +91,32 @@ public class PracticeHistoryRepository {
                         .and(rp.LEARNING_CYCLE.eq(cycle)))
                 .fetch(pa.IS_CORRECT);
 
-        int total   = practicePath.size() + reviewPath.size();
+        List<Boolean> mockPath = dsl.select(mar.IS_CORRECT)
+                .from(mar)
+                .join(q).on(q.ID.eq(mar.QUESTION_ID))
+                .join(ma).on(ma.ID.eq(mar.MOCK_ATTEMPT_ID))
+                .where(ma.USER_ID.eq(userId)
+                        .and(q.SUB_TOPIC_ID.eq(subTopicId))
+                        .and(ma.LEARNING_CYCLE.eq(cycle))
+                        .and(mar.IS_CORRECT.isNotNull()))
+                .fetch(mar.IS_CORRECT);
+
+        int total   = practicePath.size() + reviewPath.size() + mockPath.size();
         int correct = (int) (practicePath.stream().filter(Boolean.TRUE::equals).count()
-                           + reviewPath.stream().filter(Boolean.TRUE::equals).count());
+                           + reviewPath.stream().filter(Boolean.TRUE::equals).count()
+                           + mockPath.stream().filter(Boolean.TRUE::equals).count());
         return new SubTopicStats(total, correct);
     }
 
     public List<Boolean> lastNAttemptsForSubTopic(Long userId, Long subTopicId,
                                                   int cycle, int n) {
-        var pa = Tables.PRACTICE_ATTEMPTS;
-        var q  = Tables.QUESTIONS;
-        var ps = Tables.PRACTICE_SESSIONS;
-        var rt = Tables.REVIEW_TASKS;
-        var rp = Tables.REVIEW_PACKS;
+        var pa  = Tables.PRACTICE_ATTEMPTS;
+        var q   = Tables.QUESTIONS;
+        var ps  = Tables.PRACTICE_SESSIONS;
+        var rt  = Tables.REVIEW_TASKS;
+        var rp  = Tables.REVIEW_PACKS;
+        var mar = Tables.MOCK_ATTEMPT_RESULTS;
+        var ma  = Tables.MOCK_ATTEMPTS;
 
         List<Record2<Boolean, OffsetDateTime>> practicePath = dsl
                 .select(pa.IS_CORRECT, pa.CREATED_AT)
@@ -125,8 +143,22 @@ public class PracticeHistoryRepository {
                 .limit(n)
                 .fetch();
 
+        List<Record2<Boolean, OffsetDateTime>> mockPath = dsl
+                .select(mar.IS_CORRECT, mar.CREATED_AT)
+                .from(mar)
+                .join(q).on(q.ID.eq(mar.QUESTION_ID))
+                .join(ma).on(ma.ID.eq(mar.MOCK_ATTEMPT_ID))
+                .where(ma.USER_ID.eq(userId)
+                        .and(q.SUB_TOPIC_ID.eq(subTopicId))
+                        .and(ma.LEARNING_CYCLE.eq(cycle))
+                        .and(mar.IS_CORRECT.isNotNull()))
+                .orderBy(mar.CREATED_AT.desc())
+                .limit(n)
+                .fetch();
+
         List<Record2<Boolean, OffsetDateTime>> merged = new ArrayList<>(practicePath);
         merged.addAll(reviewPath);
+        merged.addAll(mockPath);
         merged.sort(Comparator.comparing(
                 (Record2<Boolean, OffsetDateTime> r) -> r.value2()).reversed());
 

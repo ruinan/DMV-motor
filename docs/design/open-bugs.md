@@ -60,6 +60,84 @@ f0cad03 B5 mock result → Study Hub on all terminal paths ·
 c0ee6eb language dropdown selector + de-cram header ·
 7bfcb4e per-exam readiness "counted" hint
 
+## Session 6b batch (2026-06-06) — Study Hub / readiness / mock (BIG, mostly backend)
+
+**Root cause found: `SummaryService` (readiness + completion) is NOT exam-scoped.**
+`apps/api/.../progressreadiness/application/SummaryService.java` — every query
+filters by `user_id` + `learning_cycle` but NOT `exam_id`: `mockStats`,
+`keyCoverageStats`, `basicPracticeRatio`, `recentStabilityRatio`,
+`hasPersistentMistake`, `findWeakTopics`. In multi-exam this MIXES M1 + C data, so
+readiness/coverage are wrong after adding CA-C. **Fix: thread the current exam
+(ExamContext.resolveExamId) into all of these and filter `exam_id` (questions,
+sessions, mock_attempts, mistake_records all carry exam_id from §38).**
+
+- **B11 — mock result not counted immediately on dashboard.** User finished a mock,
+  "近3次平均 0% / 3 次模考" still 0%. Two suspects: (a) the dashboard mock-stats
+  endpoint (MockHistoryDao) exam-scoping/status filter — "3 次" but "0%" suggests
+  the 3 are non-scored (exit/failure, excluded from avg) OR an exam mismatch;
+  (b) front-end invalidation (B5 covered it, verify it actually refetches). Note
+  SummaryService.mockStats only counts status in (submitted, ended_by_timeout) —
+  correct per spec, but VERIFY the completed mock got one of those statuses.
+- **B12 — coverage must include MOCK answers, not just practice ("模考也算覆盖哦").**
+  `keyCoverageStats` + the topic-mastery donut count only PRACTICE_ATTEMPTS. Mock
+  answers don't count toward coverage. Change coverage = distinct questions
+  answered in practice OR mock (UNION mock attempt answers). Applies to the donut
+  endpoint (topics/mastery + SubTopicMasteryEvaluator) too.
+- **B13 — coverage donut shows 0/16 and doesn't update.** Driven by topic-mastery
+  endpoint (sub-topic). Verify exam-scoping + that it counts mock (B12) + why 0.
+- **B14 — mock question count must STRICTLY match DMV.** Currently CA_C_30Q and
+  CA_M1_30Q both 30. DECISION + data: real counts — CA Class C ≈ 36 Q (pass 30),
+  CA motorcycle ≈ 25 Q (pass 21). Confirm official numbers, then per-exam mock
+  template question count + `exams.pass_threshold` per exam.
+- **B15 — practice session size → 20 (was free 15 / paid 30).** "多了记不住." Make
+  practice 20 per session. (Backend caps per entry_type; update + frontend copy.)
+- **B16 — let the user choose by-topic at the START of each new practice.**
+  topic_filter already exists server-side; add a pre-session chooser: "练习全部 /
+  按知识点" + topic pick, asked each time Start practice is pressed.
+- **B17 — question content not centered ("题目内容没有居中").** Practice question
+  uses `mx-auto max-w-xl text-center` (looks centered) — so check MOCK question +
+  the choices list + any other answering surface for missing centering. Sweep all
+  answering surfaces.
+
+**Readiness cost answer (for the user):** computed on demand per `/summary` call,
+pure SQL (~9 indexed queries scoped by user+cycle), NO AI/LLM cost. The only fixed
+cost is the Cloud SQL instance (per-instance, independent of row count / how often
+we compute). Client react-query staleTime (60s) already avoids refetch storms. So
+"每次都算" is fine — it's cheap arithmetic, not a paid API. If it ever gets hot,
+add a short server-side cache or a materialized readiness column, but not needed
+now. Precision comes from ReadinessProperties weights + 4 gates (docs/parameters.md
+§7-§8), nothing hardcoded.
+
+## Progress (2026-06-06)
+
+Shipped this session: B17 centering (`8b3cf2e`), B15 practice→20 (`9f8ff60`),
+B16/B6 done earlier. **B12/B13 coverage-counts-mock: IMPLEMENTED** in
+`PracticeHistoryRepository` (subTopicStats + lastNAttemptsForSubTopic now add a
+mock path: mock_attempt_results ⋈ mock_attempts, exam-correct via the question's
+sub-topic) + TDD test `TopicControllerTest.getMastery_countsMockAnswers_toward
+Coverage`. **Both compile + test-compile clean; tests NOT run yet — Docker Desktop
+was down all session, so Testcontainers can't start. Run `mvn test` once Docker is
+up to verify.**
+
+STILL TODO (backend, need Docker):
+- **B11** — mock not in dashboard "近3次平均" / readiness. `SummaryService.mockStats`
+  only counts status in (submitted, ended_by_timeout) — correct, but the user's CA-C
+  mock likely ended_by_failure (linear auto-terminate at >15% wrong) → excluded.
+  VERIFY the completed mock's status + that the dashboard mock-stats endpoint
+  (MockHistoryDao) is exam-scoped. Maybe the "0%" is correct-but-confusing (failed
+  mocks don't count) → if so it's a UX wording fix, not a calc bug.
+- **SummaryService exam-scoping** — mockStats/keyCoverageStats/basicPracticeRatio/
+  recentStabilityRatio/hasPersistentMistake/findWeakTopics filter user+cycle but NOT
+  exam_id → mixes M1+C. Thread ExamContext.resolveExamId + filter exam_id (questions/
+  sessions/mock_attempts have it; mistake_records — verify column). Also make
+  keyCoverageStats + basicPracticeRatio count mock answers (same principle as B12).
+- **B14** — mock question count strictly DMV. Official (web-confirmed 2026):
+  CA Class C = **36 Q / pass 30 (83%)** adult, **46 Q / pass 38** under-18 (persona
+  is under-18 — CONFIRM which tier); CA Motorcycle M1 = **30 Q / pass 24 (80%)**
+  (our 30 is right; threshold 85%→80%). Needs V30: per-exam mock template question
+  count + exams.pass_threshold. DECISION: which C tier (36 vs 46)?
+- **B16** — by-topic chooser at practice start (frontend; topic_filter exists).
+
 ## Backlog (from earlier)
 U4 anonymous free-practice exam choice · D1 dashboard engagement (streak/daily
 goal/next-best-action) · Phase 2 per-exam billing + paid remote backup.
