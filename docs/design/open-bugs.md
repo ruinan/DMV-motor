@@ -233,6 +233,19 @@ STILL TODO (backend, need Docker):
   first; if still broken, find the other clear path. File: use-ai-explain
   clearAllAiThreads + every reset/clear entry point.
 
+- **B29 — switch exam should keep you in the same activity, not always dashboard.**
+  Refines 1608165 (which always navigates to /dashboard on switch). Desired: switch
+  returns to the SAME kind of page for the new exam — on practice → practice, on
+  study/dashboard → dashboard. ONLY mock (/mock) and settings (/me) aren't tracked:
+  if last state was either of those, default to the study/dashboard page. Impl in
+  `useSetExam`: branch on current pathname (practice→/practice, dashboard→/dashboard,
+  mock|me→/dashboard). CAVEAT: navigating /practice→/practice is a no-op route so
+  PracticeFlow won't remount → its local `phase` keeps the OLD exam's question +
+  autoResumeFired stays true. So PracticeFlow must RESET when current_exam changes
+  (e.g. key the flow by exam id, or a render-time tracked-key reset of phase +
+  autoResumeFired) so it re-scopes / auto-resumes the new exam. File: use-set-exam.ts
+  + PracticeFlow.tsx.
+
 ## Backlog (from earlier)
 D1 dashboard engagement (streak/daily goal/next-best-action) · Phase 2 per-exam
 billing + paid remote backup · B11 mock-in-readiness verify · SummaryService
