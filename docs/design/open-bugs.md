@@ -329,6 +329,33 @@ dedupe + localized topic names · B28 verify · B29 switch keeps activity contex
   CA Class C / CA M1" row reads as fine print; make it more prominent (bigger /
   card-like / icons). File: MarketingHome hero.
 
+## NEXT-SESSION PLAN (prioritized 2026-06-07) — SUBSCRIPTION FIRST
+
+Phase 2 done so far (pushed): V32 schema · per-exam access gate (getAccess scoped to
+current exam) · per-exam dev grant (/dev/grant-pass?exam_id). Backend live at V32.
+
+**P0 — finish subscription Phase 2 (catalog UI + unsubscribe):**
+1. Backend `GET /api/v1/exams/entitlements` (authed) → per active exam {exam_id,
+   subscribed} (subscribed = accessService.getAccess(userId, examId).hasActivePass()).
+   [I had started adding the AccessService+CurrentUser imports to ExamController —
+   reverted to keep the tree clean; redo cleanly: inject AccessService, @CurrentUser.]
+2. Backend dev `POST /dev/revoke-pass?exam_id` → cancel the user's active pass(es)
+   for that exam (set status='cancelled' or expire), so unsubscribe is testable.
+3. Frontend useEntitlements hook + catalog UI in MeView: list exams grouped by
+   jurisdiction (state vs national), each row: name + Subscribed/Free/Coming-soon +
+   Subscribe ($5/mo — frontend const for now) / Unsubscribe button (dev grant/revoke).
+   Subscribe → /dev/grant-pass?exam_id ; Unsubscribe → /dev/revoke-pass?exam_id +
+   invalidate. After full unsubscribe: free-trial only, AI/analysis disabled, history
+   kept (gating already flows from the per-exam access gate).
+4. Wire the existing /me "Coming soon" subscription stub to this catalog.
+
+**P1 — remaining bugs/UX:** B40 (below) · B21 cold-account archival (low) · B28 verify ·
+throttling/anti-abuse (subscription-model.md decision) · per-exam server backup.
+
+- **B40 — index footer.** Header is white; give the footer's top border a slightly
+  more prominent shadow, and consider matching the footer background to the header
+  (white). File: site-footer.tsx.
+
 ## Backlog (from earlier)
 D1 dashboard engagement (streak/daily goal/next-best-action) · Phase 2 per-exam
 billing + paid remote backup · B11 mock-in-readiness verify · SummaryService
