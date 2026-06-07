@@ -8,7 +8,7 @@ import {
   ArrowRight,
 } from "lucide-react";
 import { buttonVariants } from "@/components/ui/button";
-import { HeroImage } from "@/components/hero-image";
+import { HeroBanner, type HeroSlide } from "@/components/hero-banner";
 import { getDictionary, hasLocale, type Dictionary } from "@/lib/dictionaries";
 
 export default async function Home({ params }: PageProps<"/[lang]">) {
@@ -16,48 +16,52 @@ export default async function Home({ params }: PageProps<"/[lang]">) {
   if (!hasLocale(lang)) notFound();
   const t = await getDictionary(lang);
 
+  // Hero carousel: each slide carries the accent the hero recolors to, so the UI
+  // stays unified with the photo. Car → highway-sign blue; motorcycle → amber
+  // (the two exams' palettes). Add more slides here as art arrives.
+  const heroSlides: HeroSlide[] = [
+    { src: "/hero/road-1.png", alt: t.home.heroImageAlt, primary: "#1b5e9b", accent: "#e2eaf3" },
+    { src: "/images/hero-coast-rider.png", alt: t.home.heroImageAlt, primary: "#b45309", accent: "#fdebd2" },
+  ];
+
   return (
     <main className="mx-auto flex w-full max-w-7xl flex-col items-center gap-12 px-6 py-12 sm:gap-16 sm:py-20">
-      {/* Hero */}
-      <section className="flex w-full max-w-3xl flex-col items-center gap-6 text-center">
-        <span className="inline-flex items-center gap-2 rounded-full bg-primary/10 px-4 py-1.5 text-sm font-medium text-primary">
-          <ShieldCheck className="size-4" />
-          {t.home.badge}
-        </span>
-        <h1 className="text-4xl font-bold tracking-tight text-foreground sm:text-5xl md:text-6xl">
-          {t.home.title}
-        </h1>
-        <p className="max-w-xl text-lg leading-relaxed text-muted-foreground">
-          {t.home.subtitle}
-        </p>
-        <div className="flex flex-wrap items-center justify-center gap-2 text-sm">
-          <span className="text-muted-foreground">
-            {t.home.examsCoveredLabel}:
+      {/* Hero — text + crossfading image carousel that recolors the accent */}
+      <HeroBanner slides={heroSlides}>
+        <section className="flex w-full max-w-3xl flex-col items-center gap-6 text-center">
+          <span className="inline-flex items-center gap-2 rounded-full bg-primary/10 px-4 py-1.5 text-sm font-medium text-primary transition-colors duration-1000">
+            <ShieldCheck className="size-4" />
+            {t.home.badge}
           </span>
-          <span className="rounded-full border border-border bg-card px-3 py-1 font-medium text-foreground">
-            {t.home.examClassC}
-          </span>
-          <span className="rounded-full border border-border bg-card px-3 py-1 font-medium text-foreground">
-            {t.home.examM1}
-          </span>
-        </div>
-        <p className="max-w-md text-xs text-muted-foreground">
-          {t.home.freeTierNote}
-        </p>
-        <Link
-          href={`/${lang}/practice`}
-          className={`${buttonVariants({ size: "lg" })} mt-2 gap-2 px-7 py-6 text-base shadow-md transition-all hover:-translate-y-0.5 hover:shadow-lg`}
-        >
-          {t.home.ctaPractice}
-          <ArrowRight className="size-4" />
-        </Link>
-      </section>
-
-      {/* Hero image */}
-      <HeroImage
-        src="/images/hero-coast-rider.png"
-        alt={t.home.heroImageAlt}
-      />
+          <h1 className="text-4xl font-bold tracking-tight text-foreground sm:text-5xl md:text-6xl">
+            {t.home.title}
+          </h1>
+          <p className="max-w-xl text-lg leading-relaxed text-muted-foreground">
+            {t.home.subtitle}
+          </p>
+          <div className="flex flex-wrap items-center justify-center gap-2 text-sm">
+            <span className="text-muted-foreground">
+              {t.home.examsCoveredLabel}:
+            </span>
+            <span className="rounded-full border border-border bg-card px-3 py-1 font-medium text-foreground">
+              {t.home.examClassC}
+            </span>
+            <span className="rounded-full border border-border bg-card px-3 py-1 font-medium text-foreground">
+              {t.home.examM1}
+            </span>
+          </div>
+          <p className="max-w-md text-xs text-muted-foreground">
+            {t.home.freeTierNote}
+          </p>
+          <Link
+            href={`/${lang}/practice`}
+            className={`${buttonVariants({ size: "lg" })} mt-2 gap-2 px-7 py-6 text-base shadow-md transition-all duration-1000 hover:-translate-y-0.5 hover:shadow-lg`}
+          >
+            {t.home.ctaPractice}
+            <ArrowRight className="size-4" />
+          </Link>
+        </section>
+      </HeroBanner>
 
       {/* Features grid */}
       <section className="grid w-full max-w-5xl grid-cols-1 gap-6 md:grid-cols-3">
