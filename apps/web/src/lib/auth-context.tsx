@@ -10,6 +10,7 @@ import {
   type ReactNode,
 } from "react";
 import { useQueryClient } from "@tanstack/react-query";
+import { useRouter } from "next/navigation";
 import {
   browserLocalPersistence,
   createUserWithEmailAndPassword,
@@ -37,6 +38,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const queryClient = useQueryClient();
+  const router = useRouter();
   // Track the last-seen Firebase uid so we can tell an identity CHANGE (login as
   // a different user / logout) apart from a silent token refresh (same uid).
   const prevUid = useRef<string | null | undefined>(undefined);
@@ -90,9 +92,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       },
       signOut: async () => {
         await firebaseSignOut(firebaseAuth);
+        // Land on the marketing index, not whatever authed/anon page we were on
+        // (e.g. /practice would otherwise drop you into the free-practice view).
+        if (typeof window !== "undefined") {
+          const lang = window.location.pathname.split("/")[1] || "en";
+          router.push(`/${lang}`);
+        }
       },
     }),
-    [user, loading],
+    [user, loading, router],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
