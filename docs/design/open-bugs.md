@@ -352,6 +352,17 @@ current exam) · per-exam dev grant (/dev/grant-pass?exam_id). Backend live at V
 **P1 — remaining bugs/UX:** B40 (below) · B21 cold-account archival (low) · B28 verify ·
 throttling/anti-abuse (subscription-model.md decision) · per-exam server backup.
 
+**NEW FEATURE — bot/human verification on login + register (needs cost approval).**
+GCP options researched: (1) **reCAPTCHA Enterprise** — modern CAPTCHA, can be invisible
+(v3-style), free 10k assessments/mo then ~\$1/1k; (2) **Firebase App Check** w/ reCAPTCHA
+Enterprise provider — attests requests come from the real app, protects the WHOLE backend
++ Firebase (ties into the throttling/anti-abuse goal), ~free; (3) Identity Platform has
+built-in email-enumeration protection + reCAPTCHA Enterprise integration. RECOMMENDED:
+reCAPTCHA Enterprise on the login/register forms + Firebase App Check on the backend/AI
+endpoints. Impl: enable reCAPTCHA Enterprise key (GCP), wire the site key in the web auth
+forms (LoginForm), verify token server-side (or via Identity Platform), add App Check to
+firebase.ts + verify on the backend. FLAG: cloud cost — get approval before enabling.
+
 - **B40 — index footer.** Header is white; give the footer's top border a slightly
   more prominent shadow, and consider matching the footer background to the header
   (white). File: site-footer.tsx.
