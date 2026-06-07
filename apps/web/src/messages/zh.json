@@ -58,7 +58,9 @@
     "progress": "进度",
     "account": "账户",
     "signOut": "退出登录",
-    "switchExam": "切换考试"
+    "switchExam": "切换考试",
+    "planFree": "免费版",
+    "planPro": "已订阅"
   },
   "studyHub": {
     "title": "学习中心",

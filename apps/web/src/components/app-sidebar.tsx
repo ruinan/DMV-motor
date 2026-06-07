@@ -10,6 +10,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
+import { useMe } from "@/lib/hooks/use-me";
 import { LanguageSelect } from "@/components/language-select";
 import { ExamSwitcher } from "@/components/exam-switcher";
 import type { Dictionary, Locale } from "@/lib/dictionaries";
@@ -28,6 +29,8 @@ type Props = {
 export function AppSidebar({ t, lang }: Props) {
   const pathname = usePathname();
   const { user, signOut } = useAuth();
+  const me = useMe();
+  const hasPass = me.data?.access.has_active_pass ?? false;
 
   // 4-item IA: Study (data overview), Practice (drills + mistakes + review),
   // Exam (mock), Settings (account). Sub-pages like /mistakes /review /progress
@@ -86,6 +89,19 @@ export function AppSidebar({ t, lang }: Props) {
               <p className="truncate text-xs text-muted-foreground">
                 {user.email}
               </p>
+              {/* Plan status — clear "free vs subscribed" cue (B23). Free links
+                  to the subscription section so it's an upgrade entry, not a
+                  dead label. */}
+              <Link
+                href={`/${lang}/me#subscription`}
+                className={`mt-0.5 inline-block rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${
+                  hasPass
+                    ? "bg-primary/10 text-primary"
+                    : "bg-amber-100 text-amber-700 hover:bg-amber-200"
+                }`}
+              >
+                {hasPass ? t.nav.planPro : t.nav.planFree}
+              </Link>
             </div>
             <button
               onClick={() => signOut()}

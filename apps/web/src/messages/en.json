@@ -58,7 +58,9 @@
     "progress": "Progress",
     "account": "Account",
     "signOut": "Sign out",
-    "switchExam": "Switch exam"
+    "switchExam": "Switch exam",
+    "planFree": "Free",
+    "planPro": "Subscribed"
   },
   "studyHub": {
     "title": "Study",
