@@ -7,6 +7,7 @@ import { Timer } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { apiFetch, ApiError } from "@/lib/api-client";
 import { useAuth } from "@/lib/auth-context";
+import { ExamIndicator } from "@/components/exam-indicator";
 import type { Dictionary, Locale } from "@/lib/dictionaries";
 
 type AccessResponse = {
@@ -79,11 +80,14 @@ export function MockLanding({ t, lang }: Props) {
 
   return (
     <div className="mx-auto flex w-full max-w-xl flex-col gap-6">
-      <header>
-        <h1 className="text-3xl font-bold tracking-tight text-foreground">
-          {t.title}
-        </h1>
-        <p className="mt-1 text-sm text-muted-foreground">{t.subtitle}</p>
+      <header className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight text-foreground">
+            {t.title}
+          </h1>
+          <p className="mt-1 text-sm text-muted-foreground">{t.subtitle}</p>
+        </div>
+        <ExamIndicator lang={lang} />
       </header>
 
       <section className="flex items-center gap-4 rounded-xl border bg-card p-6 shadow-sm">

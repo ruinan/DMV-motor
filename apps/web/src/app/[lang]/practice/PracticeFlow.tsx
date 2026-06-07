@@ -16,6 +16,7 @@ import { apiFetch, ApiError } from "@/lib/api-client";
 import { useAuth } from "@/lib/auth-context";
 import { useMe } from "@/lib/hooks/use-me";
 import { AiExplainBlock } from "@/components/ai-explain-block";
+import { ExamIndicator } from "@/components/exam-indicator";
 import type { Dictionary, Locale } from "@/lib/dictionaries";
 import { AttemptHistory } from "./AttemptHistory";
 
@@ -367,6 +368,11 @@ export function PracticeFlow({ t, lang }: Props) {
     return (
       <Container>
         <Header t={t} subtitle={subtitle} />
+        {/* Signed-in: show which exam this practice is scoped to (text only — the
+            switcher lives in the sidebar). Anonymous renders nothing here. */}
+        <div className="flex justify-center">
+          <ExamIndicator lang={lang} />
+        </div>
         {isLoggedIn ? (
           // Signed-in user: if an in-progress session exists, lead with Resume
           // and offer "Start fresh" as secondary. Otherwise the standard Start

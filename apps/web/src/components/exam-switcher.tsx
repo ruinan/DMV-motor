@@ -79,10 +79,12 @@ export function ExamSwitcher({
   const trigger =
     variant === "chip"
       ? "inline-flex items-center gap-1.5 rounded-full border border-primary/40 bg-accent px-3 py-1.5 text-sm font-medium text-primary hover:bg-primary/10"
-      : "inline-flex items-center gap-1.5 rounded-md border border-primary/40 bg-accent px-2.5 py-1.5 text-xs font-semibold text-primary hover:bg-primary/10";
+      // "plain" (sidebar / mobile bar): fill the row so it reads as a deliberate
+      // control, not an awkward little pill — chevron pinned right.
+      : "flex w-full items-center justify-between gap-1.5 rounded-md border border-primary/40 bg-accent px-3 py-2 text-xs font-semibold text-primary hover:bg-primary/10";
 
   return (
-    <div ref={ref} className="relative">
+    <div ref={ref} className={variant === "plain" ? "relative w-full" : "relative"}>
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
@@ -96,7 +98,15 @@ export function ExamSwitcher({
           <span className="text-muted-foreground">{prefix}:</span>
         )}
         <ExamIcon className="size-3.5 shrink-0" aria-hidden />
-        <span className="max-w-[12rem] truncate">{currentLabel}</span>
+        <span
+          className={
+            variant === "plain"
+              ? "flex-1 truncate text-left"
+              : "max-w-[12rem] truncate"
+          }
+        >
+          {currentLabel}
+        </span>
         {pending ? (
           <Loader2 className="size-3.5 animate-spin" />
         ) : (

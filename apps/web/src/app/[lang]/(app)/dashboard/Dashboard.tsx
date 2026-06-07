@@ -21,7 +21,7 @@ import {
 import { ReadinessRing } from "@/components/readiness-ring";
 import { CoverageDonut } from "@/components/study-hub/CoverageDonut";
 import { Sparkline } from "@/components/study-hub/Sparkline";
-import { ExamSwitcher } from "@/components/exam-switcher";
+import { ExamIndicator } from "@/components/exam-indicator";
 import type { Dictionary, Locale } from "@/lib/dictionaries";
 
 type Props = {
@@ -76,14 +76,9 @@ export function Dashboard({ t, lang }: Props) {
             {t.studyHub.subtitle}
           </p>
         </div>
-        {/* The app shell's gate guarantees an exam is chosen before the
-            dashboard renders (see /start), so the switcher always shows here. */}
-        <ExamSwitcher
-          lang={lang}
-          variant="chip"
-          prefix={t.studyHub.examSwitchPrefix}
-          switchLabel={t.nav.switchExam}
-        />
+        {/* Just a text indicator of the active exam — the single switcher lives
+            in the sidebar (one control, no second dropdown here). */}
+        <ExamIndicator lang={lang} prefix={t.studyHub.examSwitchPrefix} />
       </header>
 
       {/* Hero: the three at-a-glance metrics — coverage, readiness, mock perf. */}
