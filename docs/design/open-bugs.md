@@ -363,6 +363,20 @@ endpoints. Impl: enable reCAPTCHA Enterprise key (GCP), wire the site key in the
 forms (LoginForm), verify token server-side (or via Identity Platform), add App Check to
 firebase.ts + verify on the backend. FLAG: cloud cost — get approval before enabling.
 
+**AUTH SECURITY HARDENING (all Firebase-managed; needs cost approval for MFA):**
+- **Re-auth before sensitive actions** — subscription/billing changes (and password
+  change) require re-entering the password first. Firebase Web SDK
+  `reauthenticateWithCredential(user, credential)` before the action; on success proceed.
+  No paid tier needed. Files: a reusable reauth modal + gate billing/password flows.
+- **Force 2FA / MFA** — mandatory at registration AND required for sensitive changes
+  (billing). Needs **Identity Platform** (Firebase Auth's MFA — SMS or TOTP authenticator;
+  phone verification = the SMS second factor, paired with reCAPTCHA). Has a free quota,
+  then paid → COST APPROVAL. Impl: enable Identity Platform + MFA, enroll a second factor
+  during signup (multiFactor.enroll), require a second-factor assertion on sensitive ops.
+- **Password change flow** — `updatePassword` after re-auth; standard Firebase. Plan a
+  /me change-password form. Account + password stay fully delegated to Firebase Auth
+  (JIT provisioning into our users table on first /me — unchanged).
+
 - **B40 — index footer.** Header is white; give the footer's top border a slightly
   more prominent shadow, and consider matching the footer background to the header
   (white). File: site-footer.tsx.
