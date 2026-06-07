@@ -285,6 +285,31 @@ B11 · B14 · B21 archive cold accounts · B22 DB ai_deep_dive_log clear on rese
 B23 gate coverage donut behind subscription + sidebar free badge · B27 weak_topics
 dedupe + localized topic names · B28 verify · B29 switch keeps activity context.
 
+## Session 6f (2026-06-06) — index theming + content honesty + decisions
+
+- **B14 DECIDED**: mock = real exam question count. CA-C = **46 Q** (under-18 tier),
+  pass 38 ≈ **83%**. CA-M1 = 30 Q (already), pass 24 = **80%**. V31: CA-C mock →46 +
+  exams.pass_threshold CA-C=83 / M1=80; mock time_limit = q×60. (IN PROGRESS.)
+- **Subscription DECISIONS** (fold into subscription-model.md): per-exam **$5/month**
+  (M1 and C each). Unsubscribe **granular** — drop one exam or all. Full unsubscribe
+  → account still logs in but **free-trial only; AI study + analysis buttons
+  disabled**; **keep old history**. **Server-side backup** of progress so a lost
+  local cache is recoverable (paid). **Throttling / anti-abuse** so nobody spams to
+  waste resources. **Cold-account detection service** to archive idle accounts —
+  build it, LOW priority.
+- **B34 — index header/footer + background theming.** The hero carousel recolors
+  blue↔amber, but: (1) the marketing **header** (brand "DMV 备考" + Sign in) and
+  **footer** must use an INDEPENDENT, non-jarring color — **dark grey / near-black**
+  — NOT the orange/blue accent. (2) The index **background** should follow the
+  carousel color: a *faint* tint (light amber for the motorcycle slide, light blue
+  for the car slide). Needs the carousel theme state lifted to the page level (make
+  the marketing page a client component that sets --primary/--accent/--background;
+  header/footer live in the layout and stay neutral).
+- **B35 — content honesty + icon color.** We do NOT have real exam questions
+  (copyright) — don't claim "real-exam-grade / 真题级别". Reword to simulation
+  practice ("仿真练习" / "simulation"). The hero badge / feature icon color should
+  also follow the carousel accent.
+
 ## Backlog (from earlier)
 D1 dashboard engagement (streak/daily goal/next-best-action) · Phase 2 per-exam
 billing + paid remote backup · B11 mock-in-readiness verify · SummaryService

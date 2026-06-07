@@ -100,10 +100,27 @@ standalone (not in a state bundle).
 4. **Checkout**: real purchase flow (still stubbed today) → mints a per-exam pass.
    Then multi-buy/bundles.
 
-## 6. Open decisions (DECIDE)
+## 6. Decisions (2026-06-06)
 
-- D1: switching to an unpaid *active* exam — allowed (recommended yes, free trial).
-- D2: legacy NULL-exam_id pass semantics (all-exams grace vs backfill).
-- D3: bundle model (mint-N-passes vs checkout discount).
-- D4: exact prices + prep-cycle lengths per exam (and under-18 pricing).
-- D5: nationwide exam codes (US? FAA? per-agency jurisdiction?) — start with `US`.
+- **Pricing**: per-exam **$5 / month** (M1 and C each). Monthly recurring (not a
+  one-shot prep-cycle window) — so `access_passes` is a subscription with a renewal,
+  or expires_at = +1 month and renews. (Revisit prep-cycle vs monthly.)
+- **Unsubscribe is granular**: drop ONE exam's subscription or all. Each exam's
+  entitlement is independent (per-exam pass).
+- **After full unsubscribe**: account still logs in, but **free-trial only** —
+  full practice / mock / **AI study + analysis buttons disabled**. **Old history is
+  kept** (don't delete on unsubscribe; it's theirs, and re-subscribing restores
+  the experience).
+- **Server-side backup**: a paid user's progress (practice/mocks/mistakes/scores)
+  must be recoverable if their local cache is lost. Most already lives in Postgres;
+  ensure nothing critical is localStorage-only for paid users (the AI deep-dive
+  threads are localStorage — fine to lose; the scored data is server-side). Possibly
+  a periodic snapshot/export (ties to the earlier "paid remote backup" idea).
+- **Throttling / anti-abuse**: rate-limit so nobody can spam endpoints (esp. AI,
+  generation, mock starts) to waste resources. AI already has daily + cooldown caps;
+  extend a general per-user/IP throttle. Backend-enforced (not just client).
+- **Cold-account archival**: a background service detects idle ("cold") accounts and
+  moves them to an archive tier to save DB/compute. BUILD IT, but **low priority**.
+
+Still open: D2 (legacy NULL-exam_id pass), D3 (bundle/multi-buy discount mechanism),
+D5 (nationwide exam codes — start `US`).

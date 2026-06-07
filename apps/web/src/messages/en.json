@@ -238,7 +238,7 @@
   },
   "mock": {
     "title": "Mock exam",
-    "subtitle": "30 timed questions, real exam pressure. Score ≥ 85% to pass.",
+    "subtitle": "Timed, exam-style practice — length and pass mark match the real test.",
     "loading": "Loading…",
     "startExam": "Start mock exam",
     "starting": "Starting…",
