@@ -45,7 +45,14 @@ export function PracticeShell({ t, lang }: Props) {
       <MobileAppBar t={t} lang={lang} />
       <main className="md:pl-64">
         <div className="mx-auto w-full max-w-7xl px-4 pb-24 pt-6 md:px-8 md:pb-12 md:pt-8">
-          <PracticeFlow t={t.practice} lang={lang} />
+          {/* Key by exam: switching exam while on /practice stays here (B29), so
+              remount PracticeFlow to drop the old exam's in-flight session state
+              and auto-resume the new exam's instead. */}
+          <PracticeFlow
+            key={me.data?.current_exam?.id ?? "none"}
+            t={t.practice}
+            lang={lang}
+          />
         </div>
       </main>
       <MobileTabBar t={t} lang={lang} />

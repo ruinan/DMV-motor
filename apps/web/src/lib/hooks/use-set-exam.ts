@@ -17,10 +17,11 @@ import { apiFetch } from "@/lib/api-client";
  * state if there's nothing yet. Switching back restores the other exam's session
  * the same way (the backend keeps each exam's in-progress session independently).
  *
- * Exception (B31): when switching FROM the settings page, stay there — settings
- * has no exam-specific local state to strand, and the user is deliberately
- * managing exams; yanking them to the dashboard is jarring. The query
- * invalidation re-scopes the settings view in place.
+ * Keep the activity context (B29/B31): switching from a "tracked" surface stays
+ * there and re-scopes in place — settings (/me), practice (/practice), and the
+ * study hub (/dashboard). Practice keeps local session state, so PracticeShell
+ * keys PracticeFlow by exam id to remount it cleanly on the switch. Only the mock
+ * surface (and anything else) isn't tracked → land on the study hub.
  */
 export function useSetExam() {
   const queryClient = useQueryClient();
@@ -32,8 +33,7 @@ export function useSetExam() {
       body: JSON.stringify({ exam_id: examId }),
     });
     await queryClient.invalidateQueries();
-    // Stay put when managing exams from settings; otherwise land on the hub.
-    if (/\/me(\/|$)/.test(pathname)) return;
+    if (/\/(me|practice|dashboard)(\/|$)/.test(pathname)) return;
     const lang = pathname.split("/")[1] || "en";
     router.push(`/${lang}/dashboard`);
   };
