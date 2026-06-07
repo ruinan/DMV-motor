@@ -5,6 +5,8 @@ import { useEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   ArrowLeft,
+  Bike,
+  Car,
   CheckCircle2,
   History,
   Loader2,
@@ -15,6 +17,7 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { apiFetch, ApiError } from "@/lib/api-client";
 import { useAuth } from "@/lib/auth-context";
 import { useMe } from "@/lib/hooks/use-me";
+import { useExams } from "@/lib/hooks/use-exams";
 import { AiExplainBlock } from "@/components/ai-explain-block";
 import { ExamIndicator } from "@/components/exam-indicator";
 import type { Dictionary, Locale } from "@/lib/dictionaries";
@@ -89,6 +92,7 @@ export function PracticeFlow({ t, lang }: Props) {
   // sees the free-trial landing flash before auth rehydrates.
   const { user, loading: authLoading } = useAuth();
   const me = useMe();
+  const exams = useExams(lang);
   const queryClient = useQueryClient();
   const [phase, setPhase] = useState<Phase>({ kind: "idle" });
   const [historyOpen, setHistoryOpen] = useState(false);
@@ -159,7 +163,10 @@ export function PracticeFlow({ t, lang }: Props) {
     return result;
   }
 
-  async function start() {
+  // examId is only meaningful for anonymous visitors choosing on the landing —
+  // the backend ignores it for signed-in users (they always use their current
+  // exam). So the signed-in "Start" buttons call start() with no arg.
+  async function start(examId?: string) {
     setPhase({ kind: "starting" });
     try {
       const { startRes, status } = await withMinDuration(
@@ -168,7 +175,11 @@ export function PracticeFlow({ t, lang }: Props) {
             "/api/v1/practice/sessions",
             {
               method: "POST",
-              body: JSON.stringify({ entry_type: entryType, language: lang }),
+              body: JSON.stringify({
+                entry_type: entryType,
+                language: lang,
+                ...(examId ? { exam_id: Number(examId) } : {}),
+              }),
             },
           );
           const status = await apiFetch<SessionStatus>(
@@ -399,14 +410,14 @@ export function PracticeFlow({ t, lang }: Props) {
                 </Button>
                 <button
                   type="button"
-                  onClick={start}
+                  onClick={() => start()}
                   className="text-xs font-medium text-muted-foreground underline-offset-4 hover:underline"
                 >
                   {t.startFresh}
                 </button>
               </>
             ) : (
-              <Button size="lg" onClick={start} disabled={me.isLoading}>
+              <Button size="lg" onClick={() => start()} disabled={me.isLoading}>
                 {entryType === "full" ? t.startFull : t.startFreeTrial}
               </Button>
             )}
@@ -429,7 +440,9 @@ export function PracticeFlow({ t, lang }: Props) {
           // sits below as a secondary path for users who want full coverage
           // + saved progress.
           <div className="mx-auto flex w-full max-w-md flex-col items-center gap-5">
-            {/* Primary — Free trial */}
+            {/* Primary — Free trial. Anonymous visitors pick the exam FIRST
+                (one button per exam) instead of being dropped into a default —
+                the choice is sent as exam_id to the start call. */}
             <div className="w-full rounded-xl border border-primary/30 bg-primary/5 p-6 text-center shadow-sm">
               <p className="mb-1 text-xs font-medium uppercase tracking-wider text-primary">
                 {t.freeTrialBadge}
@@ -438,16 +451,34 @@ export function PracticeFlow({ t, lang }: Props) {
                 {t.freeTrialHeading}
               </h2>
               <p className="mb-4 text-sm text-muted-foreground">
+                {t.chooseExamPrompt}
+              </p>
+              {exams.isLoading ? (
+                <div className="flex justify-center py-2">
+                  <Loader2 className="size-5 animate-spin text-primary" />
+                </div>
+              ) : (
+                <div className="flex flex-col gap-2">
+                  {(exams.data ?? []).map((exam) => {
+                    const Icon = exam.license_class.startsWith("M") ? Bike : Car;
+                    return (
+                      <Button
+                        key={exam.id}
+                        size="lg"
+                        variant="outline"
+                        onClick={() => start(exam.id)}
+                        className="w-full justify-start gap-2"
+                      >
+                        <Icon className="size-4 shrink-0" />
+                        {exam.name}
+                      </Button>
+                    );
+                  })}
+                </div>
+              )}
+              <p className="mt-3 text-xs text-muted-foreground">
                 {t.freeTrialBody}
               </p>
-              <Button
-                size="lg"
-                onClick={start}
-                disabled={me.isLoading}
-                className="w-full"
-              >
-                {t.startFreeTrial}
-              </Button>
             </div>
 
             {/* Secondary — Sign in / register */}
