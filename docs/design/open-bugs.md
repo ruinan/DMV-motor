@@ -361,6 +361,8 @@ throttling/anti-abuse (subscription-model.md decision) · per-exam server backup
   amber (M1 palette), C button = blue (C palette). And the "Sign in or register"
   link → black (neutral dark). File: PracticeFlow anonymous exam-chooser buttons +
   the sign-in prompt. (Map license_class → color, like ExamIndicator/theme.css.)
+  ALSO: make the two exam buttons BIGGER and a UNIFORM size (same width/height, not
+  sized to their label).
 
 ## Backlog (from earlier)
 D1 dashboard engagement (streak/daily goal/next-best-action) · Phase 2 per-exam
