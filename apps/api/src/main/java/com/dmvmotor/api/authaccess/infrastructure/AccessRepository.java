@@ -3,6 +3,7 @@ package com.dmvmotor.api.authaccess.infrastructure;
 import com.dmvmotor.api.authaccess.domain.AccessPass;
 import com.dmvmotor.api.infrastructure.jooq.generated.Tables;
 import org.jooq.DSLContext;
+import org.jooq.Field;
 import org.jooq.Record;
 import org.jooq.impl.DSL;
 import org.springframework.stereotype.Repository;
@@ -12,6 +13,11 @@ import java.util.Optional;
 
 @Repository
 public class AccessRepository {
+
+    // V32 access_passes.exam_id (dynamic ref, no jOOQ regen). NULL = legacy /
+    // dev grant-pass = a global pass that unlocks any exam.
+    private static final Field<Long> AP_EXAM_ID =
+            DSL.field(DSL.name("access_passes", "exam_id"), Long.class);
 
     private final DSLContext dsl;
 
@@ -31,13 +37,17 @@ public class AccessRepository {
      *      "expired on X" for a recently-lapsed pass.
      *
      * Returns empty for anonymous (userId null) or users with no passes.
+     *
+     * Scoped to {@code examId}: a per-exam pass counts only for its exam; a
+     * legacy/dev pass (exam_id NULL) is global and counts for any exam.
      */
-    public Optional<AccessPass> findRelevantPassByUserId(Long userId, OffsetDateTime now) {
+    public Optional<AccessPass> findRelevantPassByUserId(Long userId, Long examId, OffsetDateTime now) {
         if (userId == null) return Optional.empty();
 
         var ap = Tables.ACCESS_PASSES;
         Record r = dsl.selectFrom(ap)
-                .where(ap.USER_ID.eq(userId))
+                .where(ap.USER_ID.eq(userId)
+                        .and(AP_EXAM_ID.eq(examId).or(AP_EXAM_ID.isNull())))
                 .orderBy(
                         // Tier 1: currently in window — priority 0 (best),
                         // everything else priority 1.

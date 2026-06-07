@@ -62,6 +62,29 @@ class AccessControllerTest extends IntegrationTestBase {
     }
 
     @Test
+    void getAccess_perExamPass_onlyUnlocksThatExam() throws Exception {
+        // V32 per-exam subscription: a pass for exam A must NOT unlock exam B.
+        OffsetDateTime now = OffsetDateTime.now();
+        Long examA = fixtures.defaultExamId();
+        Long examB = fixtures.insertExam("WA", "C", "Washington Class C", "华盛顿 C 类", 83);
+        fixtures.insertAccessPassForExam(userId, examA, "active",
+                now.minusDays(1), now.plusDays(30), 3, 0);
+
+        // Current exam = A → the pass applies.
+        fixtures.setUserCurrentExam(userId, examA);
+        mockMvc.perform(get("/api/v1/access").header("Authorization", "Bearer " + userId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.has_active_pass").value(true));
+
+        // Switch current exam to B → the exam-A pass does NOT carry over.
+        fixtures.setUserCurrentExam(userId, examB);
+        mockMvc.perform(get("/api/v1/access").header("Authorization", "Bearer " + userId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.state").value("free_trial"))
+                .andExpect(jsonPath("$.data.has_active_pass").value(false));
+    }
+
+    @Test
     void getAccess_userWithActivePass_returnsActiveWithMockRemaining() throws Exception {
         OffsetDateTime now = OffsetDateTime.now();
         fixtures.insertAccessPass(userId, "active",

@@ -481,6 +481,19 @@ public class TestFixtures {
                 """, Long.class, userId, status, startsAt, expiresAt, mockTotal, mockUsed);
     }
 
+    /** A pass scoped to one exam (V32 per-exam subscription). */
+    public Long insertAccessPassForExam(Long userId, Long examId, String status,
+                                        OffsetDateTime startsAt, OffsetDateTime expiresAt,
+                                        int mockTotal, int mockUsed) {
+        return jdbc.queryForObject("""
+                INSERT INTO access_passes
+                    (user_id, exam_id, status, starts_at, expires_at,
+                     mock_exam_total_count, mock_exam_used_count)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+                RETURNING id
+                """, Long.class, userId, examId, status, startsAt, expiresAt, mockTotal, mockUsed);
+    }
+
     /** Force an existing pass to be time-expired by pulling expires_at into the past. */
     public void expireAccessPass(Long passId) {
         jdbc.update("""

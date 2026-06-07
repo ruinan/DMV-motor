@@ -2,6 +2,7 @@ package com.dmvmotor.api.authaccess.application;
 
 import com.dmvmotor.api.authaccess.domain.AccessPass;
 import com.dmvmotor.api.authaccess.infrastructure.AccessRepository;
+import com.dmvmotor.api.content.application.ExamContext;
 import org.springframework.stereotype.Service;
 
 import java.time.OffsetDateTime;
@@ -11,14 +12,21 @@ import java.util.Optional;
 public class AccessService {
 
     private final AccessRepository accessRepo;
+    private final ExamContext      examContext;
 
-    public AccessService(AccessRepository accessRepo) {
-        this.accessRepo = accessRepo;
+    public AccessService(AccessRepository accessRepo, ExamContext examContext) {
+        this.accessRepo  = accessRepo;
+        this.examContext = examContext;
     }
 
+    /** Access for the user's CURRENT exam — subscriptions are per exam (V32). */
     public AccessInfo getAccess(Long userId) {
+        return getAccess(userId, examContext.resolveExamId(userId));
+    }
+
+    public AccessInfo getAccess(Long userId, Long examId) {
         OffsetDateTime now = OffsetDateTime.now();
-        Optional<AccessPass> passOpt = accessRepo.findRelevantPassByUserId(userId, now);
+        Optional<AccessPass> passOpt = accessRepo.findRelevantPassByUserId(userId, examId, now);
 
         if (passOpt.isEmpty()) {
             return new AccessInfo("free_trial", false, 0, false, false, null, null);
