@@ -60,7 +60,11 @@
     "signOut": "退出登录",
     "switchExam": "切换考试",
     "planFree": "免费版",
-    "planPro": "已订阅"
+    "planPro": "已订阅",
+    "switchExamConfirmTitle": "切换考试？",
+    "switchExamConfirmBody": "练习、模考和进度都会切换到新考试。你随时可以切回来。",
+    "switchExamConfirmYes": "切换",
+    "switchExamConfirmCancel": "取消"
   },
   "studyHub": {
     "title": "学习中心",

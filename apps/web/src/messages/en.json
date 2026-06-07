@@ -60,7 +60,11 @@
     "signOut": "Sign out",
     "switchExam": "Switch exam",
     "planFree": "Free",
-    "planPro": "Subscribed"
+    "planPro": "Subscribed",
+    "switchExamConfirmTitle": "Switch exam?",
+    "switchExamConfirmBody": "Practice, mock exams and progress will switch to the new exam. You can switch back anytime.",
+    "switchExamConfirmYes": "Switch",
+    "switchExamConfirmCancel": "Cancel"
   },
   "studyHub": {
     "title": "Study",

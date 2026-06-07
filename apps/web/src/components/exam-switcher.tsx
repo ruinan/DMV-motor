@@ -5,6 +5,7 @@ import { Bike, Car, Check, ChevronDown, Loader2 } from "lucide-react";
 import { useExams } from "@/lib/hooks/use-exams";
 import { useMe, examName } from "@/lib/hooks/use-me";
 import { useSetExam } from "@/lib/hooks/use-set-exam";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import type { Locale } from "@/lib/dictionaries";
 
 /**
@@ -20,17 +21,21 @@ export function ExamSwitcher({
   variant = "plain",
   prefix,
   switchLabel,
+  confirm,
 }: {
   lang: Locale;
   variant?: "plain" | "chip";
   prefix?: string; // e.g. "Preparing for" (chip only)
   switchLabel: string; // aria-label
+  confirm: { title: string; body: string; yes: string; cancel: string };
 }) {
   const exams = useExams(lang);
   const me = useMe();
   const setExam = useSetExam();
   const [open, setOpen] = useState(false);
   const [pending, setPending] = useState<string | null>(null);
+  // Double-check before switching — re-scopes practice/mock/progress (B37).
+  const [confirmId, setConfirmId] = useState<string | null>(null);
   const ref = useRef<HTMLDivElement>(null);
 
   const current = me.data?.current_exam ?? null;
@@ -59,17 +64,19 @@ export function ExamSwitcher({
   const options = exams.data ?? [];
   const ExamIcon = current.license_class.startsWith("M") ? Bike : Car;
 
-  async function pick(id: string) {
-    if (id === currentId) {
-      setOpen(false);
-      return;
-    }
+  function pick(id: string) {
+    setOpen(false);
+    if (id === currentId) return;
+    setConfirmId(id); // confirm before re-scoping everything
+  }
+
+  async function doSwitch(id: string) {
+    setConfirmId(null);
     setPending(id);
     try {
       await setExam(id);
     } finally {
       setPending(null);
-      setOpen(false);
     }
   }
 
@@ -147,6 +154,16 @@ export function ExamSwitcher({
           })}
         </ul>
       )}
+
+      <ConfirmDialog
+        open={confirmId !== null}
+        title={confirm.title}
+        body={confirm.body}
+        confirmLabel={confirm.yes}
+        cancelLabel={confirm.cancel}
+        onConfirm={() => confirmId && doSwitch(confirmId)}
+        onCancel={() => setConfirmId(null)}
+      />
     </div>
   );
 }

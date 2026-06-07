@@ -56,7 +56,17 @@ export function AppSidebar({ t, lang }: Props) {
           </Link>
           <LanguageSelect currentLang={lang} ariaLabel={t.site.switchLanguage} />
         </div>
-        <ExamSwitcher lang={lang} variant="plain" switchLabel={t.nav.switchExam} />
+        <ExamSwitcher
+          lang={lang}
+          variant="plain"
+          switchLabel={t.nav.switchExam}
+          confirm={{
+            title: t.nav.switchExamConfirmTitle,
+            body: t.nav.switchExamConfirmBody,
+            yes: t.nav.switchExamConfirmYes,
+            cancel: t.nav.switchExamConfirmCancel,
+          }}
+        />
       </div>
 
       <nav className="flex flex-1 flex-col gap-1 px-3 pt-2">
