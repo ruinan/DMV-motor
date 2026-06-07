@@ -16,6 +16,11 @@ import { apiFetch } from "@/lib/api-client";
  * reflects the new exam's own in-progress session (Resume card) — or its empty
  * state if there's nothing yet. Switching back restores the other exam's session
  * the same way (the backend keeps each exam's in-progress session independently).
+ *
+ * Exception (B31): when switching FROM the settings page, stay there — settings
+ * has no exam-specific local state to strand, and the user is deliberately
+ * managing exams; yanking them to the dashboard is jarring. The query
+ * invalidation re-scopes the settings view in place.
  */
 export function useSetExam() {
   const queryClient = useQueryClient();
@@ -27,6 +32,8 @@ export function useSetExam() {
       body: JSON.stringify({ exam_id: examId }),
     });
     await queryClient.invalidateQueries();
+    // Stay put when managing exams from settings; otherwise land on the hub.
+    if (/\/me(\/|$)/.test(pathname)) return;
     const lang = pathname.split("/")[1] || "en";
     router.push(`/${lang}/dashboard`);
   };

@@ -266,6 +266,25 @@ STILL TODO (backend, need Docker):
   study, settings; only mock defaults to study. Impl: useSetExam branch — if on /me,
   stay + scrollIntoView({block:"center"}) the exam section anchor.
 
+## Resolved 2026-06-06 (session 6e, pushed)
+
+B24 auth-aware marketing header · B25 clear query cache on identity change ·
+B30 readiness renormalized (no free points; fresh user = 0%) + regression test ·
+single exam switcher (sidebar, full-width B32) + ExamIndicator text on study/mock/
+practice · U4 frontend (anonymous picks exam before free practice) · green/red
+verdict text · B26 mock failure countdown (keep question, "End exam (Ns)", ~15s) ·
+B31 switching exam from settings stays on settings. ALSO: local backend now runs
+REAL DeepSeek (fetched the key via gcloud Secret Manager — no more APP_AI_PROVIDER=
+stub), so AI 解析 + review-plan return real zh prose (was the recurring B27 stub
+complaint; B27's real sub-bugs — weak_topics dedupe + zh topic names — still open).
+
+Still open: B19/B20 (settings should list ALL exams incl. not-yet-available ones;
+non-activated exams locked from switching; activation = pay/other, model TBD — needs
+the billing model; only M1+C exist now and both are free, so nothing to lock yet) ·
+B11 · B14 · B21 archive cold accounts · B22 DB ai_deep_dive_log clear on reset ·
+B23 gate coverage donut behind subscription + sidebar free badge · B27 weak_topics
+dedupe + localized topic names · B28 verify · B29 switch keeps activity context.
+
 ## Backlog (from earlier)
 D1 dashboard engagement (streak/daily goal/next-best-action) · Phase 2 per-exam
 billing + paid remote backup · B11 mock-in-readiness verify · SummaryService
