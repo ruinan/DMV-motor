@@ -70,6 +70,19 @@ class SummaryControllerTest extends IntegrationTestBase {
     }
 
     @Test
+    void getSummary_freshUser_scoresZero_notInflated() throws Exception {
+        // B30: a user who has done nothing for this exam must score 0, not get
+        // free points from axes (key-coverage / review) that used to default to
+        // 1.0 when there was nothing to measure (that gave 45% after one mock).
+        mockMvc.perform(get("/api/v1/summary")
+                        .header("Authorization", "Bearer " + paidUserId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.readiness_score").value(0))
+                .andExpect(jsonPath("$.data.completion_score").value(0))
+                .andExpect(jsonPath("$.data.is_ready_candidate").value(false));
+    }
+
+    @Test
     void getSummary_withMistakes_showsWeakTopics() throws Exception {
         Long q1 = fixtures.insertQuestion(topicId, "A");
         fixtures.insertMistakeRecord(paidUserId, q1, topicId, 3, "practice");

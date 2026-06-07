@@ -49,16 +49,8 @@ public class SummaryService {
         Long examId = examContext.resolveExamId(userId);
         Components c = computeComponents(userId, cycle, examId);
 
-        int completionScore = weighted(
-                c.keyCoverageRatio,  props.completionKeyCoverageWeight(),
-                c.reviewCompletionRatio, props.completionHighRiskReviewWeight(),
-                c.basicPracticeRatio, props.completionBasicPracticeWeight());
-
-        int readinessScore = weighted(
-                c.mockScoreRatio,     props.mockWeight(),
-                c.keyCoverageRatio,   props.keyCoverageWeight(),
-                c.reviewCompletionRatio, props.highRiskReviewWeight(),
-                c.recentStabilityRatio,  props.recentStabilityWeight());
+        int completionScore = completionScore(c);
+        int readinessScore = readinessScore(c);
 
         List<String> missingGates = evaluateGates(c);
         boolean isReadyCandidate = readinessScore >= props.readyThreshold()
@@ -88,11 +80,7 @@ public class SummaryService {
         Long examId = examContext.resolveExamId(userId);
         Components c = computeComponents(userId, cycle, examId);
 
-        int readinessScore = weighted(
-                c.mockScoreRatio,     props.mockWeight(),
-                c.keyCoverageRatio,   props.keyCoverageWeight(),
-                c.reviewCompletionRatio, props.highRiskReviewWeight(),
-                c.recentStabilityRatio,  props.recentStabilityWeight());
+        int readinessScore = readinessScore(c);
 
         List<String> missingGates = evaluateGates(c);
         boolean isReady = readinessScore >= props.readyThreshold() && missingGates.isEmpty();
@@ -104,7 +92,11 @@ public class SummaryService {
     // Components
     // ---------------------------------------------------------------
 
-    /** Raw component ratios in [0, 1], plus extra fields gates need for threshold comparison. */
+    /** Raw component ratios in [0, 1], plus data-presence flags. An axis with no
+     *  data to measure (no scored mock, no key-coverage questions, no review work,
+     *  no recent practice) is EXCLUDED from the weighted score rather than scored
+     *  1.0 — otherwise a brand-new user gets free points (B30: 45% after one
+     *  failed mock, because key-coverage + review defaulted to 1.0). */
     private record Components(
             double mockScoreRatio,
             double keyCoverageRatio,
@@ -115,15 +107,17 @@ public class SummaryService {
             boolean hasPersistentMistake,
             boolean hasReviewTasks,
             boolean hasKeyCoverageContent,
-            int keyCoveragePercent
+            int keyCoveragePercent,
+            boolean hasBasicPracticeData,
+            boolean hasStabilityData
     ) {}
 
     private Components computeComponents(Long userId, int cycle, Long examId) {
         MockStats mock = mockStats(userId, cycle, examId);
         CoverageStats key = keyCoverageStats(userId, cycle, examId);
         ReviewStats rev = reviewStats(userId, cycle);
-        double practice = basicPracticeRatio(userId, cycle, examId);
-        double stability = recentStabilityRatio(userId, cycle, examId);
+        RatioStat practice = basicPracticeRatio(userId, cycle, examId);
+        RatioStat stability = recentStabilityRatio(userId, cycle, examId);
         boolean persistent = hasPersistentMistake(userId, cycle, examId);
 
         // Mock: 0 when user hasn't taken any mocks; otherwise average score as a ratio of target.
@@ -141,9 +135,27 @@ public class SummaryService {
                 ? 1.0
                 : (double) rev.completedQuestions / rev.totalQuestions;
 
-        return new Components(mockRatio, keyRatio, reviewRatio, practice, stability,
+        return new Components(mockRatio, keyRatio, reviewRatio, practice.ratio(), stability.ratio(),
                 mock.count, persistent, rev.totalQuestions > 0,
-                key.total > 0, key.total == 0 ? 0 : key.answered * 100 / key.total);
+                key.total > 0, key.total == 0 ? 0 : key.answered * 100 / key.total,
+                practice.hasData(), stability.hasData());
+    }
+
+    /** Renormalized weighted score: average the ratios of the axes that have data,
+     *  weighted, scaled to [0,100]. No axes with data → 0 (the user has done
+     *  nothing measurable for this exam yet). */
+    private int readinessScore(Components c) {
+        return weightedNorm(
+                new double[]{c.mockScoreRatio, c.keyCoverageRatio, c.reviewCompletionRatio, c.recentStabilityRatio},
+                new int[]{props.mockWeight(), props.keyCoverageWeight(), props.highRiskReviewWeight(), props.recentStabilityWeight()},
+                new boolean[]{c.mockCount > 0, c.hasKeyCoverageContent, c.hasReviewTasks, c.hasStabilityData});
+    }
+
+    private int completionScore(Components c) {
+        return weightedNorm(
+                new double[]{c.keyCoverageRatio, c.reviewCompletionRatio, c.basicPracticeRatio},
+                new int[]{props.completionKeyCoverageWeight(), props.completionHighRiskReviewWeight(), props.completionBasicPracticeWeight()},
+                new boolean[]{c.hasKeyCoverageContent, c.hasReviewTasks, c.hasBasicPracticeData});
     }
 
     private List<String> evaluateGates(Components c) {
@@ -182,6 +194,8 @@ public class SummaryService {
     private record MockStats(int count, double avgScore) {}
     private record CoverageStats(int answered, int total) {}
     private record ReviewStats(int completedQuestions, int totalQuestions) {}
+    /** A ratio in [0,1] plus whether there was any data behind it. */
+    private record RatioStat(double ratio, boolean hasData) {}
 
     private MockStats mockStats(Long userId, int cycle, Long examId) {
         var ma = Tables.MOCK_ATTEMPTS;
@@ -240,14 +254,15 @@ public class SummaryService {
         return new ReviewStats(done, target);
     }
 
-    private double basicPracticeRatio(Long userId, int cycle, Long examId) {
+    private RatioStat basicPracticeRatio(Long userId, int cycle, Long examId) {
         var q  = Tables.QUESTIONS;
         var pa = Tables.PRACTICE_ATTEMPTS;
         var ps = Tables.PRACTICE_SESSIONS;
 
         int totalActive = dsl.fetchCount(q,
                 q.ALLOW_IN_PRACTICE.isTrue().and(q.STATUS.eq("active")).and(Q_EXAM_ID.eq(examId)));
-        if (totalActive == 0) return 0.0;
+        // No practice questions for this exam → axis isn't measurable.
+        if (totalActive == 0) return new RatioStat(0.0, false);
 
         int answered = dsl.fetchCount(
                 dsl.selectDistinct(pa.QUESTION_ID)
@@ -256,10 +271,11 @@ public class SummaryService {
                    .where(pa.USER_ID.eq(userId)
                            .and(ps.LEARNING_CYCLE.eq(cycle))
                            .and(PS_EXAM_ID.eq(examId))));
-        return Math.min(1.0, (double) answered / totalActive);
+        // The exam HAS practice content, so 0 answered is real data (0% covered).
+        return new RatioStat(Math.min(1.0, (double) answered / totalActive), true);
     }
 
-    private double recentStabilityRatio(Long userId, int cycle, Long examId) {
+    private RatioStat recentStabilityRatio(Long userId, int cycle, Long examId) {
         var pa = Tables.PRACTICE_ATTEMPTS;
         var ps = Tables.PRACTICE_SESSIONS;
 
@@ -272,11 +288,12 @@ public class SummaryService {
                 .orderBy(pa.CREATED_AT.desc())
                 .limit(props.recentPracticeWindow())
                 .fetch(pa.IS_CORRECT);
-        if (recent.isEmpty()) return 0.0;
+        // No recent practice → nothing to measure stability against.
+        if (recent.isEmpty()) return new RatioStat(0.0, false);
         long correct = recent.stream().filter(Boolean.TRUE::equals).count();
         double accuracy = 100.0 * correct / recent.size();
         // Normalize against the configured accuracy target so the component stays in [0, 1].
-        return Math.min(1.0, accuracy / (double) props.recentAccuracyThreshold());
+        return new RatioStat(Math.min(1.0, accuracy / (double) props.recentAccuracyThreshold()), true);
     }
 
     private boolean hasPersistentMistake(Long userId, int cycle, Long examId) {
@@ -319,16 +336,24 @@ public class SummaryService {
         return userRepo.findById(userId).map(u -> u.resetCount()).orElse(0);
     }
 
-    /** Weighted sum of ratio-in-[0,1] × weight-in-%. */
-    private static int weighted(double r1, int w1, double r2, int w2, double r3, int w3) {
-        double score = r1 * w1 + r2 * w2 + r3 * w3;
-        return (int) Math.min(100, Math.max(0, Math.round(score)));
-    }
-
-    private static int weighted(double r1, int w1, double r2, int w2,
-                                double r3, int w3, double r4, int w4) {
-        double score = r1 * w1 + r2 * w2 + r3 * w3 + r4 * w4;
-        return (int) Math.min(100, Math.max(0, Math.round(score)));
+    /**
+     * Weighted average of the axis ratios that have data, scaled to [0,100].
+     * Axes with no data are dropped from BOTH numerator and denominator, so a
+     * non-existent / not-yet-engaged axis neither helps nor hurts (vs. the old
+     * "score it 1.0" which gifted points). All axes have data → identical to the
+     * old Σ(ratio×weight) since the weights sum to 100. No axes → 0.
+     */
+    private static int weightedNorm(double[] ratios, int[] weights, boolean[] hasData) {
+        double num = 0;
+        int den = 0;
+        for (int i = 0; i < ratios.length; i++) {
+            if (hasData[i]) {
+                num += ratios[i] * weights[i];
+                den += weights[i];
+            }
+        }
+        if (den == 0) return 0;
+        return (int) Math.min(100, Math.max(0, Math.round(num / den * 100.0)));
     }
 
     // ---------------------------------------------------------------
