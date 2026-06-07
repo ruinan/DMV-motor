@@ -18,8 +18,8 @@
     "heroImageAlt": "A scenic California highway at sunset",
     "features": {
       "questions": {
-        "title": "Real DMV-style questions",
-        "body": "Practice with questions that closely mirror the actual California DMV written exam format and difficulty."
+        "title": "Exam-style practice questions",
+        "body": "Original simulation questions built to match the format and difficulty of the California DMV written test — not the real exam's questions, but great practice for it."
       },
       "mistakes": {
         "title": "Mistakes tracked",

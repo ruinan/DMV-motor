@@ -24,9 +24,12 @@ export function SiteHeader({ t, lang }: Props) {
   return (
     <header className="sticky top-0 z-40 w-full bg-card shadow-sm">
       <div className="mx-auto flex h-16 w-full max-w-7xl items-center justify-between px-6">
+        {/* Header brand + actions use a fixed neutral dark — independent of the
+            landing's blue/amber accent that shifts with the hero carousel, so the
+            chrome never clashes with whichever slide is showing. */}
         <Link
           href={`/${lang}`}
-          className="text-xl font-bold text-primary tracking-tight"
+          className="text-xl font-bold tracking-tight text-foreground"
         >
           {t.brand}
         </Link>
@@ -36,14 +39,14 @@ export function SiteHeader({ t, lang }: Props) {
           ) : user ? (
             <Link
               href={`/${lang}/dashboard`}
-              className="rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+              className="rounded-md bg-foreground px-3 py-2 text-sm font-medium text-background transition-colors hover:bg-foreground/90"
             >
               {t.goToDashboard}
             </Link>
           ) : (
             <Link
               href={`/${lang}/login`}
-              className="px-3 py-2 text-sm font-medium text-primary transition-colors hover:text-primary/80"
+              className="px-3 py-2 text-sm font-medium text-foreground transition-colors hover:text-foreground/70"
             >
               {t.signIn}
             </Link>
