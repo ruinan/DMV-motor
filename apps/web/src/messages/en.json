@@ -72,6 +72,7 @@
     "readinessTitle": "Exam readiness",
     "readinessLabel": "ready",
     "readinessLocked": "Get a pass to unlock",
+    "coverageLocked": "Subscribe to unlock coverage",
     "readinessLockedCta": "Manage subscription",
     "readinessTooltip": "How close you are to being exam-ready — weighed from your overall performance, key-topic coverage, and whether your weak spots are cleared. It's deliberately conservative, so it won't jump on one good score.",
     "resumeTitle": "Resume your practice",

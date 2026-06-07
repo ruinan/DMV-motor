@@ -72,6 +72,7 @@
     "readinessTitle": "应考准备度",
     "readinessLabel": "准备度",
     "readinessLocked": "购买学习卡解锁",
+    "coverageLocked": "订阅后解锁知识点覆盖",
     "readinessLockedCta": "管理订阅",
     "readinessTooltip": "衡量你离“可以去考”还有多近——综合你的整体表现、关键考点覆盖、以及薄弱点是否补齐。它偏保守，不会因为某一次考好就跳上去。",
     "resumeTitle": "继续上次的练习",

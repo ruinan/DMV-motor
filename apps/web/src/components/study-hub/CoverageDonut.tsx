@@ -1,5 +1,7 @@
 "use client";
 
+import { Lock } from "lucide-react";
+
 /**
  * Knowledge Coverage donut for the Study Hub hero. Hand-rolled SVG, no
  * charting lib — just stroke-dasharray to make a ring.
@@ -12,6 +14,9 @@ type Props = {
   masteredLabel: string;
   coveredLabel: string;
   size?: number;
+  /** Free users: hide the figures behind a lock (B23) — subscription unlocks it. */
+  locked?: boolean;
+  lockedLabel?: string;
 };
 
 /**
@@ -28,7 +33,26 @@ export function CoverageDonut({
   masteredLabel,
   coveredLabel,
   size = 160,
+  locked = false,
+  lockedLabel,
 }: Props) {
+  if (locked) {
+    return (
+      <div className="flex flex-col items-center gap-2">
+        <div
+          className="flex items-center justify-center rounded-full border-[10px] border-muted/30"
+          style={{ width: size, height: size }}
+        >
+          <Lock className="size-10 text-muted-foreground" aria-hidden />
+        </div>
+        <p className="text-center text-sm font-semibold text-foreground">{label}</p>
+        {lockedLabel && (
+          <p className="text-center text-xs text-muted-foreground">{lockedLabel}</p>
+        )}
+      </div>
+    );
+  }
+
   const safeTotal = Math.max(total, 1);
   const masteredPct = mastered / safeTotal;
   const coveredPct = Math.min(covered, total) / safeTotal;

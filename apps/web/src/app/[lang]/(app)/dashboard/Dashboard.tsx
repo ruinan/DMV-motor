@@ -91,7 +91,17 @@ export function Dashboard({ t, lang }: Props) {
             label={t.studyHub.coverageTitle}
             masteredLabel={t.studyHub.coverageMastered}
             coveredLabel={t.studyHub.coverageTouched}
+            locked={!isPaid}
+            lockedLabel={t.studyHub.coverageLocked}
           />
+          {!isPaid && (
+            <Link
+              href={`/${lang}/me#subscription`}
+              className="text-xs font-medium text-primary underline-offset-4 hover:underline"
+            >
+              {t.studyHub.readinessLockedCta}
+            </Link>
+          )}
         </div>
         <div className="flex flex-col items-center gap-3">
           <ReadinessRing
