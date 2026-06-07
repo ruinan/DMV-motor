@@ -2,6 +2,7 @@ package com.dmvmotor.api.authaccess.application;
 
 import com.dmvmotor.api.authaccess.infrastructure.UserRepository;
 import com.dmvmotor.api.authaccess.infrastructure.UserRepository.UserRow;
+import com.dmvmotor.api.aisupport.infrastructure.AiExplanationRepository;
 import com.dmvmotor.api.common.BusinessException;
 import com.dmvmotor.api.common.ResourceNotFoundException;
 import com.dmvmotor.api.content.domain.Exam;
@@ -21,17 +22,20 @@ public class AccountService {
     private final PracticeSessionRepository practiceSessionRepo;
     private final ReviewRepository          reviewRepo;
     private final ExamRepository            examRepo;
+    private final AiExplanationRepository   aiExplanationRepo;
 
     public AccountService(UserRepository userRepo,
                           AccessService accessService,
                           PracticeSessionRepository practiceSessionRepo,
                           ReviewRepository reviewRepo,
-                          ExamRepository examRepo) {
+                          ExamRepository examRepo,
+                          AiExplanationRepository aiExplanationRepo) {
         this.userRepo            = userRepo;
         this.accessService       = accessService;
         this.practiceSessionRepo = practiceSessionRepo;
         this.reviewRepo          = reviewRepo;
         this.examRepo            = examRepo;
+        this.aiExplanationRepo   = aiExplanationRepo;
     }
 
     public MeResult getMe(Long userId) {
@@ -73,6 +77,10 @@ public class AccountService {
         // Soft reset: increment cycle counter so all current-cycle data becomes invisible.
         // Historical data (practice sessions, mistakes, review packs) is preserved.
         userRepo.incrementResetCount(userId);
+        // AI explanation cache is keyed by question (not cycle), so it would keep
+        // serving old cached answers after a reset — drop it for a clean slate
+        // (B22; the browser-side deep-dive threads are cleared client-side too).
+        aiExplanationRepo.deleteForUser(userId);
     }
 
     public record MeResult(

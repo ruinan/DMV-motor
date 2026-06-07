@@ -19,6 +19,14 @@ public class AiExplanationRepository {
         this.dsl = dsl;
     }
 
+    /** Drop this user's cached explanations — called on a learning reset so the
+     *  user truly starts fresh (B22; the per-question cache isn't cycle-scoped, so
+     *  a reset would otherwise keep serving old cached answers). */
+    public int deleteForUser(Long userId) {
+        AiExplanations t = Tables.AI_EXPLANATIONS;
+        return dsl.deleteFrom(t).where(t.USER_ID.eq(userId)).execute();
+    }
+
     public Optional<AiExplanation> findByUserQuestionLanguage(Long userId, Long questionId, String language) {
         AiExplanations t = Tables.AI_EXPLANATIONS;
         return dsl.selectFrom(t)
