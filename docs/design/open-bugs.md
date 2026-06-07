@@ -246,6 +246,26 @@ STILL TODO (backend, need Docker):
   autoResumeFired) so it re-scopes / auto-resumes the new exam. File: use-set-exam.ts
   + PracticeFlow.tsx.
 
+- **B30 — readiness inflated to 45% after one failed mock (metric bug).** A fresh
+  CA-C user who did ONE mock (failed, ended_by_failure → not counted) shows 45%.
+  Breakdown: readiness = mock×40 + keyCoverage×25 + review×20 + stability×15. With
+  no engagement: mockRatio=0, stabilityRatio=0, BUT keyRatio defaults to 1.0 (CA-C
+  has NO is_key_coverage questions → key.total=0 → "trivially 1.0") and reviewRatio
+  defaults to 1.0 (no review tasks → 1.0). => 0+25+20+0 = 45. The "1.0 when nothing
+  to measure" defaults GIFT points to someone who's done nothing. FIX (recommended):
+  renormalize — exclude axes with no data from the weighted average (denominator =
+  sum of weights of axes that HAVE data; 0 axes → readiness 0), instead of scoring
+  them 1.0. Brand-new user → 0%. Also flag CA-C is_key_coverage questions (data gap)
+  so coverage is a real axis. Note: changes SummaryControllerTest expectations.
+  File: SummaryService.computeComponents/weighted + a V-migration for CA-C key flags.
+- **B31 (new req) — switching exam on settings stays on settings.** Refines B29:
+  when switching exam FROM the settings page (via the page's exam picker OR the
+  sidebar dropdown while on /me), DON'T navigate away — stay on settings and scroll
+  to / vertically-center the exam section. (B29 had said settings→dashboard; B31
+  overrides for the settings case specifically.) So tracked contexts = practice,
+  study, settings; only mock defaults to study. Impl: useSetExam branch — if on /me,
+  stay + scrollIntoView({block:"center"}) the exam section anchor.
+
 ## Backlog (from earlier)
 D1 dashboard engagement (streak/daily goal/next-best-action) · Phase 2 per-exam
 billing + paid remote backup · B11 mock-in-readiness verify · SummaryService

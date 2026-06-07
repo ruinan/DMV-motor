@@ -5,9 +5,11 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   browserLocalPersistence,
   createUserWithEmailAndPassword,
@@ -34,6 +36,10 @@ const AuthContext = createContext<AuthState | null>(null);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
+  // Track the last-seen Firebase uid so we can tell an identity CHANGE (login as
+  // a different user / logout) apart from a silent token refresh (same uid).
+  const prevUid = useRef<string | null | undefined>(undefined);
 
   useEffect(() => {
     // Force IndexedDB/localStorage persistence so a hard reload rehydrates
@@ -50,11 +56,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // so callers reading currentUser.getIdToken() never get a stale token,
     // and gives us a single place to observe TTL boundary events.
     const unsub = onIdTokenChanged(firebaseAuth, (u) => {
+      const uid = u?.uid ?? null;
+      // On a real identity change (not the initial fire, not a token refresh),
+      // drop ALL cached query data so the next user never inherits the previous
+      // user's / anonymous session, /me, history, etc. — that mismatch caused
+      // "Session belongs to a different user". Covers login-as-different-user
+      // and logout.
+      if (prevUid.current !== undefined && prevUid.current !== uid) {
+        queryClient.clear();
+      }
+      prevUid.current = uid;
       setUser(u);
       setLoading(false);
     });
     return unsub;
-  }, []);
+  }, [queryClient]);
 
   const value = useMemo<AuthState>(
     () => ({

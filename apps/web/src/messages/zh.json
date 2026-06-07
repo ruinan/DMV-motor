@@ -2,6 +2,7 @@
   "site": {
     "brand": "DMV 备考",
     "signIn": "登录",
+    "goToDashboard": "进入学习中心",
     "switchLanguage": "切换语言"
   },
   "home": {

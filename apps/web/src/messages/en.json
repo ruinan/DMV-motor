@@ -2,6 +2,7 @@
   "site": {
     "brand": "DMV Prep",
     "signIn": "Sign in",
+    "goToDashboard": "Go to study hub",
     "switchLanguage": "Switch language"
   },
   "home": {
