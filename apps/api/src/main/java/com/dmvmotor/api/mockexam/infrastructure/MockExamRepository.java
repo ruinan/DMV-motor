@@ -240,7 +240,13 @@ public class MockExamRepository {
         var qv  = Tables.QUESTION_VARIANTS;
         var t   = Tables.TOPICS;
         var st  = Tables.SUB_TOPICS;
-        return dsl.select(qv.STEM_TEXT, t.NAME_EN, st.NAME_EN,
+        // Localized topic / sub-topic labels so the review plan reads in the
+        // requested language (was always name_en — English topic names leaked
+        // into the zh plan, B27).
+        boolean zh = "zh".equalsIgnoreCase(language);
+        var topicName    = zh ? t.NAME_ZH : t.NAME_EN;
+        var subTopicName = zh ? st.NAME_ZH : st.NAME_EN;
+        return dsl.select(qv.STEM_TEXT, topicName, subTopicName,
                           mar.SELECTED_CHOICE_KEY, q.CORRECT_CHOICE_KEY)
                 .from(mar)
                 .join(q).on(q.ID.eq(mar.QUESTION_ID))
@@ -250,8 +256,8 @@ public class MockExamRepository {
                 .where(mar.MOCK_ATTEMPT_ID.eq(attemptId).and(mar.IS_CORRECT.isFalse()))
                 .fetch(r -> new WrongAnswerDetail(
                         r.get(qv.STEM_TEXT),
-                        r.get(t.NAME_EN),
-                        r.get(st.NAME_EN),
+                        r.get(topicName),
+                        r.get(subTopicName),
                         r.get(mar.SELECTED_CHOICE_KEY),
                         r.get(q.CORRECT_CHOICE_KEY)));
     }
