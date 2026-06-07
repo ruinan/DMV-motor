@@ -9,6 +9,8 @@ import {
   Timer,
   ShieldCheck,
   ArrowRight,
+  Car,
+  Bike,
 } from "lucide-react";
 import { buttonVariants } from "@/components/ui/button";
 import type { Dictionary, Locale } from "@/lib/dictionaries";
@@ -74,14 +76,20 @@ export function MarketingHome({
         <p className="max-w-xl text-lg leading-relaxed text-muted-foreground">
           {t.subtitle}
         </p>
-        <div className="flex flex-wrap items-center justify-center gap-2 text-sm">
-          <span className="text-muted-foreground">{t.examsCoveredLabel}:</span>
-          <span className="rounded-full border border-border bg-card px-3 py-1 font-medium text-foreground">
-            {t.examClassC}
+        <div className="flex flex-col items-center gap-3">
+          <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+            {t.examsCoveredLabel}
           </span>
-          <span className="rounded-full border border-border bg-card px-3 py-1 font-medium text-foreground">
-            {t.examM1}
-          </span>
+          <div className="flex flex-wrap items-center justify-center gap-3">
+            <span className="inline-flex items-center gap-2 rounded-full border-2 border-primary/40 bg-primary/5 px-4 py-2 text-base font-semibold text-foreground transition-colors duration-1000">
+              <Car className="size-5 text-primary" />
+              {t.examClassC}
+            </span>
+            <span className="inline-flex items-center gap-2 rounded-full border-2 border-primary/40 bg-primary/5 px-4 py-2 text-base font-semibold text-foreground transition-colors duration-1000">
+              <Bike className="size-5 text-primary" />
+              {t.examM1}
+            </span>
+          </div>
         </div>
         <p className="max-w-md text-xs text-muted-foreground">{t.freeTierNote}</p>
         <Link
@@ -129,19 +137,16 @@ export function MarketingHome({
       <section className="grid w-full max-w-5xl grid-cols-1 gap-6 md:grid-cols-3">
         <FeatureCard
           icon={<ClipboardList className="size-6" />}
-          tone="primary"
           title={t.features.questions.title}
           body={t.features.questions.body}
         />
         <FeatureCard
           icon={<Bookmark className="size-6" />}
-          tone="secondary"
           title={t.features.mistakes.title}
           body={t.features.mistakes.body}
         />
         <FeatureCard
           icon={<Timer className="size-6" />}
-          tone="accent"
           title={t.features.mock.title}
           body={t.features.mock.body}
         />
@@ -150,28 +155,19 @@ export function MarketingHome({
   );
 }
 
-const TONE_CLASSES = {
-  primary: "bg-primary/10 text-primary",
-  secondary: "bg-secondary text-secondary-foreground",
-  accent: "bg-accent text-accent-foreground",
-} as const;
-
 function FeatureCard({
   icon,
-  tone,
   title,
   body,
 }: {
   icon: ReactNode;
-  tone: keyof typeof TONE_CLASSES;
   title: string;
   body: string;
 }) {
   return (
-    <div className="flex flex-col gap-4 rounded-xl border border-border/40 bg-card p-6 shadow-sm transition-all hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-md">
-      <div
-        className={`flex size-12 items-center justify-center rounded-full transition-colors duration-1000 ${TONE_CLASSES[tone]}`}
-      >
+    <div className="flex flex-col items-center gap-4 rounded-xl border border-border/40 bg-card p-6 text-center shadow-sm transition-all hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-md">
+      {/* All feature icons use the accent so they recolor with the hero carousel. */}
+      <div className="flex size-12 items-center justify-center rounded-full bg-primary/10 text-primary transition-colors duration-1000">
         {icon}
       </div>
       <div>

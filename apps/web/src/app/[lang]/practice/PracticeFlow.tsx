@@ -443,8 +443,8 @@ export function PracticeFlow({ t, lang }: Props) {
             {/* Primary — Free trial. Anonymous visitors pick the exam FIRST
                 (one button per exam) instead of being dropped into a default —
                 the choice is sent as exam_id to the start call. */}
-            <div className="w-full rounded-xl border border-primary/30 bg-primary/5 p-6 text-center shadow-sm">
-              <p className="mb-1 text-xs font-medium uppercase tracking-wider text-primary">
+            <div className="w-full rounded-xl border border-border/70 bg-muted/40 p-6 text-center shadow-sm">
+              <p className="mb-1 text-xs font-medium uppercase tracking-wider text-muted-foreground">
                 {t.freeTrialBadge}
               </p>
               <h2 className="mb-1 text-lg font-semibold text-foreground">
