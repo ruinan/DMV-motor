@@ -355,6 +355,12 @@ throttling/anti-abuse (subscription-model.md decision) · per-exam server backup
 - **B40 — index footer.** Header is white; give the footer's top border a slightly
   more prominent shadow, and consider matching the footer background to the header
   (white). File: site-footer.tsx.
+- **B41 — anonymous free-trial exam chooser: color buttons per exam.** On the
+  "Pick an exam to practice" cards (PracticeFlow anonymous branch, the U4 buttons),
+  give each exam button its own theme color via the BUTTON BACKGROUND — M1 button =
+  amber (M1 palette), C button = blue (C palette). And the "Sign in or register"
+  link → black (neutral dark). File: PracticeFlow anonymous exam-chooser buttons +
+  the sign-in prompt. (Map license_class → color, like ExamIndicator/theme.css.)
 
 ## Backlog (from earlier)
 D1 dashboard engagement (streak/daily goal/next-best-action) · Phase 2 per-exam
