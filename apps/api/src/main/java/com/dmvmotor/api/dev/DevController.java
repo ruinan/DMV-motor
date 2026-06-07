@@ -12,6 +12,7 @@ import org.springframework.context.annotation.Profile;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.time.OffsetDateTime;
@@ -41,9 +42,12 @@ public class DevController {
     private static final Logger LOG = LoggerFactory.getLogger(DevController.class);
 
     private final AccessRepository accessRepo;
+    private final com.dmvmotor.api.content.application.ExamContext examContext;
 
-    public DevController(AccessRepository accessRepo) {
-        this.accessRepo = accessRepo;
+    public DevController(AccessRepository accessRepo,
+                         com.dmvmotor.api.content.application.ExamContext examContext) {
+        this.accessRepo  = accessRepo;
+        this.examContext = examContext;
     }
 
     @PostConstruct
@@ -54,23 +58,27 @@ public class DevController {
 
     /**
      * Grants the authenticated user a 30-day active pass with 5 mock-exam
-     * attempts available. Idempotent only in the sense that calling twice
-     * creates two passes; the AccessRepository selection logic picks the
-     * currently-active one with the latest expires_at.
+     * attempts. Per-exam now (V32 subscription model): scoped to {@code exam_id}
+     * if given, else the user's current exam — so you can test per-exam unlocking
+     * (grant on CA-C, switch to M1 → still locked). Calling twice creates two
+     * passes; the selection logic picks the active one with the latest expires_at.
      */
     @PostMapping("/grant-pass")
-    public ApiResponse<?> grantPass(@CurrentUser Long userId) {
+    public ApiResponse<?> grantPass(@CurrentUser Long userId,
+                                    @RequestParam(required = false) Long exam_id) {
         if (userId == null) {
             throw new BusinessException("UNAUTHORIZED",
                     "Authentication required", HttpStatus.UNAUTHORIZED);
         }
+        Long examId = exam_id != null ? exam_id : examContext.resolveExamId(userId);
         OffsetDateTime now = OffsetDateTime.now();
         OffsetDateTime expires = now.plusDays(30);
-        Long passId = accessRepo.insertActivePass(userId, now, expires, 5);
-        LOG.info("[dev] granted access pass {} to user {}", passId, userId);
+        Long passId = accessRepo.insertActivePass(userId, examId, now, expires, 5);
+        LOG.info("[dev] granted access pass {} to user {} for exam {}", passId, userId, examId);
         return ApiResponse.ok(Map.of(
                 "pass_id",    String.valueOf(passId),
                 "user_id",    String.valueOf(userId),
+                "exam_id",    String.valueOf(examId),
                 "expires_at", expires.toString(),
                 "mock_quota", 5
         ));

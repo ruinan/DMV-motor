@@ -93,9 +93,20 @@ public class AccessRepository {
                                   OffsetDateTime startsAt,
                                   OffsetDateTime expiresAt,
                                   int mockExamTotalCount) {
+        return insertActivePass(userId, null, startsAt, expiresAt, mockExamTotalCount);
+    }
+
+    /** Insert a pass scoped to {@code examId} (null = global). The per-exam form
+     *  is what the dev grant + future checkout use (V32 subscription model). */
+    public Long insertActivePass(Long userId,
+                                  Long examId,
+                                  OffsetDateTime startsAt,
+                                  OffsetDateTime expiresAt,
+                                  int mockExamTotalCount) {
         var ap = Tables.ACCESS_PASSES;
         return dsl.insertInto(ap)
                 .set(ap.USER_ID,               userId)
+                .set(AP_EXAM_ID,               examId)
                 .set(ap.STATUS,                "active")
                 .set(ap.STARTS_AT,             startsAt)
                 .set(ap.EXPIRES_AT,            expiresAt)

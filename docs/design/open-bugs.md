@@ -310,6 +310,25 @@ dedupe + localized topic names · B28 verify · B29 switch keeps activity contex
   practice ("仿真练习" / "simulation"). The hero badge / feature icon color should
   also follow the carousel accent.
 
+## Session 6g (2026-06-07)
+
+- **B36 — practice anonymous free-trial card bg too blue.** The "免费试用题集" card
+  uses bg-primary/5 (light blue). Change to a NEUTRAL light grey (pick a good
+  neutral, e.g. bg-muted/40 or a faint slate). File: PracticeFlow anonymous branch.
+- **B37 — opening a new exam type needs a double-check.** Subscription management
+  isn't built; for now the settings exam section is the place to "open" a new exam
+  type. Switching/opening must show a confirm dialog (double-check) so it isn't
+  accidental. (Ties to B19/B20 catalog + the activation model.)
+- **B38 — index feature-card icons: follow the accent + center them.** On the
+  landing, "Mock exam simulator" + "Mistakes tracked" icons DON'T recolor with the
+  hero carousel (they use secondary/accent tones; only the primary-tone icon does).
+  Make ALL feature icons follow the carousel accent (use the primary tone / derive
+  from --primary). Also center the icon (and likely the card content). File:
+  MarketingHome FeatureCard + TONE_CLASSES.
+- **B39 — index "Now covering" exams not prominent enough.** The "Now covering:
+  CA Class C / CA M1" row reads as fine print; make it more prominent (bigger /
+  card-like / icons). File: MarketingHome hero.
+
 ## Backlog (from earlier)
 D1 dashboard engagement (streak/daily goal/next-best-action) · Phase 2 per-exam
 billing + paid remote backup · B11 mock-in-readiness verify · SummaryService
