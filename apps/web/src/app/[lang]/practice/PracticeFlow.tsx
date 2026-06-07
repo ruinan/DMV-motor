@@ -668,7 +668,11 @@ export function PracticeFlow({ t, lang }: Props) {
                 : "border-destructive/40 bg-destructive/5 text-foreground"
             }`}
           >
-            <p className="text-base font-semibold">
+            <p
+              className={`text-base font-semibold ${
+                phase.result.is_correct ? "text-success" : "text-destructive"
+              }`}
+            >
               {phase.result.is_correct ? t.correct : t.incorrect}
             </p>
             {phase.result.explanation && (

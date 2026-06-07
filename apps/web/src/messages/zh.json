@@ -290,6 +290,8 @@
     "aiExplainAuthRequired": "登录后可获取 AI 解析。",
     "aiExplainDeepen": "深入分析",
     "aiExplainDepthReached": "已是最深解析。",
+    "terminatingBanner": "错题过多，本次模考即将结束。",
+    "endExamNow": "结束考试（{n}s）",
     "terminatedTitle": "考试结束——错题过多",
     "terminatedBody": "你已答 {answered} 题，其中 {wrong} 道错。错题超过失败门槛，考试自动终止。",
     "terminatedTryAgain": "重新开始一次模考",

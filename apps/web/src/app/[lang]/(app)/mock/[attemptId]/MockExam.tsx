@@ -89,6 +89,12 @@ export function MockExam({ t, lang, attemptId }: Props) {
   // finalized as ended_by_failure on the backend, no further answers are
   // accepted, and the user lands on a failure result view.
   const [terminated, setTerminated] = useState(false);
+  // When the wrong-answer cap is hit we DON'T jump straight to the failure view
+  // (jarring). Instead we keep the current question's feedback on screen, swap
+  // Next for an "end exam" button, and count down ~15s before auto-showing the
+  // result (B26). `failing` arms that countdown; terminatingSec is the display.
+  const [failing, setFailing] = useState(false);
+  const [terminatingSec, setTerminatingSec] = useState(0);
   // Tracks which attemptId we've already initialised picks for. React 19's
   // "set state during render in response to changed props" pattern; using a
   // ref here would trip the no-mutate-refs-in-render rule.
@@ -187,6 +193,29 @@ export function MockExam({ t, lang, attemptId }: Props) {
     const id = setInterval(tick, 1000);
     return () => clearInterval(id);
   }, [deadlineMs, result, terminated, submitNow]);
+
+  // Failure countdown: once the wrong-answer cap is hit, count down to the
+  // failure view instead of swapping immediately (B26). The deadline is captured
+  // on the first tick (Date.now lives in the tick fn, never in render).
+  useEffect(() => {
+    if (!failing) return;
+    let deadline: number | null = null;
+    let id: ReturnType<typeof setInterval> | null = null;
+    const tick = () => {
+      if (deadline === null) deadline = Date.now() + 15_000;
+      const rem = Math.max(0, Math.ceil((deadline - Date.now()) / 1000));
+      setTerminatingSec(rem);
+      if (rem <= 0) {
+        setTerminated(true);
+        if (id) clearInterval(id);
+      }
+    };
+    tick();
+    id = setInterval(tick, 500);
+    return () => {
+      if (id) clearInterval(id);
+    };
+  }, [failing]);
 
   // Seed picks from server-persisted saved_answers on first successful fetch.
   if (attempt.data && initialisedFor !== attempt.data.mock_attempt_id) {
@@ -399,9 +428,11 @@ export function MockExam({ t, lang, attemptId }: Props) {
       setSaveStatus("saved");
       savedTimer.current = setTimeout(() => setSaveStatus("idle"), 1500);
       if (res.should_terminate) {
-        // Server already finalized this attempt as ended_by_failure — refresh
-        // the Study Hub so the result shows there too.
-        setTerminated(true);
+        // Server already finalized this attempt as ended_by_failure. Don't yank
+        // the user away — let them see this question's feedback, then count down
+        // ~15s (or they hit "end exam") before the failure view (B26). The Study
+        // Hub can refresh now; the result is final server-side regardless.
+        setFailing(true);
         invalidateStudyHub();
       }
     } catch (err) {
@@ -555,11 +586,24 @@ export function MockExam({ t, lang, attemptId }: Props) {
         )}
       </div>
 
+      {/* Failed the wrong-answer cap: keep this question's feedback visible, tell
+          the user it's ending, and let them end now or wait out the countdown. */}
+      {failing && !terminated && (
+        <div className="rounded-md border border-destructive/40 bg-destructive/10 p-3 text-center text-sm text-destructive">
+          {t.terminatingBanner}
+        </div>
+      )}
+
       {/* Nav row — no Previous button: linear exam flow, can't revisit
           earlier questions. Next is gated by per-question feedback (must
-          answer first); on the last question, Next becomes Submit. */}
+          answer first); on the last question, Next becomes Submit. When the
+          attempt has failed, Next is replaced by an "end exam" countdown. */}
       <div className="flex items-center justify-end gap-3">
-        {!isLast ? (
+        {failing && !terminated ? (
+          <Button variant="destructive" onClick={() => setTerminated(true)} size="lg">
+            {t.endExamNow.replace("{n}", String(terminatingSec))}
+          </Button>
+        ) : !isLast ? (
           <Button
             onClick={goNext}
             disabled={!feedback.has(question.question_id) || submitting || exiting}
