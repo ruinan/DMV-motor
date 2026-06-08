@@ -70,6 +70,36 @@ class ExamScopingTest extends IntegrationTestBase {
     }
 
     // ---------------------------------------------------------------
+    // GET /api/v1/exams/entitlements  (authed per-exam subscription state)
+    // ---------------------------------------------------------------
+
+    @Test
+    void entitlements_reflectsPerExamSubscription() throws Exception {
+        // Two active exams; the user holds a pass for examB only.
+        Long examB = fixtures.insertExam("WA", "C", "Washington Class C", "华盛顿 C 类", 83);
+        OffsetDateTime now = OffsetDateTime.now();
+        fixtures.insertAccessPassForExam(userId, examB, "active",
+                now.minusDays(1), now.plusDays(30), 5, 0);
+
+        mockMvc.perform(get("/api/v1/exams/entitlements")
+                        .header("Authorization", "Bearer " + userId))
+                .andExpect(status().isOk())
+                // one entry per active exam (CA-M1 + examB)
+                .andExpect(jsonPath("$.data.entitlements", hasSize(2)))
+                .andExpect(jsonPath("$.data.entitlements[?(@.exam_id=='%d')].subscribed"
+                        .formatted(caM1)).value(hasItem(false)))
+                .andExpect(jsonPath("$.data.entitlements[?(@.exam_id=='%d')].subscribed"
+                        .formatted(examB)).value(hasItem(true)));
+    }
+
+    @Test
+    void entitlements_anonymous_returns401() throws Exception {
+        mockMvc.perform(get("/api/v1/exams/entitlements"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.error.code").value("UNAUTHORIZED"));
+    }
+
+    // ---------------------------------------------------------------
     // GET /api/v1/me  →  current_exam
     // ---------------------------------------------------------------
 

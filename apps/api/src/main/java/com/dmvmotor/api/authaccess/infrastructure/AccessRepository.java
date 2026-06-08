@@ -116,4 +116,25 @@ public class AccessRepository {
                 .fetchOne()
                 .value1();
     }
+
+    /**
+     * Unsubscribe: flips the user's active pass(es) for {@code examId} to
+     * {@code status='inactive'} so they stop unlocking that exam (granular, per
+     * the per-exam subscription model). {@code 'inactive'} (not a new
+     * {@code 'cancelled'} value) reuses the existing {@code chk_access_passes_status}
+     * check constraint — no schema migration — and {@link AccessPass#isActive}
+     * already treats anything but {@code 'active'} as no access. Scoped to
+     * {@code exam_id = examId} — it deliberately does NOT touch a legacy/dev
+     * global pass (exam_id NULL), which spans every exam. Returns rows affected.
+     * Used by the dev revoke endpoint and future self-serve unsubscribe.
+     */
+    public int cancelActivePasses(Long userId, Long examId) {
+        var ap = Tables.ACCESS_PASSES;
+        return dsl.update(ap)
+                .set(ap.STATUS, "inactive")
+                .where(ap.USER_ID.eq(userId)
+                        .and(AP_EXAM_ID.eq(examId))
+                        .and(ap.STATUS.eq("active")))
+                .execute();
+    }
 }

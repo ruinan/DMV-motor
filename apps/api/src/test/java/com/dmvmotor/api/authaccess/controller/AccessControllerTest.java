@@ -2,6 +2,8 @@ package com.dmvmotor.api.authaccess.controller;
 
 import com.dmvmotor.api.IntegrationTestBase;
 import com.dmvmotor.api.TestFixtures;
+import com.dmvmotor.api.authaccess.infrastructure.AccessRepository;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -14,8 +16,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 class AccessControllerTest extends IntegrationTestBase {
 
-    @Autowired MockMvc      mockMvc;
-    @Autowired TestFixtures fixtures;
+    @Autowired MockMvc        mockMvc;
+    @Autowired TestFixtures   fixtures;
+    @Autowired AccessRepository accessRepo;
 
     private Long userId;
 
@@ -81,6 +84,53 @@ class AccessControllerTest extends IntegrationTestBase {
         mockMvc.perform(get("/api/v1/access").header("Authorization", "Bearer " + userId))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.state").value("free_trial"))
+                .andExpect(jsonPath("$.data.has_active_pass").value(false));
+    }
+
+    @Test
+    void cancelActivePasses_unsubscribe_dropsAccessForThatExam() throws Exception {
+        // Subscribe (per-exam pass) → unsubscribe (cancel) → no active pass.
+        OffsetDateTime now = OffsetDateTime.now();
+        Long examA = fixtures.defaultExamId();
+        fixtures.insertAccessPassForExam(userId, examA, "active",
+                now.minusDays(1), now.plusDays(30), 5, 0);
+        fixtures.setUserCurrentExam(userId, examA);
+
+        // active before
+        mockMvc.perform(get("/api/v1/access").header("Authorization", "Bearer " + userId))
+                .andExpect(jsonPath("$.data.has_active_pass").value(true));
+
+        // unsubscribe
+        int cancelled = accessRepo.cancelActivePasses(userId, examA);
+        Assertions.assertEquals(1, cancelled, "one active pass should be cancelled");
+
+        // no active pass after
+        mockMvc.perform(get("/api/v1/access").header("Authorization", "Bearer " + userId))
+                .andExpect(jsonPath("$.data.has_active_pass").value(false));
+    }
+
+    @Test
+    void cancelActivePasses_doesNotTouchOtherExamsPass() throws Exception {
+        // Cancelling exam A's pass must leave exam B's pass intact.
+        OffsetDateTime now = OffsetDateTime.now();
+        Long examA = fixtures.defaultExamId();
+        Long examB = fixtures.insertExam("WA", "C", "Washington Class C", "华盛顿 C 类", 83);
+        fixtures.insertAccessPassForExam(userId, examA, "active",
+                now.minusDays(1), now.plusDays(30), 5, 0);
+        fixtures.insertAccessPassForExam(userId, examB, "active",
+                now.minusDays(1), now.plusDays(30), 5, 0);
+
+        int cancelled = accessRepo.cancelActivePasses(userId, examA);
+        Assertions.assertEquals(1, cancelled);
+
+        // exam B still unlocked
+        fixtures.setUserCurrentExam(userId, examB);
+        mockMvc.perform(get("/api/v1/access").header("Authorization", "Bearer " + userId))
+                .andExpect(jsonPath("$.data.has_active_pass").value(true));
+
+        // exam A now free-trial
+        fixtures.setUserCurrentExam(userId, examA);
+        mockMvc.perform(get("/api/v1/access").header("Authorization", "Bearer " + userId))
                 .andExpect(jsonPath("$.data.has_active_pass").value(false));
     }
 

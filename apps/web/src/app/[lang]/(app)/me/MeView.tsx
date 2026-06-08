@@ -21,6 +21,8 @@ import { apiFetch, ApiError } from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
 import { ExamPicker } from "@/components/exam-picker";
 import { examName, type CurrentExam } from "@/lib/hooks/use-me";
+import { useExams } from "@/lib/hooks/use-exams";
+import { useEntitlements } from "@/lib/hooks/use-entitlements";
 import { clearAllAiThreads } from "@/lib/hooks/use-ai-explain";
 import type { Dictionary, Locale } from "@/lib/dictionaries";
 
@@ -96,7 +98,7 @@ export function MeView({ t, lang }: Props) {
           </Group>
 
           <Group label={t.groupBilling}>
-            <SubscriptionSection t={t} data={data} />
+            <SubscriptionSection t={t} lang={lang} data={data} />
             <PaymentSection t={t} />
           </Group>
 
@@ -404,12 +406,13 @@ function LanguageSection({
 
 function SubscriptionSection({
   t,
+  lang,
   data,
 }: {
   t: Dictionary["me"];
+  lang: Locale;
   data: MeResponse;
 }) {
-  const state = data.access.state;
   const expiresAt = data.access.expires_at
     ? new Date(data.access.expires_at).toLocaleDateString()
     : null;
@@ -421,112 +424,135 @@ function SubscriptionSection({
       title={t.sectionSubscription}
       description={t.sectionSubscriptionBody}
     >
+      {/* Current exam's access at a glance — mock quota + expiry the catalog
+          badges don't surface. data.access is scoped to the current exam (V32). */}
       <dl className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <Field
           label={t.accessState}
           value={
-            (t[`state_${state}` as keyof typeof t] as string | undefined) ??
-            state
+            (t[`state_${data.access.state}` as keyof typeof t] as
+              | string
+              | undefined) ?? data.access.state
           }
         />
         <Field label={t.mockRemaining} value={data.access.mock_remaining} />
         <Field
           label={t.expiresAt}
-          value={
-            expiresAt ?? <span className="text-muted-foreground">—</span>
-          }
+          value={expiresAt ?? <span className="text-muted-foreground">—</span>}
         />
       </dl>
 
-      <div className="mt-5 flex flex-wrap items-center gap-3">
-        {state === "free_trial" && (
-          <>
-            <Button disabled>{t.subscriptionGetPass}</Button>
-            <ComingSoon label={t.comingSoon} />
-          </>
-        )}
-        {state === "active" && (
-          <>
-            <Button variant="outline" disabled>
-              {t.subscriptionManage}
-            </Button>
-            <ComingSoon label={t.comingSoon} />
-          </>
-        )}
-        {state === "expired" && (
-          <>
-            <Button disabled>{t.subscriptionRenew}</Button>
-            <ComingSoon label={t.comingSoon} />
-          </>
-        )}
+      <div className="mt-5">
+        <ExamCatalog t={t} lang={lang} />
       </div>
-
-      {process.env.NODE_ENV !== "production" && <DevGrantPass />}
     </Section>
   );
 }
 
-// Dev-only shortcut to grant the current user a 30-day active pass with 5
-// mock-exam quota. Hidden in production builds (tree-shaken by NODE_ENV
-// check above). Bound to the same /api/v1/dev/grant-pass endpoint that's
-// gated by APP_DEV_ENDPOINTS=true on the backend — if either side is in
-// prod mode the button does nothing useful.
-function DevGrantPass() {
+// Per-exam subscription catalog (V32 model): each active exam can be
+// subscribed/unsubscribed independently. Price is a frontend const until real
+// checkout exists. The actual toggle calls the dev grant/revoke backdoor
+// (gated by APP_DEV_ENDPOINTS=true on the backend), so it's only wired in
+// non-prod builds; in prod the controls show "Coming soon" until billing ships.
+function ExamCatalog({ t, lang }: { t: Dictionary["me"]; lang: Locale }) {
+  const exams = useExams(lang);
+  const entitlements = useEntitlements();
   const queryClient = useQueryClient();
-  const [status, setStatus] = useState<"idle" | "loading" | "ok" | "error">(
-    "idle",
-  );
-  const [message, setMessage] = useState<string>("");
+  const [busy, setBusy] = useState<string | null>(null);
+  const [errMsg, setErrMsg] = useState<string | null>(null);
+  const devEnabled = process.env.NODE_ENV !== "production";
 
-  async function grant() {
-    setStatus("loading");
-    setMessage("");
+  const subscribedById = new Map(
+    (entitlements.data ?? []).map((e) => [e.exam_id, e.subscribed]),
+  );
+
+  async function toggle(examId: string, subscribed: boolean) {
+    if (!devEnabled || busy) return;
+    setBusy(examId);
+    setErrMsg(null);
     try {
-      const res = await apiFetch<{
-        pass_id: string;
-        expires_at: string;
-        mock_quota: number;
-      }>("/api/v1/dev/grant-pass", { method: "POST" });
-      setStatus("ok");
-      setMessage(
-        `Pass #${res.pass_id} granted · ${res.mock_quota} mock attempts · expires ${new Date(res.expires_at).toLocaleDateString()}`,
-      );
-      // Refresh /me + downstream surfaces so the UI flips from free_trial.
-      queryClient.invalidateQueries({ queryKey: ["me"] });
-      queryClient.invalidateQueries({ queryKey: ["mock-access"] });
-      queryClient.invalidateQueries({ queryKey: ["topic-mastery"] });
-    } catch (err) {
-      setStatus("error");
-      setMessage(
-        err instanceof ApiError
-          ? `${err.code}: ${err.message}`
-          : "Failed to grant pass",
-      );
+      const path = subscribed ? "revoke-pass" : "grant-pass";
+      await apiFetch(`/api/v1/dev/${path}?exam_id=${examId}`, {
+        method: "POST",
+      });
+      // Subscription state gates practice/mock/AI across many surfaces — a full
+      // invalidate is the robust choice for an infrequent action.
+      await queryClient.invalidateQueries();
+    } catch (e) {
+      setErrMsg(e instanceof ApiError ? e.message : t.errorGeneric);
+    } finally {
+      setBusy(null);
     }
   }
 
+  if (exams.isLoading || entitlements.isLoading) {
+    return (
+      <p className="text-sm text-muted-foreground">{t.loading}</p>
+    );
+  }
+  if (exams.error) {
+    return <p className="text-sm text-destructive">{t.errorGeneric}</p>;
+  }
+  if (!exams.data || exams.data.length === 0) {
+    return <p className="text-sm text-muted-foreground">{t.catalogEmpty}</p>;
+  }
+
   return (
-    <div className="mt-5 rounded-md border border-dashed border-amber-500/40 bg-amber-500/5 p-3">
-      <p className="mb-2 text-xs font-medium uppercase tracking-wider text-amber-700">
-        Dev tools
-      </p>
-      <div className="flex flex-wrap items-center gap-3">
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={grant}
-          disabled={status === "loading"}
-        >
-          {status === "loading" ? "Granting…" : "Grant test pass (30 days, 5 mocks)"}
-        </Button>
-        {message && (
-          <p
-            className={`text-xs ${status === "error" ? "text-destructive" : "text-muted-foreground"}`}
+    <div className="flex flex-col gap-2">
+      {exams.data.map((exam) => {
+        const subscribed = subscribedById.get(exam.id) ?? false;
+        const isBusy = busy === exam.id;
+        return (
+          <div
+            key={exam.id}
+            className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border p-3"
           >
-            {message}
-          </p>
-        )}
-      </div>
+            <div className="min-w-0">
+              <p className="text-sm font-medium text-foreground">{exam.name}</p>
+              <p className="mt-0.5 text-xs text-muted-foreground">
+                {subscribed
+                  ? t.catalogSubscribedNote
+                  : `${t.catalogPrice} · ${t.catalogFreeNote}`}
+              </p>
+            </div>
+            <div className="flex shrink-0 items-center gap-2">
+              <span
+                className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
+                  subscribed
+                    ? "bg-primary/10 text-primary"
+                    : "bg-muted text-muted-foreground"
+                }`}
+              >
+                {subscribed ? t.catalogSubscribed : t.catalogFree}
+              </span>
+              {devEnabled ? (
+                <Button
+                  variant={subscribed ? "outline" : "default"}
+                  size="sm"
+                  onClick={() => toggle(exam.id, subscribed)}
+                  disabled={!!busy}
+                >
+                  {isBusy ? (
+                    "…"
+                  ) : subscribed ? (
+                    t.catalogUnsubscribe
+                  ) : (
+                    <>
+                      {t.catalogSubscribe} ({t.catalogPrice})
+                    </>
+                  )}
+                </Button>
+              ) : (
+                <ComingSoon label={t.comingSoon} />
+              )}
+            </div>
+          </div>
+        );
+      })}
+      {errMsg && <p className="text-sm text-destructive">{errMsg}</p>}
+      {devEnabled && (
+        <p className="mt-1 text-xs text-muted-foreground">{t.catalogDevNote}</p>
+      )}
     </div>
   );
 }

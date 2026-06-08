@@ -83,4 +83,27 @@ public class DevController {
                 "mock_quota", 5
         ));
     }
+
+    /**
+     * Unsubscribe (dev): cancels the user's active pass(es) for {@code exam_id}
+     * (or the current exam when omitted) so the per-exam paywall re-engages.
+     * Mirrors {@link #grantPass} — lets us exercise the subscribe → unsubscribe
+     * → free-trial loop before the real billing flow exists.
+     */
+    @PostMapping("/revoke-pass")
+    public ApiResponse<?> revokePass(@CurrentUser Long userId,
+                                     @RequestParam(required = false) Long exam_id) {
+        if (userId == null) {
+            throw new BusinessException("UNAUTHORIZED",
+                    "Authentication required", HttpStatus.UNAUTHORIZED);
+        }
+        Long examId = exam_id != null ? exam_id : examContext.resolveExamId(userId);
+        int cancelled = accessRepo.cancelActivePasses(userId, examId);
+        LOG.info("[dev] revoked {} pass(es) for user {} exam {}", cancelled, userId, examId);
+        return ApiResponse.ok(Map.of(
+                "user_id",   String.valueOf(userId),
+                "exam_id",   String.valueOf(examId),
+                "cancelled", cancelled
+        ));
+    }
 }
