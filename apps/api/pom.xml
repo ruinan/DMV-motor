@@ -69,6 +69,14 @@
             <version>9.4.3</version>
         </dependency>
 
+        <!-- Stripe SDK: hosted Checkout (subscriptions) + webhook signature verification.
+             All SDK calls are isolated in StripeGatewayImpl (excluded from coverage). -->
+        <dependency>
+            <groupId>com.stripe</groupId>
+            <artifactId>stripe-java</artifactId>
+            <version>28.4.0</version>
+        </dependency>
+
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-test</artifactId>
@@ -125,6 +133,9 @@
                         <exclude>com/dmvmotor/api/authaccess/auth/FirebaseIdTokenVerifier.class</exclude>
                         <!-- Out-of-band CLI for AI question generation — exercised manually, not in CI -->
                         <exclude>com/dmvmotor/api/aiqgen/cli/**</exclude>
+                        <!-- The only class touching the Stripe SDK — needs a live Stripe account,
+                             smoke-tested manually; the billing LOGIC is fake-tested. -->
+                        <exclude>com/dmvmotor/api/billing/infrastructure/StripeGatewayImpl.class</exclude>
                     </excludes>
                 </configuration>
                 <executions>

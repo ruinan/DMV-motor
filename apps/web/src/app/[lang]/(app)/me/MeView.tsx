@@ -25,6 +25,7 @@ import { ExamPicker } from "@/components/exam-picker";
 import { examName, type CurrentExam } from "@/lib/hooks/use-me";
 import { useExams } from "@/lib/hooks/use-exams";
 import { useEntitlements } from "@/lib/hooks/use-entitlements";
+import { useBillingConfig } from "@/lib/hooks/use-billing-config";
 import { useSnapshots, type Snapshot } from "@/lib/hooks/use-snapshots";
 import { clearAllAiThreads } from "@/lib/hooks/use-ai-explain";
 import type { Dictionary, Locale } from "@/lib/dictionaries";
@@ -454,34 +455,63 @@ function SubscriptionSection({
 }
 
 // Per-exam subscription catalog (V32 model): each active exam can be
-// subscribed/unsubscribed independently. Price is a frontend const until real
-// checkout exists. The actual toggle calls the dev grant/revoke backdoor
-// (gated by APP_DEV_ENDPOINTS=true on the backend), so it's only wired in
-// non-prod builds; in prod the controls show "Coming soon" until billing ships.
+// subscribed/unsubscribed independently. When Stripe is wired (billing-config
+// enabled) the buttons run real hosted Checkout / cancel; otherwise they fall
+// back to the dev grant/revoke backdoor in non-prod, or "Coming soon" in prod.
 function ExamCatalog({ t, lang }: { t: Dictionary["me"]; lang: Locale }) {
   const exams = useExams(lang);
   const entitlements = useEntitlements();
+  const billing = useBillingConfig();
   const queryClient = useQueryClient();
   const [busy, setBusy] = useState<string | null>(null);
   const [errMsg, setErrMsg] = useState<string | null>(null);
+  const billingEnabled = billing.data?.enabled ?? false;
   const devEnabled = process.env.NODE_ENV !== "production";
+  const canManage = billingEnabled || devEnabled;
+
+  // Coming back from Stripe Checkout (?billing=success) — the fulfillment
+  // webhook may have just created the pass; refetch so the catalog flips.
+  useEffect(() => {
+    if (
+      typeof window !== "undefined" &&
+      window.location.search.includes("billing=success")
+    ) {
+      queryClient.invalidateQueries();
+    }
+  }, [queryClient]);
 
   const subscribedById = new Map(
     (entitlements.data ?? []).map((e) => [e.exam_id, e.subscribed]),
   );
 
   async function toggle(examId: string, subscribed: boolean) {
-    if (!devEnabled || busy) return;
+    if (busy || !canManage) return;
     setBusy(examId);
     setErrMsg(null);
     try {
-      const path = subscribed ? "revoke-pass" : "grant-pass";
-      await apiFetch(`/api/v1/dev/${path}?exam_id=${examId}`, {
-        method: "POST",
-      });
-      // Subscription state gates practice/mock/AI across many surfaces — a full
-      // invalidate is the robust choice for an infrequent action.
-      await queryClient.invalidateQueries();
+      if (billingEnabled) {
+        if (subscribed) {
+          await apiFetch(`/api/v1/billing/cancel?exam_id=${examId}`, {
+            method: "POST",
+          });
+          await queryClient.invalidateQueries();
+        } else {
+          // Hand off to Stripe's hosted Checkout — leaves the app entirely.
+          const res = await apiFetch<{ url: string }>(
+            `/api/v1/billing/checkout-session?exam_id=${examId}`,
+            { method: "POST" },
+          );
+          window.location.assign(res.url);
+          return;
+        }
+      } else {
+        // Dev fallback (non-prod, no Stripe key): the grant/revoke backdoor.
+        const path = subscribed ? "revoke-pass" : "grant-pass";
+        await apiFetch(`/api/v1/dev/${path}?exam_id=${examId}`, {
+          method: "POST",
+        });
+        await queryClient.invalidateQueries();
+      }
     } catch (e) {
       setErrMsg(e instanceof ApiError ? e.message : t.errorGeneric);
     } finally {
@@ -529,7 +559,7 @@ function ExamCatalog({ t, lang }: { t: Dictionary["me"]; lang: Locale }) {
               >
                 {subscribed ? t.catalogSubscribed : t.catalogFree}
               </span>
-              {devEnabled ? (
+              {canManage ? (
                 <Button
                   variant={subscribed ? "outline" : "default"}
                   size="sm"
@@ -554,7 +584,7 @@ function ExamCatalog({ t, lang }: { t: Dictionary["me"]; lang: Locale }) {
         );
       })}
       {errMsg && <p className="text-sm text-destructive">{errMsg}</p>}
-      {devEnabled && (
+      {devEnabled && !billingEnabled && (
         <p className="mt-1 text-xs text-muted-foreground">{t.catalogDevNote}</p>
       )}
     </div>

@@ -515,6 +515,11 @@ public class TestFixtures {
                 """, Long.class, userId, examId, status, startsAt, expiresAt, mockTotal, mockUsed);
     }
 
+    /** Sets an exam's Stripe Price id so it's purchasable (V34 billing tests). */
+    public void setExamStripePrice(Long examId, String priceId) {
+        jdbc.update("UPDATE exams SET stripe_price_id = ? WHERE id = ?", priceId, examId);
+    }
+
     /** Force an existing pass to be time-expired by pulling expires_at into the past. */
     public void expireAccessPass(Long passId) {
         jdbc.update("""

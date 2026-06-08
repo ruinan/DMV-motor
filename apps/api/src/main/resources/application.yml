@@ -75,3 +75,13 @@ app:
       model: deepseek-chat
       max-tokens: 400
       timeout-seconds: 30
+  # Stripe billing — per-exam monthly subscriptions via hosted Checkout.
+  # "Enabled" is derived from the secret key being present (no separate flag):
+  # without a key (dev/test default) the catalog falls back to the dev grant.
+  # Prod sources the keys from Secret Manager via Cloud Run env.
+  billing:
+    stripe-secret-key: ${STRIPE_SECRET_KEY:}
+    stripe-webhook-secret: ${STRIPE_WEBHOOK_SECRET:}
+    success-url: ${APP_BILLING_SUCCESS_URL:http://localhost:3000/en/me?billing=success}
+    cancel-url: ${APP_BILLING_CANCEL_URL:http://localhost:3000/en/me?billing=cancel}
+    monthly-mock-quota: 30
