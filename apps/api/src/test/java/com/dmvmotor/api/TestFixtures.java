@@ -469,6 +469,26 @@ public class TestFixtures {
                 """, userId, practiceSessionId, questionId, variantId, selectedKey, isCorrect);
     }
 
+    private int engSeq = 0;
+
+    /** A single practice attempt for {@code userId} submitted at {@code submittedAt},
+     *  building the minimal topic/question/variant/session chain. For engagement
+     *  (streak / daily-goal) tests that need attempts on specific calendar days. */
+    public void insertPracticeAttemptAt(Long userId, Long examId, OffsetDateTime submittedAt) {
+        String code = "ENG_" + (++engSeq);
+        Long topic = insertTopicForExam(examId, code, code + " EN", code + " ZH", false, 0);
+        Long q = insertQuestion(topic, "A");
+        Long v = insertVariantReturningId(q, "en", "stem",
+                "[{\"key\":\"A\",\"text\":\"x\"}]", "expl");
+        Long session = insertPracticeSessionForExam(userId, 0, examId);
+        jdbc.update("""
+                INSERT INTO practice_attempts
+                    (user_id, practice_session_id, question_id, question_variant_id,
+                     selected_choice_key, is_correct, submitted_at, created_at)
+                VALUES (?, ?, ?, ?, 'A', true, ?, ?)
+                """, userId, session, q, v, submittedAt, submittedAt);
+    }
+
     public Long insertAccessPass(Long userId, String status,
                                   OffsetDateTime startsAt, OffsetDateTime expiresAt,
                                   int mockTotal, int mockUsed) {

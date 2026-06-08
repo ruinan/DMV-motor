@@ -21,6 +21,7 @@ import {
 import { ReadinessRing } from "@/components/readiness-ring";
 import { CoverageDonut } from "@/components/study-hub/CoverageDonut";
 import { Sparkline } from "@/components/study-hub/Sparkline";
+import { EngagementStrip } from "@/components/study-hub/EngagementStrip";
 import { ExamIndicator } from "@/components/exam-indicator";
 import type { Dictionary, Locale } from "@/lib/dictionaries";
 
@@ -80,6 +81,10 @@ export function Dashboard({ t, lang }: Props) {
             in the sidebar (one control, no second dropdown here). */}
         <ExamIndicator lang={lang} prefix={t.studyHub.examSwitchPrefix} />
       </header>
+
+      {/* Engagement (D1): streak + daily goal + next-best step. Shown to every
+          signed-in user (not paywalled) — the keep-coming-back loop. */}
+      <EngagementStrip t={t} lang={lang} />
 
       {/* Hero: the three at-a-glance metrics — coverage, readiness, mock perf. */}
       <section className="grid grid-cols-1 gap-8 rounded-xl border border-border/40 bg-card p-6 shadow-sm md:grid-cols-3 md:p-8">
