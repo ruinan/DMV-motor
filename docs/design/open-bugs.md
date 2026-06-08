@@ -1,5 +1,34 @@
 # Open bugs / TODO — multi-exam validation (session 6, 2026-06-05)
 
+## ✅ SESSION 7–8 SHIPPED (2026-06-07/08) — all pushed to master
+
+Order the user set: **deploy → exam/progress backup → Stripe → bot verification (last).**
+
+- **Subscription catalog (P0)** `a7db599` — per-exam Subscribe/Unsubscribe (entitlements
+  endpoint + dev revoke + MeView ExamCatalog).
+- **B40/B41** `b8489f8` · **B28 verified** `656b738` · **D1 engagement strip** `9f53522`
+  (streak + daily goal + next-best step; `GET /engagement`).
+- **① DEPLOYED TO PROD** — revision `dmv-motor-api-00073-pzg`, Flyway V32, smoke all green.
+  Then **Cloud SQL stopped** per user (save money) → prod DB is intentionally down. backup/
+  Stripe/reauth (V33/V34) NOT in prod yet — next deploy.
+- **② Progress backup** `f999d2c` — paid restorable snapshots (V33), Settings→Progress backup.
+- **③ Stripe billing** `a8cc73d` — hosted Checkout + webhook subscriptions (V34). Scaffold +
+  fake-tested; needs real TEST keys to run end-to-end. stripe-java 28.4.0.
+- **④ Re-auth gate** `153bef0` — backend-enforced (Firebase auth_time + ReauthGuard, 403
+  REAUTH_REQUIRED) on billing checkout/cancel + ReauthDialog.
+- **Bugs** `5538557` — bug1 engagement/recommendations now refetch after practice/mock;
+  bug2 ConfirmDialog+ReauthDialog portal to body (z-index fix); bug3 both exams recommend
+  Traffic Signs = by design (separate per-exam topics, real content overlaps), not a bug.
+- Backend **465 tests green**, JaCoCo met; web lint+build clean throughout.
+
+**STILL TODO (need user input):** bot verification (reCAPTCHA Enterprise + App Check —
+**~$0/mo under 10k assessments, then ~$1/1k**; low cost, needs go-ahead) · forced MFA
+(Identity Platform; TOTP ~free, SMS ~$0.01–0.06/msg — needs approval) · password-change
+flow (reauth infra ready, free) · throttling / cold-account archival · Stripe end-to-end
+(user provides test keys). prod redeploy to ship V33/V34.
+
+---
+
 Logged when token ran low. Pick up here next session. Frontend dev :3000, backend
 local :8080 (V29). All prior session-6 fixes pushed (`7bfcb4e` is the last commit
 in git; see below for UNCOMMITTED work in the working tree).
