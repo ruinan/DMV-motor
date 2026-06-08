@@ -38,6 +38,7 @@ public class TestFixtures {
     public void truncateAll() {
         jdbc.execute("""
                 TRUNCATE
+                    progress_snapshots,
                     reminder_tasks,
                     mock_review_plans,
                     ai_deep_dive_log,

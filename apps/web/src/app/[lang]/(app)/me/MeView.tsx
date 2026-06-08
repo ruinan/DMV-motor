@@ -6,10 +6,12 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   AlertTriangle,
   CheckCircle2,
+  CloudUpload,
   CreditCard,
   GraduationCap,
   Globe2,
   KeyRound,
+  Loader2,
   LogOut,
   RefreshCw,
   Sparkles,
@@ -23,6 +25,7 @@ import { ExamPicker } from "@/components/exam-picker";
 import { examName, type CurrentExam } from "@/lib/hooks/use-me";
 import { useExams } from "@/lib/hooks/use-exams";
 import { useEntitlements } from "@/lib/hooks/use-entitlements";
+import { useSnapshots, type Snapshot } from "@/lib/hooks/use-snapshots";
 import { clearAllAiThreads } from "@/lib/hooks/use-ai-explain";
 import type { Dictionary, Locale } from "@/lib/dictionaries";
 
@@ -99,6 +102,7 @@ export function MeView({ t, lang }: Props) {
 
           <Group label={t.groupBilling}>
             <SubscriptionSection t={t} lang={lang} data={data} />
+            <BackupSection t={t} data={data} />
             <PaymentSection t={t} />
           </Group>
 
@@ -574,6 +578,110 @@ function PaymentSection({ t }: { t: Dictionary["me"] }) {
         <ComingSoon label={t.comingSoon} />
       </div>
     </Section>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Progress backup — paid restorable snapshots of the current exam's progress
+// ---------------------------------------------------------------------------
+
+function BackupSection({
+  t,
+  data,
+}: {
+  t: Dictionary["me"];
+  data: MeResponse;
+}) {
+  const queryClient = useQueryClient();
+  const snapshots = useSnapshots();
+  const hasPass = data.access.has_active_pass;
+  const [saving, setSaving] = useState(false);
+  const [errMsg, setErrMsg] = useState<string | null>(null);
+
+  async function backup() {
+    if (saving || !hasPass) return;
+    setSaving(true);
+    setErrMsg(null);
+    try {
+      await apiFetch("/api/v1/backup/snapshots", { method: "POST" });
+      await queryClient.invalidateQueries({ queryKey: ["snapshots"] });
+    } catch (e) {
+      setErrMsg(e instanceof ApiError ? e.message : t.backupError);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  const list = snapshots.data ?? [];
+
+  return (
+    <Section
+      id="backup"
+      icon={<CloudUpload className="size-4" />}
+      title={t.sectionBackup}
+      description={t.sectionBackupBody}
+    >
+      <div className="mb-4 flex flex-wrap items-center gap-3">
+        {hasPass ? (
+          <Button onClick={backup} disabled={saving}>
+            {saving ? (
+              <Loader2 className="size-4 animate-spin" />
+            ) : (
+              <CloudUpload className="size-4" />
+            )}
+            {saving ? t.backupSaving : t.backupNow}
+          </Button>
+        ) : (
+          <a
+            href="#subscription"
+            className="text-sm font-medium text-primary underline-offset-4 hover:underline"
+          >
+            {t.backupPaidOnly}
+          </a>
+        )}
+      </div>
+      {errMsg && <p className="mb-3 text-sm text-destructive">{errMsg}</p>}
+
+      {snapshots.isLoading ? (
+        <p className="text-sm text-muted-foreground">{t.loading}</p>
+      ) : list.length === 0 ? (
+        <p className="text-sm text-muted-foreground">{t.backupEmpty}</p>
+      ) : (
+        <ul className="flex flex-col divide-y divide-border">
+          {list.map((s) => (
+            <SnapshotRow key={s.id} t={t} snap={s} />
+          ))}
+        </ul>
+      )}
+    </Section>
+  );
+}
+
+function SnapshotRow({ t, snap }: { t: Dictionary["me"]; snap: Snapshot }) {
+  const date = new Date(snap.created_at).toLocaleString();
+  const best =
+    snap.mock_best_score_percent != null
+      ? `${snap.mock_best_score_percent}%`
+      : "—";
+  const detail = t.backupDetail
+    .replace("{completion}", String(snap.completion_score))
+    .replace("{sessions}", String(snap.practice_total_sessions))
+    .replace("{best}", best);
+  return (
+    <li className="flex items-center justify-between gap-3 py-3 first:pt-0 last:pb-0">
+      <div className="min-w-0">
+        <p className="text-sm font-medium text-foreground">{date}</p>
+        <p className="mt-0.5 text-xs text-muted-foreground">{detail}</p>
+      </div>
+      <div className="shrink-0 text-right">
+        <p className="text-lg font-bold tabular-nums text-primary">
+          {snap.readiness_score}%
+        </p>
+        <p className="text-[11px] uppercase tracking-wide text-muted-foreground">
+          {t.backupReadiness}
+        </p>
+      </div>
+    </li>
   );
 }
 
