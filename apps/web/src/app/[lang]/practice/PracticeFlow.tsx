@@ -458,20 +458,27 @@ export function PracticeFlow({ t, lang }: Props) {
                   <Loader2 className="size-5 animate-spin text-primary" />
                 </div>
               ) : (
-                <div className="flex flex-col gap-2">
+                <div className="flex flex-col gap-3">
                   {(exams.data ?? []).map((exam) => {
-                    const Icon = exam.license_class.startsWith("M") ? Bike : Car;
+                    // Each exam button wears its own palette (theme.css): the
+                    // motorcycle exam = amber, Class C / anything else = highway
+                    // blue. Explicit colors (not data-exam) because both buttons
+                    // share one page. Uniform h/w so they read as one set, not
+                    // sized to their labels.
+                    const isMoto = exam.license_class.startsWith("M");
+                    const Icon = isMoto ? Bike : Car;
+                    const bg = isMoto ? "#b45309" : "#1b5e9b";
                     return (
-                      <Button
+                      <button
                         key={exam.id}
-                        size="lg"
-                        variant="outline"
+                        type="button"
                         onClick={() => start(exam.id)}
-                        className="w-full justify-start gap-2"
+                        style={{ backgroundColor: bg }}
+                        className="flex h-14 w-full items-center justify-center gap-2.5 rounded-xl px-4 text-base font-semibold text-white shadow-sm transition hover:brightness-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
                       >
-                        <Icon className="size-4 shrink-0" />
+                        <Icon className="size-5 shrink-0" aria-hidden />
                         {exam.name}
-                      </Button>
+                      </button>
                     );
                   })}
                 </div>
@@ -486,7 +493,7 @@ export function PracticeFlow({ t, lang }: Props) {
               <span>{t.signInPrompt}</span>
               <Link
                 href={`/${lang}/login`}
-                className="font-semibold text-primary underline-offset-4 hover:underline"
+                className="font-semibold text-foreground underline-offset-4 hover:underline"
               >
                 {t.signInCta}
               </Link>

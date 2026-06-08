@@ -334,20 +334,24 @@ dedupe + localized topic names · B28 verify · B29 switch keeps activity contex
 Phase 2 done so far (pushed): V32 schema · per-exam access gate (getAccess scoped to
 current exam) · per-exam dev grant (/dev/grant-pass?exam_id). Backend live at V32.
 
-**P0 — finish subscription Phase 2 (catalog UI + unsubscribe):**
-1. Backend `GET /api/v1/exams/entitlements` (authed) → per active exam {exam_id,
-   subscribed} (subscribed = accessService.getAccess(userId, examId).hasActivePass()).
-   [I had started adding the AccessService+CurrentUser imports to ExamController —
-   reverted to keep the tree clean; redo cleanly: inject AccessService, @CurrentUser.]
-2. Backend dev `POST /dev/revoke-pass?exam_id` → cancel the user's active pass(es)
-   for that exam (set status='cancelled' or expire), so unsubscribe is testable.
-3. Frontend useEntitlements hook + catalog UI in MeView: list exams grouped by
-   jurisdiction (state vs national), each row: name + Subscribed/Free/Coming-soon +
-   Subscribe ($5/mo — frontend const for now) / Unsubscribe button (dev grant/revoke).
-   Subscribe → /dev/grant-pass?exam_id ; Unsubscribe → /dev/revoke-pass?exam_id +
-   invalidate. After full unsubscribe: free-trial only, AI/analysis disabled, history
-   kept (gating already flows from the per-exam access gate).
-4. Wire the existing /me "Coming soon" subscription stub to this catalog.
+**P0 — finish subscription Phase 2 (catalog UI + unsubscribe): ✅ DONE (`a7db599`, pushed).**
+1. ✅ `GET /api/v1/exams/entitlements` (authed) → per active exam {exam_id, subscribed}.
+2. ✅ dev `POST /dev/revoke-pass?exam_id` → cancel (status=inactive, reuses existing
+   check constraint — no migration) the user's active pass(es) for that exam.
+   `AccessRepository.cancelActivePasses` is per-exam (leaves a global NULL pass alone).
+3. ✅ `useEntitlements` hook + `ExamCatalog` in MeView: per-exam badge (Subscribed/Free)
+   + $5/mo Subscribe / Unsubscribe. Toggle hits the dev grant/revoke backdoor (non-prod
+   only; "Coming soon" in prod), then full-invalidates so gating refetches. (Jurisdiction
+   grouping deferred — flat list; exam names already carry the state. Add state/national
+   headers when national exams land.)
+4. ✅ Replaced the old global subscription stub + DevGrantPass with the catalog (kept the
+   current-exam access summary: mock quota + expiry).
+   Tests: `DevControllerTest` (grant↔revoke↔access↔entitlement loop + 401s), entitlements
+   + cancel coverage. 429 backend tests green, JaCoCo met; web lint+build clean.
+   NOTE: subscribe/unsubscribe is the DEV backdoor — real Stripe/checkout still TODO
+   (Phase 2 billing). After unsubscribe the access state reads "expired" (not a distinct
+   "cancelled") — fine for gating; add a real 'cancelled' status + cancelled_at when
+   billing lands.
 
 **P1 — remaining bugs/UX:** B40 (below) · B21 cold-account archival (low) · B28 verify ·
 throttling/anti-abuse (subscription-model.md decision) · per-exam server backup.
@@ -377,17 +381,14 @@ firebase.ts + verify on the backend. FLAG: cloud cost — get approval before en
   /me change-password form. Account + password stay fully delegated to Firebase Auth
   (JIT provisioning into our users table on first /me — unchanged).
 
-- **B40 — index footer.** Header is white; give the footer's top border a slightly
-  more prominent shadow, and consider matching the footer background to the header
-  (white). File: site-footer.tsx.
-- **B41 — anonymous free-trial exam chooser: color buttons per exam.** On the
-  "Pick an exam to practice" cards (PracticeFlow anonymous branch, the U4 buttons),
-  give each exam button its own theme color via the BUTTON BACKGROUND — M1 button =
-  amber (M1 palette), C button = blue (C palette). And the "Sign in or register"
-  link → black (neutral dark). File: PracticeFlow anonymous exam-chooser buttons +
-  the sign-in prompt. (Map license_class → color, like ExamIndicator/theme.css.)
-  ALSO: make the two exam buttons BIGGER and a UNIFORM size (same width/height, not
-  sized to their label).
+- **B40 — index footer. ✅ DONE.** Footer now matches the header white (`bg-card`),
+  solid `border-t border-border`, plus a gentle upward shadow
+  (`shadow-[0_-2px_8px_-2px_rgba(0,0,0,0.06)]`). File: site-footer.tsx.
+- **B41 — anonymous free-trial exam chooser: color buttons per exam. ✅ DONE.** Each
+  exam button now carries its palette via the button background (motorcycle `#b45309`
+  amber, Class C/other `#1b5e9b` blue — explicit colors since both share one page),
+  uniform `h-14 w-full` (bigger, not label-sized), white text + `hover:brightness-95`.
+  "Sign in or register" CTA → `text-foreground` (neutral dark). File: PracticeFlow.
 
 ## Backlog (from earlier)
 D1 dashboard engagement (streak/daily goal/next-best-action) · Phase 2 per-exam
