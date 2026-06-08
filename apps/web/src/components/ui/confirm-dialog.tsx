@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import { createPortal } from "react-dom";
 import { Button } from "@/components/ui/button";
 
 type Props = {
@@ -49,7 +50,10 @@ export function ConfirmDialog({
 
   if (!open) return null;
 
-  return (
+  // Portal to <body> so the fixed overlay can't be trapped inside an ancestor
+  // stacking context (e.g. the sidebar that hosts the exam switcher) and get
+  // overlapped by page content like the locked-coverage card.
+  return createPortal(
     <div
       role="dialog"
       aria-modal="true"
@@ -77,6 +81,7 @@ export function ConfirmDialog({
           </Button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

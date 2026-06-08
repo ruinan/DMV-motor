@@ -129,6 +129,11 @@ export function PracticeFlow({ t, lang }: Props) {
     queryClient.invalidateQueries({ queryKey: ["topic-mastery"] });
     queryClient.invalidateQueries({ queryKey: ["mistakes"] });
     queryClient.invalidateQueries({ queryKey: ["mistakes-count"] });
+    // Engagement strip (streak / daily goal / next-best step) reflects answers
+    // and resolved mistakes — without these it showed a stale "next step" that
+    // "never updated" while the user kept practicing the same topic.
+    queryClient.invalidateQueries({ queryKey: ["engagement"] });
+    queryClient.invalidateQueries({ queryKey: ["recommendations"] });
   }
 
   // Resolve the session id whenever the phase carries one — used by the

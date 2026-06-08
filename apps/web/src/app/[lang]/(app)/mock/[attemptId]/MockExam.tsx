@@ -145,6 +145,10 @@ export function MockExam({ t, lang, attemptId }: Props) {
       ["mistakes"],
       ["mistakes-count"],
       ["me"],
+      // Mock answers count toward coverage + mistakes, which drive the Study Hub
+      // engagement strip's next-best step.
+      ["topic-mastery"],
+      ["recommendations"],
     ]) {
       queryClient.invalidateQueries({ queryKey: key });
     }

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { createPortal } from "react-dom";
 import { KeyRound, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/lib/auth-context";
@@ -61,7 +62,8 @@ export function ReauthDialog({
     onCancel();
   }
 
-  return (
+  // Portal to <body> so the overlay isn't trapped by an ancestor stacking context.
+  return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
       <div className="w-full max-w-sm rounded-xl border border-border bg-card p-6 shadow-xl">
         <div className="mb-3 flex items-center gap-2">
@@ -93,6 +95,7 @@ export function ReauthDialog({
           </Button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
