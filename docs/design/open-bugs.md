@@ -399,6 +399,11 @@ firebase.ts + verify on the backend. FLAG: cloud cost — get approval before en
   "Sign in or register" CTA → `text-foreground` (neutral dark). File: PracticeFlow.
 
 ## Backlog (from earlier)
-D1 dashboard engagement (streak/daily goal/next-best-action) · Phase 2 per-exam
-billing + paid remote backup · B11 mock-in-readiness verify · SummaryService
-exam-scoping + keyCoverage-counts-mock · B14 mock question counts (C 36 vs 46).
+~~D1 dashboard engagement~~ **✅ DONE (`9f53522`)** — Study Hub `EngagementStrip`
+(streak + daily goal + next-best-step). Backend `GET /api/v1/engagement?tz_offset_minutes=N`
+(streak/today bucketed to the user's LOCAL day via client tz offset, inlined in the
+day expr for Postgres GROUP BY; counts practice_attempts across all exams; daily goal
+config `app.engagement.daily-goal`=10). Next-step reuses `/ai/recommendations` (top 1)
+→ topic-scoped practice. Not paywalled (engagement for all signed-in users). 440 tests
+green. · Phase 2 per-exam billing + paid remote backup · B11 mock-in-readiness verify ·
+SummaryService exam-scoping + keyCoverage-counts-mock · B14 mock question counts (C 36 vs 46).
