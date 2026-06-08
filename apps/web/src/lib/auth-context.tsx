@@ -14,7 +14,9 @@ import { useRouter } from "next/navigation";
 import {
   browserLocalPersistence,
   createUserWithEmailAndPassword,
+  EmailAuthProvider,
   onIdTokenChanged,
+  reauthenticateWithCredential,
   sendPasswordResetEmail,
   setPersistence,
   signInWithEmailAndPassword,
@@ -29,6 +31,9 @@ type AuthState = {
   signIn: (email: string, password: string) => Promise<void>;
   signUp: (email: string, password: string) => Promise<void>;
   resetPassword: (email: string) => Promise<void>;
+  /** Re-verify the current user's password before a sensitive action; refreshes
+   *  the ID token so its auth_time updates (the backend reauth gate reads it). */
+  reauth: (password: string) => Promise<void>;
   signOut: () => Promise<void>;
 };
 
@@ -89,6 +94,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       },
       resetPassword: async (email) => {
         await sendPasswordResetEmail(firebaseAuth, email);
+      },
+      reauth: async (password) => {
+        const u = firebaseAuth.currentUser;
+        if (!u || !u.email) throw new Error("Not signed in");
+        const credential = EmailAuthProvider.credential(u.email, password);
+        await reauthenticateWithCredential(u, credential);
+        // Force-refresh so the cached token carries the new auth_time; the next
+        // apiFetch then passes the backend reauth gate.
+        await u.getIdToken(true);
       },
       signOut: async () => {
         await firebaseSignOut(firebaseAuth);

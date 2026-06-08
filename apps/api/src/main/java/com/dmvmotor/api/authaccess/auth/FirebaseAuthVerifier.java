@@ -19,5 +19,16 @@ public interface FirebaseAuthVerifier {
 
     VerifiedUser verify(String idToken);
 
-    record VerifiedUser(String firebaseUid, String email) {}
+    /**
+     * The authenticated identity plus {@code authTimeEpochSeconds} — when the
+     * user last proved their password (Firebase {@code auth_time}). Reauth gates
+     * use it to require a recent sign-in / re-auth before sensitive actions.
+     */
+    record VerifiedUser(String firebaseUid, String email, long authTimeEpochSeconds) {
+        /** Identity without a known auth time (e.g. provisioning tests) — treated
+         *  as epoch 0, i.e. never "recently" authenticated. */
+        public VerifiedUser(String firebaseUid, String email) {
+            this(firebaseUid, email, 0L);
+        }
+    }
 }

@@ -7,6 +7,7 @@ import org.springframework.core.MethodParameter;
 import org.springframework.stereotype.Component;
 import org.springframework.web.bind.support.WebDataBinderFactory;
 import org.springframework.web.context.request.NativeWebRequest;
+import org.springframework.web.context.request.RequestAttributes;
 import org.springframework.web.method.support.HandlerMethodArgumentResolver;
 import org.springframework.web.method.support.ModelAndViewContainer;
 
@@ -49,6 +50,11 @@ public class UserIdResolver implements HandlerMethodArgumentResolver {
         String token = auth.substring(7).trim();
         try {
             VerifiedUser user = verifier.verify(token);
+            // Expose the token's auth_time so ReauthGuard can require a recent
+            // re-auth on sensitive endpoints (set before provisioning so it's
+            // available even if the same request later checks freshness).
+            webRequest.setAttribute(ReauthGuard.AUTH_TIME_ATTR,
+                    user.authTimeEpochSeconds(), RequestAttributes.SCOPE_REQUEST);
             return provisioner.provisionUserId(user);
         } catch (BusinessException e) {
             return null;

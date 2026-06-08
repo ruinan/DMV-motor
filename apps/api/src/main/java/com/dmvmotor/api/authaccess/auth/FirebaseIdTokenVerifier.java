@@ -22,11 +22,18 @@ public class FirebaseIdTokenVerifier implements FirebaseAuthVerifier {
     public VerifiedUser verify(String idToken) {
         try {
             FirebaseToken decoded = FirebaseAuth.getInstance().verifyIdToken(idToken);
-            return new VerifiedUser(decoded.getUid(), decoded.getEmail());
+            return new VerifiedUser(decoded.getUid(), decoded.getEmail(), authTime(decoded));
         } catch (FirebaseAuthException e) {
             throw new BusinessException("UNAUTHORIZED",
                     "Invalid or expired Firebase ID token",
                     HttpStatus.UNAUTHORIZED);
         }
+    }
+
+    /** The token's {@code auth_time} (seconds) — when the user last proved their
+     *  password; updated by reauthenticateWithCredential. 0 if absent. */
+    private static long authTime(FirebaseToken decoded) {
+        Object v = decoded.getClaims().get("auth_time");
+        return v instanceof Number n ? n.longValue() : 0L;
     }
 }

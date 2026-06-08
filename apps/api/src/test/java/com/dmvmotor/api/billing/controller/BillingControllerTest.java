@@ -88,6 +88,18 @@ class BillingControllerTest extends IntegrationTestBase {
     }
 
     @Test
+    void checkout_staleSession_requiresReauth() throws Exception {
+        // A stale auth_time (the "~<epoch>" stub suffix) → the reauth gate fires
+        // BEFORE checkout, regardless of price. Client then re-enters its password.
+        fixtures.setExamStripePrice(examId, "price_test_123");
+        mockMvc.perform(post("/api/v1/billing/checkout-session")
+                        .param("exam_id", String.valueOf(examId))
+                        .header("Authorization", "Bearer " + userId + "~1000000000"))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.error.code").value("REAUTH_REQUIRED"));
+    }
+
+    @Test
     void checkout_noExamParam_resolvesCurrentExam() throws Exception {
         // No exam_id → resolves the user's current exam (default CA-M1) and prices it.
         fixtures.setExamStripePrice(examId, "price_test_123");

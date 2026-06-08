@@ -28,6 +28,7 @@ import { useEntitlements } from "@/lib/hooks/use-entitlements";
 import { useBillingConfig } from "@/lib/hooks/use-billing-config";
 import { useSnapshots, type Snapshot } from "@/lib/hooks/use-snapshots";
 import { clearAllAiThreads } from "@/lib/hooks/use-ai-explain";
+import { ReauthDialog } from "@/components/reauth-dialog";
 import type { Dictionary, Locale } from "@/lib/dictionaries";
 
 type MeResponse = {
@@ -465,6 +466,12 @@ function ExamCatalog({ t, lang }: { t: Dictionary["me"]; lang: Locale }) {
   const queryClient = useQueryClient();
   const [busy, setBusy] = useState<string | null>(null);
   const [errMsg, setErrMsg] = useState<string | null>(null);
+  // A billing action that hit the backend reauth gate, parked until the user
+  // re-enters their password — then retried with a fresh token.
+  const [pendingReauth, setPendingReauth] = useState<{
+    examId: string;
+    subscribed: boolean;
+  } | null>(null);
   const billingEnabled = billing.data?.enabled ?? false;
   const devEnabled = process.env.NODE_ENV !== "production";
   const canManage = billingEnabled || devEnabled;
@@ -513,6 +520,11 @@ function ExamCatalog({ t, lang }: { t: Dictionary["me"]; lang: Locale }) {
         await queryClient.invalidateQueries();
       }
     } catch (e) {
+      // Backend reauth gate → prompt for the password, then retry this action.
+      if (e instanceof ApiError && e.code === "REAUTH_REQUIRED") {
+        setPendingReauth({ examId, subscribed });
+        return;
+      }
       setErrMsg(e instanceof ApiError ? e.message : t.errorGeneric);
     } finally {
       setBusy(null);
@@ -587,6 +599,25 @@ function ExamCatalog({ t, lang }: { t: Dictionary["me"]; lang: Locale }) {
       {devEnabled && !billingEnabled && (
         <p className="mt-1 text-xs text-muted-foreground">{t.catalogDevNote}</p>
       )}
+
+      <ReauthDialog
+        open={pendingReauth !== null}
+        labels={{
+          title: t.reauthTitle,
+          body: t.reauthBody,
+          placeholder: t.reauthPlaceholder,
+          confirm: t.reauthConfirm,
+          confirming: t.reauthConfirming,
+          wrong: t.reauthWrong,
+          cancel: t.cancel,
+        }}
+        onSuccess={() => {
+          const p = pendingReauth;
+          setPendingReauth(null);
+          if (p) toggle(p.examId, p.subscribed);
+        }}
+        onCancel={() => setPendingReauth(null)}
+      />
     </div>
   );
 }
