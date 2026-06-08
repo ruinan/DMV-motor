@@ -220,7 +220,15 @@ STILL TODO (backend, need Docker):
   via gcloud) instead of the APP_AI_PROVIDER=stub launch. Files: AiReviewPlan
   build path (weak-topic collection), the stub provider output.
 
-- **B28 — client AI history survives "clear history" (likely == B22, verify).**
+- **B28 — VERIFIED, no code gap (2026-06-07).** Audited every clear/reset entry
+  point: the ONLY one is `/me → Reset learning`, and it already purges BOTH client
+  localStorage (`clearAllAiThreads`, MeView:650) AND the server cache
+  (`AccountService.resetLearning → AiExplanationRepository.deleteForUser`). There is
+  no separate "clear history" UI action that bypasses it (grep confirms). `AiExplainBlock`
+  is keyed by `question_id`, so it remounts clean on the next practice/mistakes visit and
+  reads the now-empty localStorage. ⇒ the leftover 深入分析 was hypothesis (a): a stale tab
+  predating B22 — hard-refresh + reset clears it. No change needed. (Original note below.)
+- **B28 (original) — client AI history survives "clear history" (likely == B22, verify).**
   After clearing history the deep-dive (深入分析) layers still show. B22 already
   wired `clearAllAiThreads()` into /me "重置学习状态" (commit pushed) — so two
   possibilities: (a) the running dev frontend predates B22 (I only restarted the
