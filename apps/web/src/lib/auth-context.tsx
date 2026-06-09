@@ -15,15 +15,37 @@ import {
   browserLocalPersistence,
   createUserWithEmailAndPassword,
   EmailAuthProvider,
+  getMultiFactorResolver,
+  multiFactor,
   onIdTokenChanged,
   reauthenticateWithCredential,
   sendPasswordResetEmail,
   setPersistence,
   signInWithEmailAndPassword,
   signOut as firebaseSignOut,
+  TotpMultiFactorGenerator,
+  type MultiFactorResolver,
+  type TotpSecret,
   type User,
 } from "firebase/auth";
 import { firebaseAuth } from "@/lib/firebase";
+
+/**
+ * Thrown by {@link AuthState.signIn} when the account has 2FA enrolled and
+ * Firebase needs the second factor. Carries the resolver so the UI can prompt
+ * for the TOTP code and finish via {@link AuthState.resolveMfaSignIn}.
+ */
+export class MfaRequiredError extends Error {
+  constructor(public readonly resolver: MultiFactorResolver) {
+    super("Multi-factor authentication required");
+    this.name = "MfaRequiredError";
+  }
+}
+
+/** Whether the given user has at least one 2FA factor enrolled. */
+export function hasMfaEnrolled(user: User | null): boolean {
+  return !!user && multiFactor(user).enrolledFactors.length > 0;
+}
 
 type AuthState = {
   user: User | null;
@@ -34,6 +56,12 @@ type AuthState = {
   /** Re-verify the current user's password before a sensitive action; refreshes
    *  the ID token so its auth_time updates (the backend reauth gate reads it). */
   reauth: (password: string) => Promise<void>;
+  /** Finish a 2FA-gated sign-in: verify the TOTP code against the resolver. */
+  resolveMfaSignIn: (resolver: MultiFactorResolver, code: string) => Promise<void>;
+  /** Begin TOTP enrollment: returns the secret + an otpauth URL for the QR. */
+  startTotpEnrollment: () => Promise<{ secret: TotpSecret; qrUrl: string }>;
+  /** Complete TOTP enrollment by confirming a code from the authenticator. */
+  finishTotpEnrollment: (secret: TotpSecret, code: string) => Promise<void>;
   signOut: () => Promise<void>;
 };
 
@@ -84,7 +112,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       user,
       loading,
       signIn: async (email, password) => {
-        await signInWithEmailAndPassword(firebaseAuth, email, password);
+        try {
+          await signInWithEmailAndPassword(firebaseAuth, email, password);
+        } catch (e) {
+          // 2FA-enrolled account → Firebase needs the second factor. Surface the
+          // resolver so the form can prompt for the TOTP code.
+          if ((e as { code?: string })?.code === "auth/multi-factor-auth-required") {
+            throw new MfaRequiredError(
+              getMultiFactorResolver(firebaseAuth, e as Parameters<typeof getMultiFactorResolver>[1]),
+            );
+          }
+          throw e;
+        }
       },
       signUp: async (email, password) => {
         // Backend's UserProvisioner JIT-creates the users row on first
@@ -102,6 +141,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         await reauthenticateWithCredential(u, credential);
         // Force-refresh so the cached token carries the new auth_time; the next
         // apiFetch then passes the backend reauth gate.
+        await u.getIdToken(true);
+      },
+      resolveMfaSignIn: async (resolver, code) => {
+        // TOTP is the only factor we enroll; use the first hint.
+        const hint = resolver.hints[0];
+        const assertion = TotpMultiFactorGenerator.assertionForSignIn(hint.uid, code);
+        await resolver.resolveSignIn(assertion);
+      },
+      startTotpEnrollment: async () => {
+        const u = firebaseAuth.currentUser;
+        if (!u) throw new Error("Not signed in");
+        const session = await multiFactor(u).getSession();
+        const secret = await TotpMultiFactorGenerator.generateSecret(session);
+        const qrUrl = secret.generateQrCodeUrl(u.email ?? "account", "DMV Prep");
+        return { secret, qrUrl };
+      },
+      finishTotpEnrollment: async (secret, code) => {
+        const u = firebaseAuth.currentUser;
+        if (!u) throw new Error("Not signed in");
+        const assertion = TotpMultiFactorGenerator.assertionForEnrollment(secret, code);
+        await multiFactor(u).enroll(assertion, "Authenticator app");
+        // Refresh so downstream reads (the enrollment gate) see the new factor.
         await u.getIdToken(true);
       },
       signOut: async () => {

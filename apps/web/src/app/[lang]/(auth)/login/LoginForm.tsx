@@ -4,9 +4,10 @@ import { useState, type FormEvent } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, GraduationCap, Eye, EyeOff, Shield } from "lucide-react";
-import { useAuth } from "@/lib/auth-context";
+import { useAuth, MfaRequiredError } from "@/lib/auth-context";
 import { useRecaptcha } from "@/lib/hooks/use-recaptcha";
 import { apiFetch, ApiError } from "@/lib/api-client";
+import type { MultiFactorResolver } from "firebase/auth";
 import type { Dictionary, Locale } from "@/lib/dictionaries";
 
 type Props = {
@@ -18,7 +19,7 @@ type Mode = "signin" | "create";
 
 export function LoginForm({ t, lang }: Props) {
   const router = useRouter();
-  const { signIn, signUp, resetPassword } = useAuth();
+  const { signIn, signUp, resetPassword, resolveMfaSignIn } = useAuth();
   const { execute: recaptcha } = useRecaptcha();
   const [mode, setMode] = useState<Mode>("signin");
   const [email, setEmail] = useState("");
@@ -27,6 +28,9 @@ export function LoginForm({ t, lang }: Props) {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
+  // Set when sign-in returns a 2FA challenge; we then prompt for the TOTP code.
+  const [mfaResolver, setMfaResolver] = useState<MultiFactorResolver | null>(null);
+  const [mfaCode, setMfaCode] = useState("");
 
   function switchMode(next: Mode) {
     setMode(next);
@@ -59,7 +63,10 @@ export function LoginForm({ t, lang }: Props) {
       // first if they haven't chosen an exam yet.
       router.push(`/${lang}/dashboard`);
     } catch (err) {
-      if (
+      if (err instanceof MfaRequiredError) {
+        // 2FA account → show the code prompt; keep the password form hidden.
+        setMfaResolver(err.resolver);
+      } else if (
         err instanceof ApiError &&
         (err.code === "RECAPTCHA_FAILED" || err.code === "RECAPTCHA_REQUIRED")
       ) {
@@ -67,6 +74,21 @@ export function LoginForm({ t, lang }: Props) {
       } else {
         setError(mode === "signin" ? t.error : t.errorCreate);
       }
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function onSubmitMfa(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    if (!mfaResolver) return;
+    setSubmitting(true);
+    setError(null);
+    try {
+      await resolveMfaSignIn(mfaResolver, mfaCode.trim());
+      router.push(`/${lang}/dashboard`);
+    } catch {
+      setError(t.mfaBadCode);
     } finally {
       setSubmitting(false);
     }
@@ -109,6 +131,46 @@ export function LoginForm({ t, lang }: Props) {
         <p className="mt-1 text-sm text-muted-foreground">{t.appTagline}</p>
       </div>
 
+      {mfaResolver ? (
+        /* 2FA challenge — prompt for the authenticator code */
+        <form onSubmit={onSubmitMfa} className="flex flex-col gap-4">
+          <p className="text-sm text-muted-foreground">{t.mfaPrompt}</p>
+          <input
+            inputMode="numeric"
+            autoComplete="one-time-code"
+            maxLength={6}
+            autoFocus
+            value={mfaCode}
+            onChange={(e) => setMfaCode(e.target.value.replace(/\D/g, ""))}
+            placeholder={t.mfaCodePlaceholder}
+            className="h-12 w-full rounded-xl border border-border bg-background px-4 text-center font-mono text-lg tracking-[0.4em] text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+          />
+          {error && (
+            <p role="alert" className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
+              {error}
+            </p>
+          )}
+          <button
+            type="submit"
+            disabled={submitting || mfaCode.length < 6}
+            className="mt-1 inline-flex h-11 w-full items-center justify-center rounded-xl bg-primary text-base font-bold text-primary-foreground shadow-sm transition-all hover:shadow-md active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {submitting ? t.loading : t.mfaVerifySignIn}
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setMfaResolver(null);
+              setMfaCode("");
+              setError(null);
+            }}
+            className="text-sm text-muted-foreground transition-colors hover:text-foreground"
+          >
+            {t.mfaCancel}
+          </button>
+        </form>
+      ) : (
+        <>
       {/* Tabs */}
       <div
         role="tablist"
@@ -233,6 +295,8 @@ export function LoginForm({ t, lang }: Props) {
           <span>{t.backToLanding}</span>
         </Link>
       </form>
+        </>
+      )}
 
       {/* Reassurance footer */}
       <div className="mt-8 flex items-center justify-center gap-1.5 border-t border-border pt-5 text-xs text-muted-foreground">
