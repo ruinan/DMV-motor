@@ -11,24 +11,24 @@ import { useCallback } from "react";
  */
 const SITE_KEY = process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY;
 
-type Grecaptcha = {
-  enterprise: {
-    ready: (cb: () => void) => void;
-    execute: (key: string, opts: { action: string }) => Promise<string>;
-  };
+type GrecaptchaEnterprise = {
+  ready: (cb: () => void) => void;
+  execute: (key: string, opts: { action: string }) => Promise<string>;
 };
 
-declare global {
-  interface Window {
-    grecaptcha?: Grecaptcha;
-  }
+function getGrecaptcha(): GrecaptchaEnterprise | undefined {
+  if (typeof window === "undefined") return undefined;
+  const g = (window as unknown as {
+    grecaptcha?: { enterprise?: GrecaptchaEnterprise };
+  }).grecaptcha;
+  return g?.enterprise;
 }
 
 let scriptPromise: Promise<void> | null = null;
 
 function loadScript(): Promise<void> {
   if (!SITE_KEY || typeof window === "undefined") return Promise.resolve();
-  if (window.grecaptcha?.enterprise) return Promise.resolve();
+  if (getGrecaptcha()) return Promise.resolve();
   if (scriptPromise) return scriptPromise;
   scriptPromise = new Promise<void>((resolve, reject) => {
     const s = document.createElement("script");
@@ -44,12 +44,12 @@ function loadScript(): Promise<void> {
 export function useRecaptcha() {
   const enabled = !!SITE_KEY;
 
-  /** Returns a token for {@code action}, or null when reCAPTCHA isn't configured. */
+  /** Returns a token for `action`, or null when reCAPTCHA isn't configured. */
   const execute = useCallback(async (action: string): Promise<string | null> => {
     if (!SITE_KEY) return null;
     try {
       await loadScript();
-      const g = window.grecaptcha?.enterprise;
+      const g = getGrecaptcha();
       if (!g) return null;
       return await new Promise<string>((resolve, reject) => {
         g.ready(() => {
