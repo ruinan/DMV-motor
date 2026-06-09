@@ -126,6 +126,50 @@ class TopicControllerTest extends IntegrationTestBase {
     }
 
     @Test
+    void getMastery_partialHistory_reportsTopicProgress() throws Exception {
+        // bug2 progress bar: 4 attempts, 3 correct → 75% accuracy, 3/8 recent,
+        // only 4 of the 8-attempt window. Progress = min(75/80, 3/6, 4/8) = 50%.
+        Long userId = fixtures.insertUser("progress@test.com");
+        Long topicId = fixtures.insertTopic("LANES", "Lane Use", "车道", false, 10);
+        Long sessionId = fixtures.insertPracticeSession(userId, 0);
+        for (int i = 0; i < 4; i++) {
+            Long q = fixtures.insertQuestion(topicId, "A");
+            Long v = fixtures.insertEnVariantReturningId(q, "s" + i, "e" + i);
+            fixtures.insertPracticeAttempt(userId, sessionId, q, v, i < 3 ? "A" : "B", i < 3);
+        }
+
+        mockMvc.perform(get("/api/v1/topics/mastery").header("Authorization", "Bearer " + userId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.topics[0].is_mastered").value(false))
+                .andExpect(jsonPath("$.data.topics[0].mastery_progress.attempted").value(4))
+                .andExpect(jsonPath("$.data.topics[0].mastery_progress.accuracy_percent").value(75))
+                .andExpect(jsonPath("$.data.topics[0].mastery_progress.recent_correct").value(3))
+                .andExpect(jsonPath("$.data.topics[0].mastery_progress.recent_window").value(8))
+                .andExpect(jsonPath("$.data.topics[0].mastery_progress.accuracy_threshold").value(80))
+                .andExpect(jsonPath("$.data.topics[0].mastery_progress.recent_correct_threshold").value(6))
+                .andExpect(jsonPath("$.data.topics[0].mastery_progress.progress_percent").value(50));
+    }
+
+    @Test
+    void getMastery_topicGateMet_progress100() throws Exception {
+        // 8 correct → topic-level gate passes → progress is 100.
+        Long userId = fixtures.insertUser("progress100@test.com");
+        Long topicId = fixtures.insertTopic("LANES", "Lane Use", "车道", false, 10);
+        Long sessionId = fixtures.insertPracticeSession(userId, 0);
+        for (int i = 0; i < 8; i++) {
+            Long q = fixtures.insertQuestion(topicId, "A");
+            Long v = fixtures.insertEnVariantReturningId(q, "s" + i, "e" + i);
+            fixtures.insertPracticeAttempt(userId, sessionId, q, v, "A", true);
+        }
+
+        mockMvc.perform(get("/api/v1/topics/mastery").header("Authorization", "Bearer " + userId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.topics[0].mastery_progress.progress_percent").value(100))
+                .andExpect(jsonPath("$.data.topics[0].mastery_progress.accuracy_percent").value(100))
+                .andExpect(jsonPath("$.data.topics[0].mastery_progress.recent_correct").value(8));
+    }
+
+    @Test
     void getMastery_countsMockAnswers_towardCoverage() throws Exception {
         // "模考也算覆盖" — answers submitted in a mock exam count toward sub-topic
         // coverage + mastery just like practice, so a learner who only took mocks

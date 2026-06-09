@@ -20,6 +20,7 @@ import {
 } from "@/lib/hooks/use-mock-history";
 import { ReadinessRing } from "@/components/readiness-ring";
 import { CoverageDonut } from "@/components/study-hub/CoverageDonut";
+import { TopicProgressSection } from "@/components/study-hub/TopicProgressSection";
 import { Sparkline } from "@/components/study-hub/Sparkline";
 import { EngagementStrip } from "@/components/study-hub/EngagementStrip";
 import { ExamIndicator } from "@/components/exam-indicator";
@@ -132,6 +133,12 @@ export function Dashboard({ t, lang }: Props) {
 
       {/* Section 1: Resume CTA or Start CTA */}
       <ResumeOrStartCard t={t} lang={lang} inProgress={inProgress ?? null} stats={practiceStats.data} />
+
+      {/* Topic mastery progress (bug2): per-topic bars so a "stuck" topic is
+          legible — reaching the line auto-clears that topic's mistakes. */}
+      {mastery.data && (
+        <TopicProgressSection t={t.studyHub} lang={lang} topics={mastery.data.topics} />
+      )}
 
       {/* Section 2: Practice history */}
       <PracticeHistorySection

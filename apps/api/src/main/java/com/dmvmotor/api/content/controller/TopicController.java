@@ -67,6 +67,7 @@ public class TopicController {
             String nameEn,
             String nameZh,
             boolean isMastered,
+            MasteryProgressDto masteryProgress,
             List<SubTopicMasteryDto> subTopics
     ) {
         static TopicMasteryDto from(MasteryViewService.TopicView t) {
@@ -76,7 +77,25 @@ public class TopicController {
                     t.nameEn(),
                     t.nameZh(),
                     t.isMastered(),
+                    MasteryProgressDto.from(t.masteryProgress()),
                     t.subTopics().stream().map(SubTopicMasteryDto::from).toList());
+        }
+    }
+
+    record MasteryProgressDto(
+            int attempted,
+            int accuracyPercent,
+            int recentCorrect,
+            int recentWindow,
+            int accuracyThreshold,
+            int recentCorrectThreshold,
+            int progressPercent
+    ) {
+        static MasteryProgressDto from(MasteryViewService.TopicMasteryProgress p) {
+            return new MasteryProgressDto(
+                    p.attempted(), p.accuracyPercent(), p.recentCorrect(),
+                    p.recentWindow(), p.accuracyThreshold(), p.recentCorrectThreshold(),
+                    p.progressPercent());
         }
     }
 

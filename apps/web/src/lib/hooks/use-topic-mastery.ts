@@ -13,12 +13,23 @@ export type SubTopicMastery = {
   bank_size: number;
 };
 
+export type TopicMasteryProgress = {
+  attempted: number;
+  accuracy_percent: number;
+  recent_correct: number;
+  recent_window: number;
+  accuracy_threshold: number;
+  recent_correct_threshold: number;
+  progress_percent: number;
+};
+
 export type TopicMastery = {
   topic_id: string;
   code: string;
   name_en: string;
   name_zh: string;
   is_mastered: boolean;
+  mastery_progress: TopicMasteryProgress;
   sub_topics: SubTopicMastery[];
 };
 

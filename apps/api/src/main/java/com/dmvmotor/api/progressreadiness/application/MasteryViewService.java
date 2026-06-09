@@ -6,6 +6,9 @@ import com.dmvmotor.api.content.domain.SubTopic;
 import com.dmvmotor.api.content.domain.Topic;
 import com.dmvmotor.api.content.infrastructure.SubTopicRepository;
 import com.dmvmotor.api.content.infrastructure.TopicRepository;
+import com.dmvmotor.api.mistakereview.config.MasteryProperties;
+import com.dmvmotor.api.mistakereview.review.domain.MasteryEvaluator;
+import com.dmvmotor.api.mistakereview.review.domain.MasteryEvaluator.TopicStats;
 import com.dmvmotor.api.mistakereview.review.domain.SubTopicMasteryEvaluator;
 import com.dmvmotor.api.mistakereview.review.domain.SubTopicMasteryEvaluator.SubTopicStats;
 import com.dmvmotor.api.mistakereview.review.infrastructure.PracticeHistoryRepository;
@@ -28,6 +31,8 @@ public class MasteryViewService {
     private final SubTopicRepository subTopicRepository;
     private final PracticeHistoryRepository historyRepository;
     private final SubTopicMasteryEvaluator evaluator;
+    private final MasteryEvaluator topicEvaluator;
+    private final MasteryProperties masteryProps;
     private final UserRepository userRepository;
     private final ExamContext examContext;
 
@@ -36,12 +41,16 @@ public class MasteryViewService {
             SubTopicRepository subTopicRepository,
             PracticeHistoryRepository historyRepository,
             SubTopicMasteryEvaluator evaluator,
+            MasteryEvaluator topicEvaluator,
+            MasteryProperties masteryProps,
             UserRepository userRepository,
             ExamContext examContext) {
         this.topicRepository = topicRepository;
         this.subTopicRepository = subTopicRepository;
         this.historyRepository = historyRepository;
         this.evaluator = evaluator;
+        this.topicEvaluator = topicEvaluator;
+        this.masteryProps = masteryProps;
         this.userRepository = userRepository;
         this.examContext = examContext;
     }
@@ -83,12 +92,50 @@ public class MasteryViewService {
                 if (mastered) masteredSubTopicCount++;
                 else topicMastered = false;
             }
+            // Topic-level mastery PROGRESS — the same gate that clears this
+            // topic's mistakes in the live practice flow (PracticeService).
+            // Surfaced so the Study Hub can show "how far to clearing this
+            // topic" instead of a silent stuck state.
+            TopicStats tStats = historyRepository.topicStats(userId, topic.id(), cycle);
+            List<Boolean> tRecent = historyRepository.lastNAttemptsForTopic(
+                    userId, topic.id(), cycle, topicEvaluator.recentWindow());
+            TopicMasteryProgress progress = topicProgress(tStats, tRecent);
             topicViews.add(new TopicView(
                     topic.id(), topic.code(), topic.nameEn(), topic.nameZh(),
-                    topicMastered, subTopicViews));
+                    topicMastered, subTopicViews, progress));
         }
 
         return new TopicMasteryView(topicViews, subTopics.size(), masteredSubTopicCount);
+    }
+
+    /**
+     * Progress toward the topic-level mastery gate (rate ≥ threshold AND ≥K of
+     * last N correct). progressPercent is the binding constraint as a percent:
+     * the min of (accuracy / threshold), (recent-correct / K), and (recent
+     * attempts / N) — so a user short on accuracy, recent hits, OR sheer
+     * practice volume sees exactly how far they are. 100 once mastered.
+     */
+    private TopicMasteryProgress topicProgress(TopicStats stats, List<Boolean> recent) {
+        int window          = masteryProps.recentWindow();
+        int accThreshold    = masteryProps.topicCorrectRateThreshold();
+        int recentThreshold = masteryProps.recentCorrectThreshold();
+
+        int accuracyPct   = stats.total() > 0 ? Math.round(stats.correct() * 100f / stats.total()) : 0;
+        int recentCorrect = (int) recent.stream().filter(Boolean.TRUE::equals).count();
+
+        int progress;
+        if (topicEvaluator.isMastered(stats, recent)) {
+            progress = 100;
+        } else {
+            // Thresholds come from config with sensible non-zero defaults
+            // (80 / 6 / 8); double division keeps this safe even if misconfigured.
+            double g1 = Math.min(1.0, (double) accuracyPct   / accThreshold);
+            double g2 = Math.min(1.0, (double) recentCorrect / recentThreshold);
+            double g3 = Math.min(1.0, (double) recent.size() / window);
+            progress = (int) Math.round(Math.min(g1, Math.min(g2, g3)) * 100);
+        }
+        return new TopicMasteryProgress(stats.total(), accuracyPct, recentCorrect,
+                window, accThreshold, recentThreshold, progress);
     }
 
     public record TopicMasteryView(
@@ -103,7 +150,19 @@ public class MasteryViewService {
             String nameEn,
             String nameZh,
             boolean isMastered,
-            List<SubTopicView> subTopics
+            List<SubTopicView> subTopics,
+            TopicMasteryProgress masteryProgress
+    ) {}
+
+    /** How close a topic is to the mastery gate that clears its mistakes. */
+    public record TopicMasteryProgress(
+            int attempted,
+            int accuracyPercent,
+            int recentCorrect,
+            int recentWindow,
+            int accuracyThreshold,
+            int recentCorrectThreshold,
+            int progressPercent
     ) {}
 
     public record SubTopicView(
