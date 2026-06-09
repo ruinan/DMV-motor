@@ -21,7 +21,7 @@ export default async function MarketingLayout({
     <div className="flex min-h-screen flex-col">
       <SiteHeader t={t.site} lang={lang} />
       <div className="flex flex-1 flex-col">{children}</div>
-      <SiteFooter t={t.footer} />
+      <SiteFooter t={t.footer} lang={lang} />
     </div>
   );
 }
