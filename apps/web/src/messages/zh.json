@@ -507,7 +507,7 @@
     "freeTrialBadge": "无需注册",
     "freeTrialHeading": "免费试用题集",
     "chooseExamPrompt": "选择要练习的考试",
-    "freeTrialBody": "精选 15 道基础题，立即开始作答。未登录状态下不会保存答题记录。",
+    "freeTrialBody": "精选 10 道基础题，立即开始作答。未登录状态下不会保存答题记录。",
     "errorPassRequired": "完整练习需要考试通行证。",
     "selectChoice": "请先选择一个答案。",
     "reviewHistory": "回看已答题",

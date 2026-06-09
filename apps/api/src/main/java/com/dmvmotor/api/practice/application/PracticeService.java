@@ -186,10 +186,9 @@ public class PracticeService {
                 ? overrideLanguage
                 : session.languageCode();
 
-        // A session is capped by entry type (free trial 15 / paid full 30 —
-        // paid gives more per round). Once the user has answered that many, the
-        // session is done — surfaced as the same SESSION_COMPLETED the frontend
-        // already treats as "finished".
+        // A session is a fixed 10-question round (both free and paid). Once the
+        // user has answered that many, the session is done — surfaced as the
+        // same SESSION_COMPLETED the frontend already treats as "finished".
         if (sessionRepo.countAnswered(sessionId)
                 >= PracticeSessionRepository.capFor(session.entryType())) {
             throw new BusinessException("SESSION_COMPLETED",

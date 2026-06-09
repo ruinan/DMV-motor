@@ -90,15 +90,15 @@ public class PracticeSessionRepository {
     // session/attempt CRUD and pool sizing.
 
     /**
-     * Max questions served per practice session, by entry type. A session is a
-     * bounded study chunk; once this many are answered it completes. Full
-     * practice is 20 per round — small enough to retain ("多了记不住"), bigger
-     * than the free taste (15) which stays the deliberate smaller sampler.
-     * Displayed total is min(cap, pool) so a small pool (narrow topic filter)
-     * still shows its real size.
+     * Max questions served per practice session. A session is a bounded study
+     * chunk; once this many are answered it completes. Fixed at 10 per round
+     * (both free and paid) — a short, focused set the user can finish in one
+     * sitting ("题目每次10个"). Paid value is the practice MODE (random / weak
+     * points / learned), not a bigger pile. Displayed total is min(cap, pool)
+     * so a small pool (narrow topic filter) still shows its real size.
      */
-    public static final int FREE_TRIAL_QUESTION_CAP = 15;
-    public static final int FULL_QUESTION_CAP       = 20;
+    public static final int FREE_TRIAL_QUESTION_CAP = 10;
+    public static final int FULL_QUESTION_CAP       = 10;
 
     public static int capFor(String entryType) {
         return "free_trial".equals(entryType) ? FREE_TRIAL_QUESTION_CAP : FULL_QUESTION_CAP;
