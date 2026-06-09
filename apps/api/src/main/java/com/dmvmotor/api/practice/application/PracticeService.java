@@ -105,18 +105,40 @@ public class PracticeService {
 
     @Transactional
     public StartSessionResult startSession(Long userId, String entryType, String language) {
-        return startSession(userId, entryType, language, null, null);
+        return startSession(userId, entryType, language, null, null, null);
     }
 
     @Transactional
     public StartSessionResult startSession(Long userId, String entryType, String language,
                                            List<Long> topicFilter) {
-        return startSession(userId, entryType, language, topicFilter, null);
+        return startSession(userId, entryType, language, topicFilter, null, null);
     }
 
     @Transactional
     public StartSessionResult startSession(Long userId, String entryType, String language,
                                            List<Long> topicFilter, Long requestedExamId) {
+        return startSession(userId, entryType, language, topicFilter, requestedExamId, null);
+    }
+
+    /**
+     * Resolves the practice selection mode (bug4), backend-enforced: only a paid
+     * {@code full} session may pick a non-random mode. Free trial / anonymous
+     * always get {@code random} — no weak-point weighting that would lock them
+     * onto one topic. Unknown values fall back to {@code random}.
+     */
+    private String resolveSelectionMode(String requested, String entryType) {
+        if (!"full".equals(entryType)) return "random";
+        String m = requested == null ? "random" : requested;
+        return switch (m) {
+            case "weak_points", "review_learned" -> m;
+            default -> "random";
+        };
+    }
+
+    @Transactional
+    public StartSessionResult startSession(Long userId, String entryType, String language,
+                                           List<Long> topicFilter, Long requestedExamId,
+                                           String requestedMode) {
         // entry_type=full requires an active access pass
         if ("full".equals(entryType)) {
             if (userId == null) {
@@ -153,15 +175,17 @@ public class PracticeService {
                     HttpStatus.UNPROCESSABLE_ENTITY);
         }
 
-        Long sessionId = sessionRepo.create(userId, entryType, language, cycle, examId, filter);
+        String mode = resolveSelectionMode(requestedMode, entryType);
+
+        Long sessionId = sessionRepo.create(userId, entryType, language, cycle, examId, filter, mode);
 
         QuestionDetail first = questionSelector
-                .findNextUnansweredQuestion(sessionId, language, entryType, userId, cycle, examId, filter)
+                .findNextUnansweredQuestion(sessionId, language, entryType, userId, cycle, examId, filter, mode)
                 .orElseThrow(() -> new BusinessException("NO_QUESTIONS_AVAILABLE",
                         "No questions available for the selected topics",
                         HttpStatus.UNPROCESSABLE_ENTITY));
 
-        return new StartSessionResult(sessionId, entryType, "in_progress", language, first);
+        return new StartSessionResult(sessionId, entryType, "in_progress", language, mode, first);
     }
 
     public QuestionDetail getNextQuestion(Long sessionId, Long requestUserId) {
@@ -197,7 +221,8 @@ public class PracticeService {
 
         return questionSelector.findNextUnansweredQuestion(
                         sessionId, effectiveLang, session.entryType(),
-                        session.userId(), cycle, session.examId(), session.topicFilter())
+                        session.userId(), cycle, session.examId(), session.topicFilter(),
+                        session.selectionMode())
                 .orElseThrow(() -> new BusinessException("SESSION_COMPLETED",
                         "No more questions in this session",
                         HttpStatus.NOT_FOUND));
@@ -341,7 +366,7 @@ public class PracticeService {
 
     public record StartSessionResult(
             Long sessionId, String entryType, String status,
-            String language, QuestionDetail nextQuestion) {}
+            String language, String selectionMode, QuestionDetail nextQuestion) {}
 
     public record SessionStatus(
             Long sessionId, String status, int answeredCount, int totalCount) {}

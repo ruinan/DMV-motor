@@ -7,6 +7,8 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.web.servlet.MockMvc;
 
+import java.time.OffsetDateTime;
+
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.is;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -24,6 +26,25 @@ class RecommendationControllerTest extends IntegrationTestBase {
     void setUp() {
         fixtures.truncateAll();
         userId = fixtures.insertUser("alice@example.com");
+        // Next-step recommendations are a paid perk (bug4). Grant a pass for the
+        // user's current (default) exam so the ranking tests exercise the logic;
+        // the free-user empty case is covered separately.
+        fixtures.insertAccessPassForExam(userId, fixtures.defaultExamId(), "active",
+                OffsetDateTime.now().minusDays(1), OffsetDateTime.now().plusDays(30), 3, 0);
+    }
+
+    @Test
+    void recommendations_freeUser_returnsEmpty() throws Exception {
+        // No pass → next-step suggestions are gated off (backend-enforced).
+        Long freeUser = fixtures.insertUser("free@example.com");
+        Long t = fixtures.insertTopic("FT", "Free Topic", "免费", false, 1);
+        Long q = fixtures.insertQuestion(t, "A");
+        fixtures.insertMistakeRecord(freeUser, q, t, 1, "practice");
+
+        mockMvc.perform(get("/api/v1/ai/recommendations")
+                        .header("Authorization", "Bearer " + freeUser))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.recommendations", hasSize(0)));
     }
 
     @Test

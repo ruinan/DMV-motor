@@ -955,10 +955,10 @@ class PracticeSessionControllerTest extends IntegrationTestBase {
     // ---------------------------------------------------------------
 
     @Test
-    void nextQuestion_userHasActiveMistakeInTopicA_returnsQuestionFromTopicA() throws Exception {
+    void nextQuestion_weakPointsMode_returnsQuestionFromMistakeTopic() throws Exception {
         // Setup: two non-key topics with one question each. User has an active
         // MistakeRecord in topic A. The default ID-asc tiebreaker would return
-        // topic B's question (lower id, inserted earlier in setUp) but the
+        // topic B's question (lower id), but in weak_points mode (paid) the
         // active-mistake topic must win.
         fixtures.truncateAll();
         Long topicA = fixtures.insertTopic("MISTAKE_TOPIC_A");
@@ -971,15 +971,14 @@ class PracticeSessionControllerTest extends IntegrationTestBase {
         fixtures.insertEnVariant(qA, "A-stem", "A-expl");
 
         Long uid = fixtures.insertUser("mistake_topicA@example.com");
-        // User has an active mistake in topic A (from a prior, hypothetical
-        // attempt — TestFixtures.insertMistakeRecord defaults learning_cycle=0
-        // which matches a new user's reset_count).
+        fixtures.insertAccessPass(uid, "active",
+                OffsetDateTime.now().minusDays(1), OffsetDateTime.now().plusDays(30), 3, 0);
+        // User has an active mistake in topic A (learning_cycle defaults to 0).
         fixtures.insertMistakeRecord(uid, qA, topicA, 3, "practice");
 
-        String sessionId = startSessionAsUser(uid, "en");
+        // Paid full session in weak_points mode — the weighted selector applies.
+        String sessionId = startFullSessionWithMode(uid, "en", "weak_points");
 
-        // The first next_question is the one the session was created with.
-        // Fetch it explicitly via /next-question for clarity.
         mockMvc.perform(get("/api/v1/practice/sessions/{id}/next-question", sessionId)
                         .header("Authorization", "Bearer " + uid))
                 .andExpect(status().isOk())
@@ -987,11 +986,10 @@ class PracticeSessionControllerTest extends IntegrationTestBase {
     }
 
     @Test
-    void nextQuestion_noMistakes_userMissingKeyTopicB_returnsQuestionFromTopicB() throws Exception {
+    void nextQuestion_weakPointsMode_noMistakes_returnsUncoveredKeyTopic() throws Exception {
         // Setup: non-key topic A and key topic B. No mistake records. User has
-        // covered topic A (via a prior attempt in another session in the same
-        // learning cycle). Even though qA's id is lower, the missing-key-topic
-        // priority must pull qB to the front.
+        // covered topic A. In weak_points mode the missing-key-topic priority
+        // pulls qB to the front even though qA's id is lower.
         fixtures.truncateAll();
         Long topicA = fixtures.insertTopic("PLAIN_A", "A", "A", false, 0);
         Long topicB = fixtures.insertTopic("KEY_B",   "B", "B", true,  0);
@@ -1001,20 +999,119 @@ class PracticeSessionControllerTest extends IntegrationTestBase {
         fixtures.insertEnVariant(qB, "B-stem", "B-expl");
 
         Long uid = fixtures.insertUser("missing_keyB@example.com");
+        fixtures.insertAccessPass(uid, "active",
+                OffsetDateTime.now().minusDays(1), OffsetDateTime.now().plusDays(30), 3, 0);
 
-        // Simulate: user already answered something from topic A in a prior
-        // completed session in the current learning cycle. Now topic B is
-        // uncovered and topic A is covered.
+        // User already covered topic A in a prior completed session this cycle.
         Long priorSession = fixtures.insertPracticeSession(uid, 0);
         Long vA = fixtures.insertVariantReturningId(qA, "zh", "A-zh", "[]", "expl");
         fixtures.insertPracticeAttempt(uid, priorSession, qA, vA, "A", true);
 
-        String sessionId = startSessionAsUser(uid, "en");
+        String sessionId = startFullSessionWithMode(uid, "en", "weak_points");
 
         mockMvc.perform(get("/api/v1/practice/sessions/{id}/next-question", sessionId)
                         .header("Authorization", "Bearer " + uid))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.question_id").value(qB.toString()));
+    }
+
+    @Test
+    void startSession_freeTrial_weakPointsRequested_downgradedToRandom() throws Exception {
+        // bug4 enforcement: free trial can't pick weak_points. The request is
+        // downgraded to random server-side, so a mistake topic is NOT forced —
+        // free users aren't locked onto one weak topic.
+        fixtures.truncateAll();
+        Long topicA = fixtures.insertTopic("FT_MISTAKE_A");
+        Long topicB = fixtures.insertTopic("FT_PLAIN_B");
+        Long qB = fixtures.insertQuestion(topicB, "A"); // lower id
+        fixtures.insertEnVariant(qB, "B-stem", "B-expl");
+        Long qA = fixtures.insertQuestion(topicA, "A");
+        fixtures.insertEnVariant(qA, "A-stem", "A-expl");
+
+        Long uid = fixtures.insertUser("ft_downgrade@example.com");
+        fixtures.insertMistakeRecord(uid, qA, topicA, 5, "practice");
+
+        mockMvc.perform(post("/api/v1/practice/sessions")
+                        .header("Authorization", "Bearer " + uid)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"entry_type":"free_trial","language":"en","mode":"weak_points"}
+                                """))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.data.selection_mode").value("random"))
+                // random mode → lowest-id (qB), NOT the mistake topic's qA.
+                .andExpect(jsonPath("$.data.next_question.question_id").value(qB.toString()));
+    }
+
+    @Test
+    void startSession_fullWeakPoints_modeHonored() throws Exception {
+        Long uid = fixtures.insertUser("full_wp@example.com");
+        fixtures.insertAccessPass(uid, "active",
+                OffsetDateTime.now().minusDays(1), OffsetDateTime.now().plusDays(30), 3, 0);
+
+        mockMvc.perform(post("/api/v1/practice/sessions")
+                        .header("Authorization", "Bearer " + uid)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"entry_type":"full","language":"en","mode":"weak_points"}
+                                """))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.data.selection_mode").value("weak_points"));
+    }
+
+    @Test
+    void nextQuestion_fullRandomMode_doesNotPrioritizeMistakeTopic() throws Exception {
+        // Paid, but random mode → no weak-point weighting. A mistake in topic A
+        // (higher id) does NOT jump ahead of the lower-id topic B question.
+        fixtures.truncateAll();
+        Long topicA = fixtures.insertTopic("RND_MISTAKE_A");
+        Long topicB = fixtures.insertTopic("RND_PLAIN_B");
+        Long qB = fixtures.insertQuestion(topicB, "A"); // lower id
+        fixtures.insertEnVariant(qB, "B-stem", "B-expl");
+        Long qA = fixtures.insertQuestion(topicA, "A");
+        fixtures.insertEnVariant(qA, "A-stem", "A-expl");
+
+        Long uid = fixtures.insertUser("full_random@example.com");
+        fixtures.insertAccessPass(uid, "active",
+                OffsetDateTime.now().minusDays(1), OffsetDateTime.now().plusDays(30), 3, 0);
+        fixtures.insertMistakeRecord(uid, qA, topicA, 5, "practice");
+
+        String sessionId = startFullSessionWithMode(uid, "en", "random");
+
+        mockMvc.perform(get("/api/v1/practice/sessions/{id}/next-question", sessionId)
+                        .header("Authorization", "Bearer " + uid))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.question_id").value(qB.toString()));
+    }
+
+    @Test
+    void nextQuestion_reviewLearnedMode_restrictsToCoveredTopics() throws Exception {
+        // review_learned (paid): only topics the user has already covered. Topic
+        // A is covered (prior attempt), topic B is not — so the uncovered topic
+        // B question is never served; only the covered topic-A question is.
+        fixtures.truncateAll();
+        Long topicA = fixtures.insertTopic("RL_COVERED_A");
+        Long topicB = fixtures.insertTopic("RL_UNCOVERED_B");
+        Long qA = fixtures.insertQuestion(topicA, "A");
+        Long vA = fixtures.insertEnVariantReturningId(qA, "A-stem", "x");
+        Long qB = fixtures.insertQuestion(topicB, "A");
+        fixtures.insertEnVariant(qB, "B-stem", "x");
+
+        Long uid = fixtures.insertUser("review_learned@example.com");
+        fixtures.insertAccessPass(uid, "active",
+                OffsetDateTime.now().minusDays(1), OffsetDateTime.now().plusDays(30), 3, 0);
+        // Cover topic A via a prior completed session this cycle (the attempt is
+        // in a DIFFERENT session, so qA is still unanswered in the new session).
+        Long priorSession = fixtures.insertPracticeSession(uid, 0);
+        fixtures.insertPracticeAttempt(uid, priorSession, qA, vA, "A", true);
+
+        String sessionId = startFullSessionWithMode(uid, "en", "review_learned");
+
+        // Only topic A (covered) is in the pool — topic B's question is excluded.
+        mockMvc.perform(get("/api/v1/practice/sessions/{id}/next-question", sessionId)
+                        .header("Authorization", "Bearer " + uid))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.question_id").value(qA.toString()));
     }
 
     @Test
@@ -1120,6 +1217,22 @@ class PracticeSessionControllerTest extends IntegrationTestBase {
                         .content("""
                                 {"entry_type":"full","language":"%s"}
                                 """.formatted(language)))
+                .andReturn();
+        String body = result.getResponse().getContentAsString();
+        String key = "\"session_id\":\"";
+        int start = body.indexOf(key) + key.length();
+        int end   = body.indexOf("\"", start);
+        return body.substring(start, end);
+    }
+
+    private String startFullSessionWithMode(Long userId, String language, String mode)
+            throws Exception {
+        var result = mockMvc.perform(post("/api/v1/practice/sessions")
+                        .header("Authorization", "Bearer " + userId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"entry_type":"full","language":"%s","mode":"%s"}
+                                """.formatted(language, mode)))
                 .andReturn();
         String body = result.getResponse().getContentAsString();
         String key = "\"session_id\":\"";

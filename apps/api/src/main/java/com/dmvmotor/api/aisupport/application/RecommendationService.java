@@ -2,6 +2,7 @@ package com.dmvmotor.api.aisupport.application;
 
 import com.dmvmotor.api.aisupport.infrastructure.RecommendationRepository;
 import com.dmvmotor.api.aisupport.infrastructure.RecommendationRepository.TopicMistakeCount;
+import com.dmvmotor.api.authaccess.application.AccessService;
 import com.dmvmotor.api.authaccess.infrastructure.UserRepository;
 import com.dmvmotor.api.content.application.ExamContext;
 import com.dmvmotor.api.content.domain.Topic;
@@ -41,18 +42,28 @@ public class RecommendationService {
     private final TopicRepository          topicRepo;
     private final UserRepository           userRepo;
     private final ExamContext              examContext;
+    private final AccessService            accessService;
 
     public RecommendationService(RecommendationRepository recRepo,
                                  TopicRepository topicRepo,
                                  UserRepository userRepo,
-                                 ExamContext examContext) {
+                                 ExamContext examContext,
+                                 AccessService accessService) {
         this.recRepo   = recRepo;
         this.topicRepo = topicRepo;
         this.userRepo  = userRepo;
         this.examContext = examContext;
+        this.accessService = accessService;
     }
 
     public List<Recommendation> recommend(Long userId, String language, int requestedLimit) {
+        Long examId = examContext.resolveExamId(userId);
+        // The next-step recommendation is a paid perk (bug4: free users don't get
+        // it — they just practice random). Backend-enforced, so it's not merely
+        // hidden in the UI. Empty for users without an active pass.
+        if (!accessService.getAccess(userId, examId).hasActivePass()) {
+            return List.of();
+        }
         int limit = Math.min(Math.max(requestedLimit, 1), MAX_LIMIT);
         int cycle = userRepo.findById(userId)
                 .map(UserRepository.UserRow::resetCount).orElse(0);
@@ -60,7 +71,7 @@ public class RecommendationService {
         // Recommend only within the user's current exam taxonomy. Mistake-topic
         // ids from other exams (shouldn't occur for a single-exam user) fall out
         // naturally via the byId lookup below.
-        List<Topic> topics = topicRepo.findByExam(examContext.resolveExamId(userId));
+        List<Topic> topics = topicRepo.findByExam(examId);
         Map<Long, Topic> byId = topics.stream()
                 .collect(Collectors.toMap(Topic::id, Function.identity()));
 

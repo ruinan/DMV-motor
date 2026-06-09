@@ -34,6 +34,10 @@ export function EngagementStrip({ t, lang }: { t: Dictionary; lang: Locale }) {
   const [starting, setStarting] = useState(false);
   const [startError, setStartError] = useState<string | null>(null);
 
+  // Next-step suggestion is a paid perk (bug4): free users don't get it (the
+  // backend also returns empty recommendations for them). Hide the cell rather
+  // than show a misleading "all caught up".
+  const isPaid = me.data?.access.has_active_pass ?? false;
   const streak = engagement.data?.current_streak_days ?? 0;
   const answeredToday = engagement.data?.answered_today ?? 0;
   const dailyGoal = engagement.data?.daily_goal ?? 10;
@@ -75,7 +79,11 @@ export function EngagementStrip({ t, lang }: { t: Dictionary; lang: Locale }) {
   // gap-px over a border-toned background paints hairline dividers between the
   // three white cells without per-cell border math.
   return (
-    <section className="grid grid-cols-1 gap-px overflow-hidden rounded-xl border border-border/40 bg-border/40 shadow-sm sm:grid-cols-3">
+    <section
+      className={`grid grid-cols-1 gap-px overflow-hidden rounded-xl border border-border/40 bg-border/40 shadow-sm ${
+        isPaid ? "sm:grid-cols-3" : "sm:grid-cols-2"
+      }`}
+    >
       {/* Streak */}
       <div className="flex items-center gap-3 bg-card p-5">
         <span className="inline-flex size-11 shrink-0 items-center justify-center rounded-full bg-orange-500/10 text-orange-500">
@@ -123,7 +131,8 @@ export function EngagementStrip({ t, lang }: { t: Dictionary; lang: Locale }) {
         </p>
       </div>
 
-      {/* Next best step */}
+      {/* Next best step — paid only (bug4) */}
+      {isPaid && (
       <div className="flex flex-col justify-center gap-2 bg-card p-5">
         <span className="flex items-center gap-1.5 text-sm font-semibold text-foreground">
           <Zap className="size-4 text-primary" aria-hidden />
@@ -158,6 +167,7 @@ export function EngagementStrip({ t, lang }: { t: Dictionary; lang: Locale }) {
           <p className="text-xs text-muted-foreground">{s.nextStepEmpty}</p>
         )}
       </div>
+      )}
     </section>
   );
 }

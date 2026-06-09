@@ -381,6 +381,10 @@ class ExamScopingTest extends IntegrationTestBase {
         fixtures.insertMistakeRecord(userId, caq, caTopic, 3, "practice");
 
         fixtures.setUserCurrentExam(userId, examB);
+        // Recommendations are a paid perk (bug4) — grant a pass for exam B.
+        fixtures.insertAccessPassForExam(userId, examB, "active",
+                java.time.OffsetDateTime.now().minusDays(1),
+                java.time.OffsetDateTime.now().plusDays(30), 3, 0);
 
         mockMvc.perform(get("/api/v1/ai/recommendations")
                         .header("Authorization", "Bearer " + userId))

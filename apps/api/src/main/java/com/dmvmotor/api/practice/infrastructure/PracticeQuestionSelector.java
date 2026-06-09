@@ -11,6 +11,7 @@ import org.jooq.Record;
 import org.jooq.impl.DSL;
 import org.springframework.stereotype.Repository;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
@@ -69,12 +70,25 @@ public class PracticeQuestionSelector {
             Long sessionId, String languageCode, String entryType,
             Long userId, int learningCycle, Long examId) {
         return findNextUnansweredQuestion(sessionId, languageCode, entryType,
-                userId, learningCycle, examId, List.of());
+                userId, learningCycle, examId, List.of(), "random");
     }
 
+    /**
+     * {@code selectionMode} (bug4) controls ordering/pool:
+     * <ul>
+     *   <li>{@code weak_points} — the weighted personalization below (active
+     *       mistakes first, then uncovered key topics). Paid.</li>
+     *   <li>{@code random} — no weak-point weighting: just the recency penalty
+     *       (don't repeat the just-served topic) + stable id. The only mode
+     *       free users get, so they're not locked onto one weak topic.</li>
+     *   <li>{@code review_learned} — like {@code random} but the pool is
+     *       restricted to topics the user has already covered this cycle. Paid.</li>
+     * </ul>
+     */
     public Optional<QuestionDetail> findNextUnansweredQuestion(
             Long sessionId, String languageCode, String entryType,
-            Long userId, int learningCycle, Long examId, List<Long> topicFilter) {
+            Long userId, int learningCycle, Long examId, List<Long> topicFilter,
+            String selectionMode) {
         var q  = Tables.QUESTIONS;
         var qv = Tables.QUESTION_VARIANTS;
         var t  = Tables.TOPICS;
@@ -100,6 +114,20 @@ public class PracticeQuestionSelector {
         // the pool to the chosen topics. Empty filter = no restriction.
         if (!topicFilter.isEmpty()) {
             condition = condition.and(q.PRIMARY_TOPIC_ID.in(topicFilter));
+        }
+        // review_learned mode (paid): only serve topics the user has already
+        // covered this cycle — a consolidation round over learned material.
+        if ("review_learned".equals(selectionMode) && userId != null) {
+            var qcov = Tables.QUESTIONS.as("qcov");
+            condition = condition.and(q.PRIMARY_TOPIC_ID.in(
+                    dsl.selectDistinct(qcov.PRIMARY_TOPIC_ID)
+                       .from(pa).join(qcov).on(qcov.ID.eq(pa.QUESTION_ID))
+                       .where(pa.PRACTICE_SESSION_ID.in(
+                               dsl.select(Tables.PRACTICE_SESSIONS.ID)
+                                  .from(Tables.PRACTICE_SESSIONS)
+                                  .where(Tables.PRACTICE_SESSIONS.USER_ID.eq(userId)
+                                          .and(Tables.PRACTICE_SESSIONS.LEARNING_CYCLE.eq(learningCycle)))))
+            ));
         }
 
         // -------- priority 0: active mistake on this topic --------
@@ -193,18 +221,29 @@ public class PracticeQuestionSelector {
         // Recency is placed above keyTopicPriority so the user is never served
         // the same topic twice in a row even if that topic is the only key
         // gap — the next-best topic gets a turn first.
+        // Mode-aware ordering. weak_points uses the full weighted key (active
+        // mistakes → recency → uncovered key topics → wrong-count peak); random
+        // and review_learned drop the weak-point weighting entirely so the user
+        // isn't locked onto one hot topic — just the recency penalty + stable id.
+        // The unused weighting Fields above aren't referenced here, so jOOQ never
+        // renders them for the non-weighted modes.
+        List<org.jooq.OrderField<?>> order = new ArrayList<>();
+        if ("weak_points".equals(selectionMode)) {
+            order.add(mistakePriority.asc());
+            order.add(recencyPenalty.asc());
+            order.add(keyTopicPriority.asc());
+            order.add(mistakeWrongPeak.asc());
+        } else {
+            order.add(recencyPenalty.asc());
+        }
+        order.add(q.ID.asc());
+
         Record r = dsl.select()
                 .from(q)
                 .join(qv).on(qv.QUESTION_ID.eq(q.ID).and(qv.LANGUAGE_CODE.eq(languageCode)))
                 .join(t).on(t.ID.eq(q.PRIMARY_TOPIC_ID))
                 .where(condition)
-                .orderBy(
-                        mistakePriority.asc(),
-                        recencyPenalty.asc(),
-                        keyTopicPriority.asc(),
-                        mistakeWrongPeak.asc(),
-                        q.ID.asc()
-                )
+                .orderBy(order)
                 .limit(1)
                 .fetchOne();
 

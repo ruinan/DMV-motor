@@ -97,6 +97,10 @@ export function PracticeFlow({ t, lang }: Props) {
   const [phase, setPhase] = useState<Phase>({ kind: "idle" });
   const [historyOpen, setHistoryOpen] = useState(false);
   const [exitConfirmOpen, setExitConfirmOpen] = useState(false);
+  // Practice mode (bug4) — only meaningful for paid users; the backend forces
+  // free sessions to "random" regardless.
+  const [practiceMode, setPracticeMode] =
+    useState<"random" | "weak_points" | "review_learned">("random");
 
   // Auto-resume on mount — Next.js App Router unmounts client components when
   // the URL [lang] segment changes (so the language toggle effectively kicks
@@ -184,6 +188,8 @@ export function PracticeFlow({ t, lang }: Props) {
                 entry_type: entryType,
                 language: lang,
                 ...(examId ? { exam_id: Number(examId) } : {}),
+                // Mode only matters for paid; backend downgrades free to random.
+                ...(hasPass ? { mode: practiceMode } : {}),
               }),
             },
           );
@@ -395,6 +401,13 @@ export function PracticeFlow({ t, lang }: Props) {
           // CTA. Helper text links to /me#subscription for no-pass users so
           // the "you need a pass" copy isn't a dead end.
           <div className="flex flex-col items-center gap-3">
+            {hasPass ? (
+              <ModePicker t={t} mode={practiceMode} onChange={setPracticeMode} />
+            ) : (
+              <p className="max-w-sm text-center text-xs text-muted-foreground">
+                {t.modeFreeNote}
+              </p>
+            )}
             {me.data?.learning.in_progress_practice ? (
               <>
                 <Button
@@ -815,6 +828,57 @@ function BackLink({ t, lang }: { t: Dictionary["practice"]; lang: Locale }) {
         {t.backHome}
       </Link>
     </div>
+  );
+}
+
+type PracticeMode = "random" | "weak_points" | "review_learned";
+
+function ModePicker({
+  t,
+  mode,
+  onChange,
+}: {
+  t: Dictionary["practice"];
+  mode: PracticeMode;
+  onChange: (m: PracticeMode) => void;
+}) {
+  const options: { value: PracticeMode; label: string; desc: string }[] = [
+    { value: "random", label: t.modeRandom, desc: t.modeRandomDesc },
+    { value: "weak_points", label: t.modeWeakPoints, desc: t.modeWeakPointsDesc },
+    { value: "review_learned", label: t.modeReviewLearned, desc: t.modeReviewLearnedDesc },
+  ];
+  return (
+    <fieldset className="w-full max-w-sm">
+      <legend className="mb-2 text-sm font-semibold text-foreground">{t.modeTitle}</legend>
+      <div className="flex flex-col gap-2">
+        {options.map((o) => {
+          const selected = mode === o.value;
+          return (
+            <label
+              key={o.value}
+              className={`flex cursor-pointer items-start gap-3 rounded-lg border-2 p-3 transition ${
+                selected
+                  ? "border-primary bg-primary/5"
+                  : "border-border hover:border-primary/50"
+              }`}
+            >
+              <input
+                type="radio"
+                name="practice-mode"
+                value={o.value}
+                checked={selected}
+                onChange={() => onChange(o.value)}
+                className="mt-0.5 accent-primary"
+              />
+              <span>
+                <span className="block text-sm font-medium text-foreground">{o.label}</span>
+                <span className="block text-xs text-muted-foreground">{o.desc}</span>
+              </span>
+            </label>
+          );
+        })}
+      </div>
+    </fieldset>
   );
 }
 

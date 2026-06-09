@@ -34,7 +34,7 @@ public class PracticeSessionController {
                                         @Valid @RequestBody StartRequest req) {
         var result = practiceService.startSession(userId, req.entryType(),
                 req.language() != null ? req.language() : "en",
-                req.topicFilter(), req.examId());
+                req.topicFilter(), req.examId(), req.mode());
         return ApiResponse.ok(StartSessionDto.from(result));
     }
 
@@ -119,11 +119,15 @@ public class PracticeSessionController {
             // Anonymous visitors name the exam to practice (landing-page "choose
             // then practice"). Ignored for signed-in users — they always get
             // their server-side current exam. See ExamContext.resolveExamId.
-            Long exam_id
+            Long exam_id,
+            // Practice mode (bug4): random / weak_points / review_learned.
+            // Backend downgrades non-paid sessions to random regardless.
+            String mode
     ) {
         String entryType() { return entry_type; }
         List<Long> topicFilter() { return topic_filter; }
         Long examId() { return exam_id; }
+        // mode() is the record's own component accessor (auto-generated, public).
     }
 
     record AnswerRequest(
@@ -153,10 +157,10 @@ public class PracticeSessionController {
     record ProgressDto(int answeredCount) {}
 
     record StartSessionDto(String sessionId, String entryType, String status,
-                           String language, QuestionDto nextQuestion) {
+                           String language, String selectionMode, QuestionDto nextQuestion) {
         static StartSessionDto from(PracticeService.StartSessionResult r) {
             return new StartSessionDto(String.valueOf(r.sessionId()), r.entryType(),
-                    r.status(), r.language(), QuestionDto.from(r.nextQuestion()));
+                    r.status(), r.language(), r.selectionMode(), QuestionDto.from(r.nextQuestion()));
         }
     }
 

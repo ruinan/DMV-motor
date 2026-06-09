@@ -13,7 +13,8 @@ public record PracticeSession(
         OffsetDateTime startedAt,
         OffsetDateTime completedAt,
         Long examId,
-        List<Long> topicFilter
+        List<Long> topicFilter,
+        String selectionMode
 ) {
     public boolean isInProgress() { return "in_progress".equals(status); }
     public boolean isCompleted()  { return "completed".equals(status); }

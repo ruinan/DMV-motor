@@ -27,6 +27,9 @@ public class PracticeSessionRepository {
             DSL.field(DSL.name("exam_id"), Long.class);
     private static final Field<Long> Q_EXAM_ID =
             DSL.field(DSL.name("questions", "exam_id"), Long.class);
+    // V35 practice_sessions.selection_mode — dynamic ref (no jOOQ regen).
+    private static final Field<String> SELECTION_MODE =
+            DSL.field(DSL.name("selection_mode"), String.class);
 
     private final DSLContext    dsl;
     private final ObjectMapper  objectMapper;
@@ -42,7 +45,8 @@ public class PracticeSessionRepository {
      * an empty list for the normal full pool.
      */
     public Long create(Long userId, String entryType, String languageCode,
-                        int learningCycle, Long examId, List<Long> topicFilter) {
+                        int learningCycle, Long examId, List<Long> topicFilter,
+                        String selectionMode) {
         var ps = Tables.PRACTICE_SESSIONS;
         return dsl.insertInto(ps)
                 .set(ps.USER_ID,        userId)
@@ -51,6 +55,7 @@ public class PracticeSessionRepository {
                 .set(ps.LEARNING_CYCLE, learningCycle)
                 .set(PS_EXAM_ID,        examId)
                 .set(ps.TOPIC_FILTER,   encodeTopicFilter(topicFilter))
+                .set(SELECTION_MODE,    selectionMode)
                 .returningResult(ps.ID)
                 .fetchOne()
                 .value1();
@@ -79,7 +84,7 @@ public class PracticeSessionRepository {
         // Explicit column list (not selectFrom) so the V26 exam_id — absent from
         // the generated record — is included for map() to read.
         Record r = dsl.select(ps.ID, ps.USER_ID, ps.STATUS, ps.ENTRY_TYPE, ps.LANGUAGE_CODE,
-                        ps.STARTED_AT, ps.COMPLETED_AT, ps.TOPIC_FILTER, PS_EXAM_ID)
+                        ps.STARTED_AT, ps.COMPLETED_AT, ps.TOPIC_FILTER, PS_EXAM_ID, SELECTION_MODE)
                 .from(ps).where(ps.ID.eq(sessionId)).fetchOne();
         if (r == null) return Optional.empty();
         return Optional.of(map(r));
@@ -312,7 +317,8 @@ public class PracticeSessionRepository {
                 r.get(ps.STARTED_AT),
                 r.get(ps.COMPLETED_AT),
                 r.get(PS_EXAM_ID),
-                decodeTopicFilter(r.get(ps.TOPIC_FILTER))
+                decodeTopicFilter(r.get(ps.TOPIC_FILTER)),
+                r.get(SELECTION_MODE)
         );
     }
 
