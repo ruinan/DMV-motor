@@ -88,6 +88,16 @@ class DevControllerTest extends IntegrationTestBase {
     }
 
     @Test
+    void grantPass_staleSession_requiresReauth() throws Exception {
+        // Stale auth_time (the "~<epoch>" stub suffix) → subscription change is
+        // gated on a recent password proof.
+        mockMvc.perform(post("/api/v1/dev/grant-pass")
+                        .header("Authorization", "Bearer " + userId + "~1000000000"))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.error.code").value("REAUTH_REQUIRED"));
+    }
+
+    @Test
     void grantPass_anonymous_returns401() throws Exception {
         mockMvc.perform(post("/api/v1/dev/grant-pass"))
                 .andExpect(status().isUnauthorized())

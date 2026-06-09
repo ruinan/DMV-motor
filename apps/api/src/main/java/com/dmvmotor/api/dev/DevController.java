@@ -43,11 +43,14 @@ public class DevController {
 
     private final AccessRepository accessRepo;
     private final com.dmvmotor.api.content.application.ExamContext examContext;
+    private final com.dmvmotor.api.common.ReauthGuard reauthGuard;
 
     public DevController(AccessRepository accessRepo,
-                         com.dmvmotor.api.content.application.ExamContext examContext) {
+                         com.dmvmotor.api.content.application.ExamContext examContext,
+                         com.dmvmotor.api.common.ReauthGuard reauthGuard) {
         this.accessRepo  = accessRepo;
         this.examContext = examContext;
+        this.reauthGuard = reauthGuard;
     }
 
     @PostConstruct
@@ -70,6 +73,7 @@ public class DevController {
             throw new BusinessException("UNAUTHORIZED",
                     "Authentication required", HttpStatus.UNAUTHORIZED);
         }
+        reauthGuard.requireRecentReauth(); // subscription change → recent password proof
         Long examId = exam_id != null ? exam_id : examContext.resolveExamId(userId);
         OffsetDateTime now = OffsetDateTime.now();
         OffsetDateTime expires = now.plusDays(30);
@@ -97,6 +101,7 @@ public class DevController {
             throw new BusinessException("UNAUTHORIZED",
                     "Authentication required", HttpStatus.UNAUTHORIZED);
         }
+        reauthGuard.requireRecentReauth(); // subscription change → recent password proof
         Long examId = exam_id != null ? exam_id : examContext.resolveExamId(userId);
         int cancelled = accessRepo.cancelActivePasses(userId, examId);
         LOG.info("[dev] revoked {} pass(es) for user {} exam {}", cancelled, userId, examId);
