@@ -84,6 +84,11 @@ export function EngagementStrip({ t, lang }: { t: Dictionary; lang: Locale }) {
         <div>
           <p className="text-2xl font-bold tabular-nums text-foreground">
             {streak > 0 ? streak : "—"}
+            {streak > 0 && (
+              <span className="ml-1 text-sm font-medium text-muted-foreground">
+                {streak === 1 ? s.streakUnitOne : s.streakUnit}
+              </span>
+            )}
           </p>
           <p className="text-xs text-muted-foreground">
             {streak > 0 ? s.streakTitle : s.streakZero}

@@ -72,6 +72,8 @@
     "streakTitle": "Day streak",
     "streakActive": "{n}-day streak",
     "streakSingle": "1-day streak",
+    "streakUnit": "days",
+    "streakUnitOne": "day",
     "streakZero": "Start your streak today",
     "streakKeepGoing": "Practice today to keep it alive",
     "dailyGoalTitle": "Today's goal",
