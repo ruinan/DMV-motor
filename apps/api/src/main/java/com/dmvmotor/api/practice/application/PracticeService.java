@@ -8,6 +8,8 @@ import com.dmvmotor.api.content.application.ExamContext;
 import com.dmvmotor.api.content.domain.QuestionDetail;
 import com.dmvmotor.api.content.infrastructure.QuestionRepository;
 import com.dmvmotor.api.mistakereview.infrastructure.MistakeListRepository;
+import com.dmvmotor.api.mistakereview.review.domain.MasteryEvaluator;
+import com.dmvmotor.api.mistakereview.review.infrastructure.PracticeHistoryRepository;
 import com.dmvmotor.api.practice.domain.AnswerResult;
 import com.dmvmotor.api.practice.domain.PracticeSession;
 import com.dmvmotor.api.mistakereview.infrastructure.MistakeRepository;
@@ -33,6 +35,8 @@ public class PracticeService {
     private final QuestionRepository        questionRepo;
     private final MistakeRepository         mistakeRepo;
     private final MistakeListRepository     mistakeListRepo;
+    private final MasteryEvaluator          masteryEvaluator;
+    private final PracticeHistoryRepository practiceHistoryRepo;
     private final AccessService             accessService;
     private final UserRepository            userRepo;
     private final ExamContext               examContext;
@@ -43,18 +47,22 @@ public class PracticeService {
                            QuestionRepository questionRepo,
                            MistakeRepository mistakeRepo,
                            MistakeListRepository mistakeListRepo,
+                           MasteryEvaluator masteryEvaluator,
+                           PracticeHistoryRepository practiceHistoryRepo,
                            AccessService accessService,
                            UserRepository userRepo,
                            ExamContext examContext) {
-        this.sessionRepo      = sessionRepo;
-        this.questionSelector = questionSelector;
-        this.historyDao       = historyDao;
-        this.questionRepo     = questionRepo;
-        this.mistakeRepo      = mistakeRepo;
-        this.mistakeListRepo  = mistakeListRepo;
-        this.accessService    = accessService;
-        this.userRepo         = userRepo;
-        this.examContext      = examContext;
+        this.sessionRepo          = sessionRepo;
+        this.questionSelector     = questionSelector;
+        this.historyDao           = historyDao;
+        this.questionRepo         = questionRepo;
+        this.mistakeRepo          = mistakeRepo;
+        this.mistakeListRepo      = mistakeListRepo;
+        this.masteryEvaluator     = masteryEvaluator;
+        this.practiceHistoryRepo  = practiceHistoryRepo;
+        this.accessService        = accessService;
+        this.userRepo             = userRepo;
+        this.examContext          = examContext;
     }
 
     public SessionHistoryResult listHistory(Long userId, int requestedLimit) {
@@ -238,15 +246,42 @@ public class PracticeService {
         sessionRepo.saveAttempt(sessionId, session.userId(), questionId,
                 variantId, selectedKey, isCorrect);
 
-        if (!isCorrect && session.userId() != null) {
+        if (session.userId() != null) {
             int cycle = userRepo.findById(session.userId()).map(u -> u.resetCount()).orElse(0);
-            mistakeRepo.upsertMistake(session.userId(), questionId,
-                    question.topicId(), "practice", cycle);
+            if (!isCorrect) {
+                mistakeRepo.upsertMistake(session.userId(), questionId,
+                        question.topicId(), "practice", cycle);
+            } else {
+                // A correct answer can complete topic mastery → clear that
+                // topic's accumulated mistakes. Without this the live practice
+                // flow never resolved mistakes (deactivateForTopic was only
+                // wired into the deprecated /review module), so active mistakes
+                // piled up forever and the next-step recommendation never moved.
+                resolveTopicMistakesIfMastered(session.userId(), question.topicId(), cycle);
+            }
         }
 
         int answeredCount = sessionRepo.countAnswered(sessionId);
         return new AnswerResult(questionId, isCorrect,
                 question.correctChoiceKey(), question.explanation(), answeredCount);
+    }
+
+    /**
+     * Topic-level mastery gate (docs/parameters.md §6): once the user's history
+     * for {@code topicId} in {@code cycle} passes both gates (overall correctness
+     * ≥ threshold, ≥K of last N correct), every active mistake in that topic
+     * clears in one shot — the user doesn't have to re-answer each accumulated
+     * mistake question individually. Mirrors what {@code ReviewService.completeTask}
+     * did, but driven from the path users actually use. Idempotent + cheap
+     * (scoped to a single topic).
+     */
+    private void resolveTopicMistakesIfMastered(Long userId, Long topicId, int cycle) {
+        var stats  = practiceHistoryRepo.topicStats(userId, topicId, cycle);
+        var recent = practiceHistoryRepo.lastNAttemptsForTopic(userId, topicId, cycle,
+                masteryEvaluator.recentWindow());
+        if (masteryEvaluator.isMastered(stats, recent)) {
+            mistakeListRepo.deactivateForTopic(userId, topicId, cycle);
+        }
     }
 
     @Transactional

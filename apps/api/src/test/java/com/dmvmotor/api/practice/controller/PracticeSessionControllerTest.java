@@ -468,6 +468,95 @@ class PracticeSessionControllerTest extends IntegrationTestBase {
     }
 
     // ---------------------------------------------------------------
+    // bug2 — mistakes clear through normal practice once topic mastery is
+    // reached. Previously deactivateForTopic was only wired into the deprecated
+    // /review module, so the live practice flow never resolved mistakes — the
+    // user stayed "stuck" on a topic no matter how many times they answered it.
+    // ---------------------------------------------------------------
+
+    @Test
+    void submitAnswer_correctAnswer_topicMasteryReached_clearsTopicMistakes() throws Exception {
+        fixtures.truncateAll();
+        Long uid = fixtures.insertUser("mastery_clear@example.com");
+        fixtures.setUserCurrentExam(uid, fixtures.defaultExamId());
+        Long topic = fixtures.insertTopic("SIGNS_MASTERY", "Signs", "标志", true, 1);
+
+        // 7 prior correct attempts (completed session, cycle 0) sit just below
+        // the 8-attempt mastery window.
+        Long priorSession = fixtures.insertPracticeSession(uid, 0);
+        for (int i = 0; i < 7; i++) {
+            Long q = fixtures.insertQuestion(topic, "A");
+            Long v = fixtures.insertEnVariantReturningId(q, "prior " + i, "expl");
+            fixtures.insertPracticeAttempt(uid, priorSession, q, v, "A", true);
+        }
+
+        // Active mistake on a DIFFERENT, never-answered question — proves the
+        // clearing is topic-level, not per-question.
+        Long mistakeQ = fixtures.insertQuestion(topic, "A");
+        fixtures.insertEnVariant(mistakeQ, "mistake q", "expl");
+        fixtures.insertMistakeRecord(uid, mistakeQ, topic, 4, "practice");
+
+        Long liveQ = fixtures.insertQuestion(topic, "A");
+        Long liveV = fixtures.insertEnVariantReturningId(liveQ, "live q", "expl");
+
+        // Mistake is active before the mastering answer.
+        mockMvc.perform(get("/api/v1/practice/sessions/stats")
+                        .header("Authorization", "Bearer " + uid))
+                .andExpect(jsonPath("$.data.active_mistakes_count").value(1));
+
+        String sessionId = startSessionAsUser(uid, "en");
+        mockMvc.perform(post("/api/v1/practice/sessions/{id}/answers", sessionId)
+                        .header("Authorization", "Bearer " + uid)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"question_id":"%s","variant_id":"%s","selected_choice_key":"A"}
+                                """.formatted(liveQ, liveV)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.is_correct").value(true));
+
+        // 8th correct answer crosses the gate → topic mistakes cleared.
+        mockMvc.perform(get("/api/v1/practice/sessions/stats")
+                        .header("Authorization", "Bearer " + uid))
+                .andExpect(jsonPath("$.data.active_mistakes_count").value(0));
+    }
+
+    @Test
+    void submitAnswer_correctAnswer_topicNotYetMastered_keepsMistakesActive() throws Exception {
+        fixtures.truncateAll();
+        Long uid = fixtures.insertUser("mastery_partial@example.com");
+        fixtures.setUserCurrentExam(uid, fixtures.defaultExamId());
+        Long topic = fixtures.insertTopic("SIGNS_PARTIAL", "Signs", "标志", true, 1);
+
+        // Only 4 prior attempts — even a correct live answer leaves < 8 in the
+        // window, so the gate can't pass and the mistake stays active.
+        Long priorSession = fixtures.insertPracticeSession(uid, 0);
+        for (int i = 0; i < 4; i++) {
+            Long q = fixtures.insertQuestion(topic, "A");
+            Long v = fixtures.insertEnVariantReturningId(q, "prior " + i, "expl");
+            fixtures.insertPracticeAttempt(uid, priorSession, q, v, "A", true);
+        }
+        Long mistakeQ = fixtures.insertQuestion(topic, "A");
+        fixtures.insertEnVariant(mistakeQ, "mistake q", "expl");
+        fixtures.insertMistakeRecord(uid, mistakeQ, topic, 4, "practice");
+
+        Long liveQ = fixtures.insertQuestion(topic, "A");
+        Long liveV = fixtures.insertEnVariantReturningId(liveQ, "live q", "expl");
+
+        String sessionId = startSessionAsUser(uid, "en");
+        mockMvc.perform(post("/api/v1/practice/sessions/{id}/answers", sessionId)
+                        .header("Authorization", "Bearer " + uid)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"question_id":"%s","variant_id":"%s","selected_choice_key":"A"}
+                                """.formatted(liveQ, liveV)))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(get("/api/v1/practice/sessions/stats")
+                        .header("Authorization", "Bearer " + uid))
+                .andExpect(jsonPath("$.data.active_mistakes_count").value(1));
+    }
+
+    // ---------------------------------------------------------------
     // INVALID_ID_FORMAT — path / body string IDs that aren't numeric
     // ---------------------------------------------------------------
 
