@@ -26,7 +26,8 @@ import { examName, type CurrentExam } from "@/lib/hooks/use-me";
 import { useExams } from "@/lib/hooks/use-exams";
 import { useEntitlements } from "@/lib/hooks/use-entitlements";
 import { useBillingConfig } from "@/lib/hooks/use-billing-config";
-import { useSnapshots, type Snapshot } from "@/lib/hooks/use-snapshots";
+import { useBackup } from "@/lib/hooks/use-backup";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { clearAllAiThreads } from "@/lib/hooks/use-ai-explain";
 import { ReauthDialog } from "@/components/reauth-dialog";
 import type { Dictionary, Locale } from "@/lib/dictionaries";
@@ -654,26 +655,57 @@ function BackupSection({
   data: MeResponse;
 }) {
   const queryClient = useQueryClient();
-  const snapshots = useSnapshots();
+  const backup = useBackup();
   const hasPass = data.access.has_active_pass;
-  const [saving, setSaving] = useState(false);
+  const [busy, setBusy] = useState<"sync" | "restore" | null>(null);
   const [errMsg, setErrMsg] = useState<string | null>(null);
+  const [info, setInfo] = useState<string | null>(null);
+  const [confirmRestore, setConfirmRestore] = useState(false);
+  const [pendingReauth, setPendingReauth] = useState(false);
 
-  async function backup() {
-    if (saving || !hasPass) return;
-    setSaving(true);
+  async function doSync() {
+    if (busy || !hasPass) return;
+    setBusy("sync");
     setErrMsg(null);
+    setInfo(null);
     try {
-      await apiFetch("/api/v1/backup/snapshots", { method: "POST" });
-      await queryClient.invalidateQueries({ queryKey: ["snapshots"] });
+      await apiFetch("/api/v1/backup/sync", { method: "POST" });
+      await queryClient.invalidateQueries({ queryKey: ["backup"] });
+      setInfo(t.backupSynced);
     } catch (e) {
       setErrMsg(e instanceof ApiError ? e.message : t.backupError);
     } finally {
-      setSaving(false);
+      setBusy(null);
     }
   }
 
-  const list = snapshots.data ?? [];
+  async function doRestore() {
+    if (busy) return;
+    setBusy("restore");
+    setErrMsg(null);
+    setInfo(null);
+    try {
+      const res = await apiFetch<{ restored_mistakes: number }>(
+        "/api/v1/backup/restore",
+        { method: "POST" },
+      );
+      // Restore re-applies mistakes into the current cycle — refetch broadly so
+      // the dashboard / mistakes / recommendations reflect it.
+      await queryClient.invalidateQueries();
+      setInfo(t.backupRestored.replace("{n}", String(res.restored_mistakes)));
+    } catch (e) {
+      if (e instanceof ApiError && e.code === "REAUTH_REQUIRED") {
+        setPendingReauth(true);
+        return;
+      }
+      setErrMsg(e instanceof ApiError ? e.message : t.backupError);
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  const b = backup.data?.backup ?? null;
+  const has = backup.data?.has_backup ?? false;
 
   return (
     <Section
@@ -682,67 +714,92 @@ function BackupSection({
       title={t.sectionBackup}
       description={t.sectionBackupBody}
     >
-      <div className="mb-4 flex flex-wrap items-center gap-3">
-        {hasPass ? (
-          <Button onClick={backup} disabled={saving}>
-            {saving ? (
-              <Loader2 className="size-4 animate-spin" />
-            ) : (
-              <CloudUpload className="size-4" />
-            )}
-            {saving ? t.backupSaving : t.backupNow}
-          </Button>
-        ) : (
-          <a
-            href="#subscription"
-            className="text-sm font-medium text-primary underline-offset-4 hover:underline"
-          >
-            {t.backupPaidOnly}
-          </a>
-        )}
-      </div>
-      {errMsg && <p className="mb-3 text-sm text-destructive">{errMsg}</p>}
-
-      {snapshots.isLoading ? (
+      {!hasPass ? (
+        <a
+          href="#subscription"
+          className="text-sm font-medium text-primary underline-offset-4 hover:underline"
+        >
+          {t.backupPaidOnly}
+        </a>
+      ) : backup.isLoading ? (
         <p className="text-sm text-muted-foreground">{t.loading}</p>
-      ) : list.length === 0 ? (
-        <p className="text-sm text-muted-foreground">{t.backupEmpty}</p>
       ) : (
-        <ul className="flex flex-col divide-y divide-border">
-          {list.map((s) => (
-            <SnapshotRow key={s.id} t={t} snap={s} />
-          ))}
-        </ul>
+        <>
+          {has && b ? (
+            <div className="mb-4 rounded-lg border border-border/60 bg-muted/30 p-4">
+              <p className="text-sm font-medium text-foreground">
+                {t.backupLastSynced.replace(
+                  "{time}",
+                  new Date(b.updated_at).toLocaleString(),
+                )}
+              </p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                {t.backupDetail
+                  .replace("{readiness}", String(b.readiness_score))
+                  .replace("{sessions}", String(b.practice_total_sessions))
+                  .replace("{mistakes}", String(b.active_mistakes_count))}
+              </p>
+            </div>
+          ) : (
+            <p className="mb-4 text-sm text-muted-foreground">{t.backupAuto}</p>
+          )}
+
+          <div className="flex flex-wrap items-center gap-3">
+            <Button onClick={doSync} disabled={busy !== null}>
+              {busy === "sync" ? (
+                <Loader2 className="size-4 animate-spin" />
+              ) : (
+                <CloudUpload className="size-4" />
+              )}
+              {busy === "sync" ? t.backupSaving : t.backupNow}
+            </Button>
+            {has && (
+              <Button
+                variant="outline"
+                onClick={() => setConfirmRestore(true)}
+                disabled={busy !== null}
+              >
+                {busy === "restore" && <Loader2 className="size-4 animate-spin" />}
+                {busy === "restore" ? t.backupRestoring : t.backupRestore}
+              </Button>
+            )}
+          </div>
+
+          {errMsg && <p className="mt-3 text-sm text-destructive">{errMsg}</p>}
+          {info && <p className="mt-3 text-sm text-success">{info}</p>}
+
+          <ConfirmDialog
+            open={confirmRestore}
+            title={t.backupRestoreConfirmTitle}
+            body={t.backupRestoreConfirmBody}
+            confirmLabel={t.backupRestore}
+            cancelLabel={t.cancel}
+            onConfirm={() => {
+              setConfirmRestore(false);
+              doRestore();
+            }}
+            onCancel={() => setConfirmRestore(false)}
+          />
+          <ReauthDialog
+            open={pendingReauth}
+            labels={{
+              title: t.reauthTitle,
+              body: t.reauthBody,
+              placeholder: t.reauthPlaceholder,
+              confirm: t.reauthConfirm,
+              confirming: t.reauthConfirming,
+              wrong: t.reauthWrong,
+              cancel: t.cancel,
+            }}
+            onSuccess={() => {
+              setPendingReauth(false);
+              doRestore();
+            }}
+            onCancel={() => setPendingReauth(false)}
+          />
+        </>
       )}
     </Section>
-  );
-}
-
-function SnapshotRow({ t, snap }: { t: Dictionary["me"]; snap: Snapshot }) {
-  const date = new Date(snap.created_at).toLocaleString();
-  const best =
-    snap.mock_best_score_percent != null
-      ? `${snap.mock_best_score_percent}%`
-      : "—";
-  const detail = t.backupDetail
-    .replace("{completion}", String(snap.completion_score))
-    .replace("{sessions}", String(snap.practice_total_sessions))
-    .replace("{best}", best);
-  return (
-    <li className="flex items-center justify-between gap-3 py-3 first:pt-0 last:pb-0">
-      <div className="min-w-0">
-        <p className="text-sm font-medium text-foreground">{date}</p>
-        <p className="mt-0.5 text-xs text-muted-foreground">{detail}</p>
-      </div>
-      <div className="shrink-0 text-right">
-        <p className="text-lg font-bold tabular-nums text-primary">
-          {snap.readiness_score}%
-        </p>
-        <p className="text-[11px] uppercase tracking-wide text-muted-foreground">
-          {t.backupReadiness}
-        </p>
-      </div>
-    </li>
   );
 }
 

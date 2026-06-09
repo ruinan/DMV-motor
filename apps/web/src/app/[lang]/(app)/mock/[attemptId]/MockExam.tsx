@@ -24,6 +24,7 @@ import {
   type MockSavedAnswer,
 } from "@/lib/hooks/use-mock-attempt";
 import { useAiReviewPlan } from "@/lib/hooks/use-ai-review-plan";
+import { syncBackup } from "@/lib/hooks/use-backup";
 import { MockReview } from "./MockReview";
 import type { Dictionary, Locale } from "@/lib/dictionaries";
 
@@ -149,9 +150,13 @@ export function MockExam({ t, lang, attemptId }: Props) {
       // engagement strip's next-best step.
       ["topic-mastery"],
       ["recommendations"],
+      ["backup"],
     ]) {
       queryClient.invalidateQueries({ queryKey: key });
     }
+    // Imperceptible cloud-save — mock-takers are paid, so this always applies;
+    // the server no-ops if nothing changed.
+    void syncBackup();
   }, [queryClient]);
 
   // Submit the attempt — manual on the last question, or auto when the timer

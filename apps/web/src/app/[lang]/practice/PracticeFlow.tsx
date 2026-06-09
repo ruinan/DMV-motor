@@ -18,6 +18,7 @@ import { apiFetch, ApiError } from "@/lib/api-client";
 import { useAuth } from "@/lib/auth-context";
 import { useMe } from "@/lib/hooks/use-me";
 import { useExams } from "@/lib/hooks/use-exams";
+import { syncBackup } from "@/lib/hooks/use-backup";
 import { AiExplainBlock } from "@/components/ai-explain-block";
 import { ExamIndicator } from "@/components/exam-indicator";
 import type { Dictionary, Locale } from "@/lib/dictionaries";
@@ -320,6 +321,8 @@ export function PracticeFlow({ t, lang }: Props) {
     }
     setPhase({ kind: "completed", sessionId, reason });
     invalidateStudyHub();
+    // Imperceptible cloud-save (paid): the server no-ops if nothing changed.
+    if (hasPass) void syncBackup();
   }
 
   async function confirmExit() {
