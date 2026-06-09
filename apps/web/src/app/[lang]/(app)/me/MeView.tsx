@@ -20,8 +20,7 @@ import {
   User,
 } from "lucide-react";
 import { useAuth, hasMfaEnrolled } from "@/lib/auth-context";
-import { QRCodeSVG } from "qrcode.react";
-import type { TotpSecret } from "firebase/auth";
+import { TotpEnroll } from "@/components/totp-enroll";
 import { apiFetch, ApiError } from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
 import { ExamPicker } from "@/components/exam-picker";
@@ -827,50 +826,9 @@ function BackupSection({
 // ---------------------------------------------------------------------------
 
 function MfaSection({ t }: { t: Dictionary["me"] }) {
-  const { user, startTotpEnrollment, finishTotpEnrollment } = useAuth();
-  const enrolled = hasMfaEnrolled(user);
-  const [secret, setSecret] = useState<TotpSecret | null>(null);
-  const [qrUrl, setQrUrl] = useState("");
-  const [code, setCode] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [err, setErr] = useState<string | null>(null);
+  const { user } = useAuth();
   const [done, setDone] = useState(false);
-
-  async function begin() {
-    if (busy) return;
-    setBusy(true);
-    setErr(null);
-    try {
-      const res = await startTotpEnrollment();
-      setSecret(res.secret);
-      setQrUrl(res.qrUrl);
-    } catch (e) {
-      // Enrollment needs a recent sign-in; Firebase throws requires-recent-login.
-      setErr(
-        (e as { code?: string })?.code === "auth/requires-recent-login"
-          ? t.mfaRecentLogin
-          : t.errorGeneric,
-      );
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function confirm() {
-    if (busy || !secret) return;
-    setBusy(true);
-    setErr(null);
-    try {
-      await finishTotpEnrollment(secret, code.trim());
-      setDone(true);
-      setSecret(null);
-      setCode("");
-    } catch {
-      setErr(t.mfaBadCode);
-    } finally {
-      setBusy(false);
-    }
-  }
+  const enrolled = hasMfaEnrolled(user) || done;
 
   return (
     <Section
@@ -879,46 +837,26 @@ function MfaSection({ t }: { t: Dictionary["me"] }) {
       title={t.sectionMfa}
       description={t.sectionMfaBody}
     >
-      {enrolled || done ? (
+      {enrolled ? (
         <p className="flex items-center gap-2 text-sm font-medium text-success">
           <CheckCircle2 className="size-4" />
           {t.mfaEnrolled}
         </p>
-      ) : !secret ? (
-        <Button onClick={begin} disabled={busy}>
-          {busy ? <Loader2 className="size-4 animate-spin" /> : <ShieldCheck className="size-4" />}
-          {t.mfaSetup}
-        </Button>
       ) : (
-        <div className="flex flex-col gap-4">
-          <p className="text-sm text-muted-foreground">{t.mfaScan}</p>
-          <div className="w-fit rounded-lg border border-border bg-white p-3">
-            <QRCodeSVG value={qrUrl} size={168} />
-          </div>
-          <p className="text-xs text-muted-foreground">
-            {t.mfaManualKey}{" "}
-            <code className="select-all rounded bg-muted px-1.5 py-0.5 font-mono text-foreground">
-              {secret.secretKey}
-            </code>
-          </p>
-          <div className="flex flex-wrap items-center gap-2">
-            <input
-              inputMode="numeric"
-              autoComplete="one-time-code"
-              maxLength={6}
-              value={code}
-              onChange={(e) => setCode(e.target.value.replace(/\D/g, ""))}
-              placeholder={t.mfaCodePlaceholder}
-              className="w-32 rounded-md border border-border bg-background px-3 py-2 text-center font-mono tracking-widest"
-            />
-            <Button onClick={confirm} disabled={busy || code.length < 6}>
-              {busy ? <Loader2 className="size-4 animate-spin" /> : null}
-              {t.mfaVerify}
-            </Button>
-          </div>
-        </div>
+        <TotpEnroll
+          strings={{
+            setup: t.mfaSetup,
+            scan: t.mfaScan,
+            manualKey: t.mfaManualKey,
+            codePlaceholder: t.mfaCodePlaceholder,
+            verify: t.mfaVerify,
+            badCode: t.mfaBadCode,
+            recentLogin: t.mfaRecentLogin,
+            generic: t.errorGeneric,
+          }}
+          onEnrolled={() => setDone(true)}
+        />
       )}
-      {err && <p className="mt-3 text-sm text-destructive">{err}</p>}
     </Section>
   );
 }

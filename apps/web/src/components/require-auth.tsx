@@ -3,8 +3,9 @@
 import { useEffect, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Loader2, RefreshCw } from "lucide-react";
-import { useAuth } from "@/lib/auth-context";
+import { Loader2, RefreshCw, ShieldCheck } from "lucide-react";
+import { useAuth, hasMfaEnrolled } from "@/lib/auth-context";
+import { TotpEnroll } from "@/components/totp-enroll";
 import type { Dictionary, Locale } from "@/lib/dictionaries";
 
 const STUCK_MS = 8_000;
@@ -31,6 +32,9 @@ export function RequireAuth({ lang, t, children }: Props) {
   const { user, loading } = useAuth();
   const router = useRouter();
   const [stuck, setStuck] = useState(false);
+  // Set when the user finishes 2FA enrollment in the gate below — lets us pass
+  // through immediately even if the Firebase user object reference didn't change.
+  const [mfaJustEnrolled, setMfaJustEnrolled] = useState(false);
 
   useEffect(() => {
     if (!loading && !user) {
@@ -92,5 +96,49 @@ export function RequireAuth({ lang, t, children }: Props) {
     return null;
   }
 
+  // Forced 2FA: a signed-in user without an enrolled second factor must set one
+  // up before reaching any app surface. Rendered inline (not a redirect) so it
+  // can't loop with the exam-onboarding /start gate in AppChrome.
+  if (!hasMfaEnrolled(user) && !mfaJustEnrolled) {
+    return <MfaGate t={t} onDone={() => setMfaJustEnrolled(true)} />;
+  }
+
   return <>{children}</>;
+}
+
+function MfaGate({ t, onDone }: { t: Dictionary["auth"]; onDone: () => void }) {
+  const { signOut } = useAuth();
+  return (
+    <div className="flex min-h-screen items-center justify-center bg-muted/40 p-4">
+      <div className="w-full max-w-md rounded-xl border border-border/40 bg-card p-6 shadow-sm sm:p-8">
+        <div className="mb-6 flex flex-col items-center text-center">
+          <div className="mb-3 flex size-12 items-center justify-center rounded-full bg-primary/10 text-primary">
+            <ShieldCheck className="size-7" />
+          </div>
+          <h2 className="text-xl font-bold text-foreground">{t.mfaGateTitle}</h2>
+          <p className="mt-1 text-sm text-muted-foreground">{t.mfaGateBody}</p>
+        </div>
+        <TotpEnroll
+          strings={{
+            setup: t.mfaSetup,
+            scan: t.mfaScan,
+            manualKey: t.mfaManualKey,
+            codePlaceholder: t.mfaCodePlaceholder,
+            verify: t.mfaVerify,
+            badCode: t.mfaBadCode,
+            recentLogin: t.mfaRecentLogin,
+            generic: t.error,
+          }}
+          onEnrolled={onDone}
+        />
+        <button
+          type="button"
+          onClick={() => signOut()}
+          className="mt-6 w-full text-center text-sm text-muted-foreground transition-colors hover:text-foreground"
+        >
+          {t.mfaGateSignOut}
+        </button>
+      </div>
+    </div>
+  );
 }
