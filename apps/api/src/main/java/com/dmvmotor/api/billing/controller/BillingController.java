@@ -5,6 +5,7 @@ import com.dmvmotor.api.common.ApiResponse;
 import com.dmvmotor.api.common.BusinessException;
 import com.dmvmotor.api.common.CurrentUser;
 import com.dmvmotor.api.common.ReauthGuard;
+import com.dmvmotor.api.common.recaptcha.RecaptchaGuard;
 import com.dmvmotor.api.content.application.ExamContext;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.http.HttpStatus;
@@ -32,11 +33,14 @@ public class BillingController {
     private final BillingService service;
     private final ExamContext    examContext;
     private final ReauthGuard    reauthGuard;
+    private final RecaptchaGuard recaptchaGuard;
 
-    public BillingController(BillingService service, ExamContext examContext, ReauthGuard reauthGuard) {
-        this.service     = service;
-        this.examContext = examContext;
-        this.reauthGuard = reauthGuard;
+    public BillingController(BillingService service, ExamContext examContext,
+                            ReauthGuard reauthGuard, RecaptchaGuard recaptchaGuard) {
+        this.service        = service;
+        this.examContext    = examContext;
+        this.reauthGuard    = reauthGuard;
+        this.recaptchaGuard = recaptchaGuard;
     }
 
     /** Whether Stripe is wired (a secret key is configured). Public — the catalog
@@ -51,7 +55,8 @@ public class BillingController {
     public ApiResponse<?> checkout(@CurrentUser Long userId,
                                    @RequestParam(name = "exam_id", required = false) Long examId) {
         requireAuth(userId);
-        reauthGuard.requireRecentReauth(); // billing change → recent password proof
+        recaptchaGuard.requireHuman("subscribe");   // bot check
+        reauthGuard.requireRecentReauth();          // billing change → recent password proof
         Long resolved = examId != null ? examId : examContext.resolveExamId(userId);
         return ApiResponse.ok(Map.of("url", service.createCheckoutSession(userId, resolved)));
     }
@@ -61,7 +66,8 @@ public class BillingController {
     public ApiResponse<?> cancel(@CurrentUser Long userId,
                                  @RequestParam(name = "exam_id", required = false) Long examId) {
         requireAuth(userId);
-        reauthGuard.requireRecentReauth(); // billing change → recent password proof
+        recaptchaGuard.requireHuman("unsubscribe"); // bot check
+        reauthGuard.requireRecentReauth();          // billing change → recent password proof
         Long resolved = examId != null ? examId : examContext.resolveExamId(userId);
         service.cancelSubscription(userId, resolved);
         return ApiResponse.ok(Map.of("cancelled", true));

@@ -136,6 +136,9 @@
                         <!-- The only class touching the Stripe SDK — needs a live Stripe account,
                              smoke-tested manually; the billing LOGIC is fake-tested. -->
                         <exclude>com/dmvmotor/api/billing/infrastructure/StripeGatewayImpl.class</exclude>
+                        <!-- The only class calling reCAPTCHA Enterprise (GCP) — needs live
+                             creds; the verification GATE is fake-tested. -->
+                        <exclude>com/dmvmotor/api/common/recaptcha/RecaptchaEnterpriseVerifier.class</exclude>
                     </excludes>
                 </configuration>
                 <executions>

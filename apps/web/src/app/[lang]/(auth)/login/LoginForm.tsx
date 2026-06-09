@@ -5,6 +5,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, GraduationCap, Eye, EyeOff, Shield } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
+import { useRecaptcha } from "@/lib/hooks/use-recaptcha";
+import { apiFetch, ApiError } from "@/lib/api-client";
 import type { Dictionary, Locale } from "@/lib/dictionaries";
 
 type Props = {
@@ -17,6 +19,7 @@ type Mode = "signin" | "create";
 export function LoginForm({ t, lang }: Props) {
   const router = useRouter();
   const { signIn, signUp, resetPassword } = useAuth();
+  const { execute: recaptcha } = useRecaptcha();
   const [mode, setMode] = useState<Mode>("signin");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -36,7 +39,17 @@ export function LoginForm({ t, lang }: Props) {
     setSubmitting(true);
     setError(null);
     setInfo(null);
+    const action = mode === "signin" ? "login" : "register";
     try {
+      // Bot precheck before handing off to Firebase — no-op when reCAPTCHA isn't
+      // configured (token is null). The backend verifies the token.
+      const token = await recaptcha(action);
+      if (token) {
+        await apiFetch(`/api/v1/auth/recaptcha-verify?action=${action}`, {
+          method: "POST",
+          headers: { "X-Recaptcha-Token": token },
+        });
+      }
       if (mode === "signin") {
         await signIn(email, password);
       } else {
@@ -45,8 +58,15 @@ export function LoginForm({ t, lang }: Props) {
       // Land on the study hub; the app shell's gate sends the user to /start
       // first if they haven't chosen an exam yet.
       router.push(`/${lang}/dashboard`);
-    } catch {
-      setError(mode === "signin" ? t.error : t.errorCreate);
+    } catch (err) {
+      if (
+        err instanceof ApiError &&
+        (err.code === "RECAPTCHA_FAILED" || err.code === "RECAPTCHA_REQUIRED")
+      ) {
+        setError(t.errorRecaptcha);
+      } else {
+        setError(mode === "signin" ? t.error : t.errorCreate);
+      }
     } finally {
       setSubmitting(false);
     }

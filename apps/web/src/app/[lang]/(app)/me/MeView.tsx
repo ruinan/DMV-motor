@@ -27,6 +27,7 @@ import { useExams } from "@/lib/hooks/use-exams";
 import { useEntitlements } from "@/lib/hooks/use-entitlements";
 import { useBillingConfig } from "@/lib/hooks/use-billing-config";
 import { useBackup } from "@/lib/hooks/use-backup";
+import { useRecaptcha } from "@/lib/hooks/use-recaptcha";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { clearAllAiThreads } from "@/lib/hooks/use-ai-explain";
 import { ReauthDialog } from "@/components/reauth-dialog";
@@ -464,6 +465,7 @@ function ExamCatalog({ t, lang }: { t: Dictionary["me"]; lang: Locale }) {
   const exams = useExams(lang);
   const entitlements = useEntitlements();
   const billing = useBillingConfig();
+  const { execute: recaptcha } = useRecaptcha();
   const queryClient = useQueryClient();
   const [busy, setBusy] = useState<string | null>(null);
   const [errMsg, setErrMsg] = useState<string | null>(null);
@@ -497,17 +499,22 @@ function ExamCatalog({ t, lang }: { t: Dictionary["me"]; lang: Locale }) {
     setBusy(examId);
     setErrMsg(null);
     try {
+      // Bot check on subscription changes — token is null (no header) when
+      // reCAPTCHA isn't configured (dev), so the backend gate no-ops there.
+      const token = await recaptcha(subscribed ? "unsubscribe" : "subscribe");
+      const headers = token ? { "X-Recaptcha-Token": token } : undefined;
       if (billingEnabled) {
         if (subscribed) {
           await apiFetch(`/api/v1/billing/cancel?exam_id=${examId}`, {
             method: "POST",
+            headers,
           });
           await queryClient.invalidateQueries();
         } else {
           // Hand off to Stripe's hosted Checkout — leaves the app entirely.
           const res = await apiFetch<{ url: string }>(
             `/api/v1/billing/checkout-session?exam_id=${examId}`,
-            { method: "POST" },
+            { method: "POST", headers },
           );
           window.location.assign(res.url);
           return;
@@ -517,6 +524,7 @@ function ExamCatalog({ t, lang }: { t: Dictionary["me"]; lang: Locale }) {
         const path = subscribed ? "revoke-pass" : "grant-pass";
         await apiFetch(`/api/v1/dev/${path}?exam_id=${examId}`, {
           method: "POST",
+          headers,
         });
         await queryClient.invalidateQueries();
       }
@@ -524,6 +532,13 @@ function ExamCatalog({ t, lang }: { t: Dictionary["me"]; lang: Locale }) {
       // Backend reauth gate → prompt for the password, then retry this action.
       if (e instanceof ApiError && e.code === "REAUTH_REQUIRED") {
         setPendingReauth({ examId, subscribed });
+        return;
+      }
+      if (
+        e instanceof ApiError &&
+        (e.code === "RECAPTCHA_FAILED" || e.code === "RECAPTCHA_REQUIRED")
+      ) {
+        setErrMsg(t.errorRecaptcha);
         return;
       }
       setErrMsg(e instanceof ApiError ? e.message : t.errorGeneric);

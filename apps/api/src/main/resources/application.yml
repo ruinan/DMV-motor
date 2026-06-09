@@ -85,3 +85,12 @@ app:
     success-url: ${APP_BILLING_SUCCESS_URL:http://localhost:3000/en/me?billing=success}
     cancel-url: ${APP_BILLING_CANCEL_URL:http://localhost:3000/en/me?billing=cancel}
     monthly-mock-quota: 30
+
+  # reCAPTCHA Enterprise (bot / human verification). Disabled by default so dev
+  # and tests run without a key; the guard is a no-op when disabled. Prod sets
+  # APP_RECAPTCHA_ENABLED=true + the project/site key (Secret Manager via Cloud Run).
+  recaptcha:
+    enabled: ${APP_RECAPTCHA_ENABLED:false}
+    project-id: ${APP_RECAPTCHA_PROJECT_ID:}
+    site-key: ${APP_RECAPTCHA_SITE_KEY:}
+    min-score: ${APP_RECAPTCHA_MIN_SCORE:0.5}
