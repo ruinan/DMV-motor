@@ -299,9 +299,12 @@ export function LoginForm({ t, lang }: Props) {
       )}
 
       {/* Reassurance footer */}
-      <div className="mt-8 flex items-center justify-center gap-1.5 border-t border-border pt-5 text-xs text-muted-foreground">
-        <Shield className="size-3.5" />
-        <span>{t.securedBy}</span>
+      <div className="mt-8 flex flex-col items-center gap-1.5 border-t border-border pt-5 text-xs text-muted-foreground">
+        <span className="flex items-center gap-1.5">
+          <Shield className="size-3.5" />
+          {t.securedBy}
+        </span>
+        <span>{t.recaptchaNotice}</span>
       </div>
     </main>
   );

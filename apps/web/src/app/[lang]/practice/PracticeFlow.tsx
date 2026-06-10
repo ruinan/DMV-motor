@@ -481,21 +481,17 @@ export function PracticeFlow({ t, lang }: Props) {
               ) : (
                 <div className="flex flex-col gap-3">
                   {(exams.data ?? []).map((exam) => {
-                    // Each exam button wears its own palette (theme.css): the
-                    // motorcycle exam = amber, Class C / anything else = highway
-                    // blue. Explicit colors (not data-exam) because both buttons
-                    // share one page. Uniform h/w so they read as one set, not
-                    // sized to their labels.
-                    const isMoto = exam.license_class.startsWith("M");
-                    const Icon = isMoto ? Bike : Car;
-                    const bg = isMoto ? "#b45309" : "#1b5e9b";
+                    // Both exam buttons share one neutral dark style so the two
+                    // options read as one consistent set; only the icon differs
+                    // (motorcycle vs car). Uniform h/w so they don't size to
+                    // their labels.
+                    const Icon = exam.license_class.startsWith("M") ? Bike : Car;
                     return (
                       <button
                         key={exam.id}
                         type="button"
                         onClick={() => start(exam.id)}
-                        style={{ backgroundColor: bg }}
-                        className="flex h-14 w-full items-center justify-center gap-2.5 rounded-xl px-4 text-base font-semibold text-white shadow-sm transition hover:brightness-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
+                        className="flex h-14 w-full items-center justify-center gap-2.5 rounded-xl bg-foreground px-4 text-base font-semibold text-background shadow-sm transition hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
                       >
                         <Icon className="size-5 shrink-0" aria-hidden />
                         {exam.name}

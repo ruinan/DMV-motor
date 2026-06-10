@@ -15,6 +15,8 @@ export type TotpEnrollStrings = {
   verify: string;
   badCode: string;
   recentLogin: string;
+  /** Shown when Identity Platform rejects enrollment for an unverified email. */
+  unverifiedEmail?: string;
   generic: string;
 };
 
@@ -52,10 +54,13 @@ export function TotpEnroll({
       setSecret(res.secret);
       setQrUrl(res.qrUrl);
     } catch (e) {
+      const code = (e as { code?: string })?.code;
       setErr(
-        (e as { code?: string })?.code === "auth/requires-recent-login"
+        code === "auth/requires-recent-login"
           ? strings.recentLogin
-          : strings.generic,
+          : code === "auth/unverified-email"
+            ? strings.unverifiedEmail ?? strings.generic
+            : strings.generic,
       );
     } finally {
       setBusy(false);

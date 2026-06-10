@@ -91,7 +91,6 @@ export function MarketingHome({
             </span>
           </div>
         </div>
-        <p className="max-w-md text-xs text-muted-foreground">{t.freeTierNote}</p>
         <Link
           href={`/${lang}/practice`}
           className={`${buttonVariants({ size: "lg" })} mt-2 gap-2 px-7 py-6 text-base shadow-md transition-all duration-1000 hover:-translate-y-0.5 hover:shadow-lg`}
@@ -99,6 +98,7 @@ export function MarketingHome({
           {t.ctaPractice}
           <ArrowRight className="size-4" />
         </Link>
+        <p className="max-w-md text-xs text-muted-foreground">{t.freeTierNote}</p>
       </section>
 
       {/* Crossfading hero carousel */}

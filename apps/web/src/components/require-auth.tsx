@@ -150,7 +150,8 @@ function MfaGate({ t, onDone }: { t: Dictionary["auth"]; onDone: () => void }) {
             verify: t.mfaVerify,
             badCode: t.mfaBadCode,
             recentLogin: t.mfaRecentLogin,
-            generic: t.error,
+            unverifiedEmail: t.mfaUnverifiedEmail,
+            generic: t.mfaEnrollError,
           }}
           align="center"
           onEnrolled={onDone}

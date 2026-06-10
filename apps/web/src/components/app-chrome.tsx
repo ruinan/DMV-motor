@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { usePathname, useSearchParams, useRouter } from "next/navigation";
-import { Loader2 } from "lucide-react";
+import { Loader2, RefreshCw } from "lucide-react";
 import { AppSidebar } from "@/components/app-sidebar";
 import { MobileTabBar } from "@/components/mobile-tab-bar";
 import { MobileAppBar } from "@/components/mobile-app-bar";
@@ -59,6 +59,19 @@ export function AppChrome({ t, lang, children }: Props) {
     }
   }, [loadingMe, hasExam, onStart, lang, router]);
 
+  // A spinner that never resolves looks identical to a crash. Cloud Run can
+  // cold-start the backend for ~10s; past that, surface a "waking up / retry"
+  // card instead of spinning forever so the user knows it isn't frozen.
+  const [slow, setSlow] = useState(false);
+  useEffect(() => {
+    if (!loadingMe) {
+      setSlow(false);
+      return;
+    }
+    const id = setTimeout(() => setSlow(true), 10_000);
+    return () => clearTimeout(id);
+  }, [loadingMe]);
+
   // The onboarding screen is full-bleed (its own layout).
   if (onStart) {
     return <>{children}</>;
@@ -67,6 +80,26 @@ export function AppChrome({ t, lang, children }: Props) {
   // While we don't yet know the exam, or while the gate redirects an
   // exam-less user to /start, show a spinner instead of flashing the page.
   if (loadingMe || !hasExam) {
+    if (slow && loadingMe) {
+      return (
+        <div className="flex min-h-screen items-center justify-center bg-muted/40 p-4">
+          <div className="w-full max-w-sm rounded-xl border border-border/40 bg-card p-6 text-center shadow-sm">
+            <h2 className="text-lg font-semibold text-foreground">
+              {t.auth.stuckTitle}
+            </h2>
+            <p className="mt-2 text-sm text-muted-foreground">{t.auth.slowBody}</p>
+            <button
+              type="button"
+              onClick={() => window.location.reload()}
+              className="mt-6 inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-primary text-sm font-semibold text-primary-foreground shadow-sm transition-shadow hover:shadow-md"
+            >
+              <RefreshCw className="size-4" />
+              {t.auth.refresh}
+            </button>
+          </div>
+        </div>
+      );
+    }
     return (
       <div className="flex min-h-screen items-center justify-center bg-background">
         <Loader2 className="size-6 animate-spin text-muted-foreground" aria-hidden />
