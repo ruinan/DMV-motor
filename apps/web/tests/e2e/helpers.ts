@@ -33,3 +33,30 @@ export async function createTestUser(
   const json = (await res.json()) as { localId: string };
   return json.localId;
 }
+
+/**
+ * Pulls the most recent out-of-band code link (e.g. email-verification) the app
+ * sent for `email` from the Auth emulator. Polls briefly because the send is
+ * async relative to the UI action that triggered it. GET-ing the returned link
+ * applies the action, mimicking the user clicking it in their inbox.
+ */
+export async function getOobLink(
+  email: string,
+  requestType = "VERIFY_EMAIL",
+): Promise<string> {
+  const url = `${EMULATOR_HOST}/emulator/v1/projects/${PROJECT_ID}/oobCodes`;
+  for (let attempt = 0; attempt < 20; attempt++) {
+    const res = await fetch(url);
+    if (res.ok) {
+      const json = (await res.json()) as {
+        oobCodes: { email: string; requestType: string; oobLink: string }[];
+      };
+      const match = [...json.oobCodes]
+        .reverse()
+        .find((c) => c.email === email && c.requestType === requestType);
+      if (match) return match.oobLink;
+    }
+    await new Promise((r) => setTimeout(r, 250));
+  }
+  throw new Error(`no ${requestType} oob code for ${email} after polling`);
+}

@@ -39,6 +39,11 @@ export default defineConfig({
       timeout: 60_000,
       env: {
         NEXT_PUBLIC_USE_FIREBASE_EMULATOR: "true",
+        // Disable reCAPTCHA in e2e: when a site key is present (.env.local sets
+        // one for manual local testing) the login form runs a precheck against
+        // the backend, which isn't started for these tests — registration then
+        // fails. Empty key → useRecaptcha is a no-op, matching CI.
+        NEXT_PUBLIC_RECAPTCHA_SITE_KEY: "",
       },
       stdout: "ignore",
       stderr: "pipe",

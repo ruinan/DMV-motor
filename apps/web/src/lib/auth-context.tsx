@@ -19,6 +19,7 @@ import {
   multiFactor,
   onIdTokenChanged,
   reauthenticateWithCredential,
+  sendEmailVerification,
   sendPasswordResetEmail,
   setPersistence,
   signInWithEmailAndPassword,
@@ -56,6 +57,11 @@ type AuthState = {
   /** Re-verify the current user's password before a sensitive action; refreshes
    *  the ID token so its auth_time updates (the backend reauth gate reads it). */
   reauth: (password: string) => Promise<void>;
+  /** (Re)send the email-verification link to the signed-in user. */
+  resendVerificationEmail: () => Promise<void>;
+  /** Reload the signed-in user from Firebase and report whether the email is now
+   *  verified. Used by the verification gate to detect the user clicked the link. */
+  reloadUser: () => Promise<boolean>;
   /** Finish a 2FA-gated sign-in: verify the TOTP code against the resolver. */
   resolveMfaSignIn: (resolver: MultiFactorResolver, code: string) => Promise<void>;
   /** Begin TOTP enrollment: returns the secret + an otpauth URL for the QR. */
@@ -133,6 +139,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       },
       resetPassword: async (email) => {
         await sendPasswordResetEmail(firebaseAuth, email);
+      },
+      resendVerificationEmail: async () => {
+        const u = firebaseAuth.currentUser;
+        if (!u) throw new Error("Not signed in");
+        await sendEmailVerification(u);
+      },
+      reloadUser: async () => {
+        const u = firebaseAuth.currentUser;
+        if (!u) return false;
+        await u.reload();
+        // reload() mutates currentUser in place; force a token refresh so the
+        // onIdTokenChanged listener re-publishes the user and downstream reads
+        // (and the next backend call) see the verified state.
+        await u.getIdToken(true);
+        return u.emailVerified;
       },
       reauth: async (password) => {
         const u = firebaseAuth.currentUser;

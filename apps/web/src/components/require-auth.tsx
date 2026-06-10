@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Loader2, RefreshCw, ShieldCheck } from "lucide-react";
+import { Loader2, MailCheck, RefreshCw, ShieldCheck } from "lucide-react";
 import { useAuth, hasMfaEnrolled } from "@/lib/auth-context";
 import { TotpEnroll } from "@/components/totp-enroll";
 import type { Dictionary, Locale } from "@/lib/dictionaries";
@@ -35,6 +35,9 @@ export function RequireAuth({ lang, t, children }: Props) {
   // Set when the user finishes 2FA enrollment in the gate below — lets us pass
   // through immediately even if the Firebase user object reference didn't change.
   const [mfaJustEnrolled, setMfaJustEnrolled] = useState(false);
+  // Same idea for the email-verification gate: reload() mutates the user in
+  // place, so we flip this to advance without waiting for a new object ref.
+  const [emailJustVerified, setEmailJustVerified] = useState(false);
 
   useEffect(() => {
     if (!loading && !user) {
@@ -96,6 +99,20 @@ export function RequireAuth({ lang, t, children }: Props) {
     return null;
   }
 
+  // Forced email verification: Identity Platform refuses second-factor
+  // enrollment until the email is verified, so this step must precede the 2FA
+  // gate (and any app surface). Without it, a new user is deadlocked — can't
+  // enroll 2FA, can't get past the gate. Rendered inline like the MFA gate.
+  if (!user.emailVerified && !emailJustVerified) {
+    return (
+      <EmailVerifyGate
+        t={t}
+        email={user.email}
+        onVerified={() => setEmailJustVerified(true)}
+      />
+    );
+  }
+
   // Forced 2FA: a signed-in user without an enrolled second factor must set one
   // up before reaching any app surface. Rendered inline (not a redirect) so it
   // can't loop with the exam-onboarding /start gate in AppChrome.
@@ -137,6 +154,124 @@ function MfaGate({ t, onDone }: { t: Dictionary["auth"]; onDone: () => void }) {
           className="mt-6 w-full text-center text-sm text-muted-foreground transition-colors hover:text-foreground"
         >
           {t.mfaGateSignOut}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function EmailVerifyGate({
+  t,
+  email,
+  onVerified,
+}: {
+  t: Dictionary["auth"];
+  email: string | null;
+  onVerified: () => void;
+}) {
+  const { resendVerificationEmail, reloadUser, signOut } = useAuth();
+  // Guards the one-shot auto-send so re-renders / dev StrictMode double-mount
+  // don't fire a second email (Firebase rate-limits and it's confusing UX).
+  const sent = useRef(false);
+  const [status, setStatus] = useState<"idle" | "sending" | "sent" | "error">(
+    "idle",
+  );
+  const [checking, setChecking] = useState(false);
+  const [stillUnverified, setStillUnverified] = useState(false);
+
+  // Auto-send one verification email when the gate first appears — covers both
+  // a fresh sign-up and a user stranded here by an earlier build that never
+  // sent one.
+  useEffect(() => {
+    if (sent.current) return;
+    sent.current = true;
+    setStatus("sending");
+    resendVerificationEmail()
+      .then(() => setStatus("sent"))
+      .catch(() => setStatus("error"));
+  }, [resendVerificationEmail]);
+
+  async function resend() {
+    setStatus("sending");
+    setStillUnverified(false);
+    try {
+      await resendVerificationEmail();
+      setStatus("sent");
+    } catch {
+      setStatus("error");
+    }
+  }
+
+  async function check() {
+    setChecking(true);
+    setStillUnverified(false);
+    try {
+      if (await reloadUser()) onVerified();
+      else setStillUnverified(true);
+    } finally {
+      setChecking(false);
+    }
+  }
+
+  return (
+    <div
+      data-testid="email-verify-gate"
+      className="flex min-h-screen items-center justify-center bg-muted/40 p-4"
+    >
+      <div className="w-full max-w-md rounded-xl border border-border/40 bg-card p-6 shadow-sm sm:p-8">
+        <div className="mb-6 flex flex-col items-center text-center">
+          <div className="mb-3 flex size-12 items-center justify-center rounded-full bg-primary/10 text-primary">
+            <MailCheck className="size-7" />
+          </div>
+          <h2 className="text-xl font-bold text-foreground">
+            {t.verifyEmailTitle}
+          </h2>
+          <p className="mt-1 text-sm text-muted-foreground">
+            {t.verifyEmailBody.replace("{email}", email ?? "")}
+          </p>
+        </div>
+
+        <button
+          type="button"
+          data-testid="verify-continue"
+          onClick={check}
+          disabled={checking}
+          className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-primary text-sm font-semibold text-primary-foreground shadow-sm transition-shadow hover:shadow-md disabled:opacity-60"
+        >
+          {checking ? <Loader2 className="size-4 animate-spin" /> : null}
+          {checking ? t.verifyEmailChecking : t.verifyEmailContinue}
+        </button>
+
+        {stillUnverified && (
+          <p className="mt-3 text-sm text-destructive">
+            {t.verifyEmailStillUnverified}
+          </p>
+        )}
+        {status === "error" && (
+          <p className="mt-3 text-sm text-destructive">{t.verifyEmailError}</p>
+        )}
+        {status === "sent" && !stillUnverified && (
+          <p className="mt-3 text-sm text-muted-foreground">
+            {t.verifyEmailResent}
+          </p>
+        )}
+
+        <button
+          type="button"
+          data-testid="verify-resend"
+          onClick={resend}
+          disabled={status === "sending"}
+          className="mt-4 w-full text-center text-sm text-primary transition-opacity hover:opacity-80 disabled:opacity-60"
+        >
+          {status === "sending" ? t.verifyEmailSending : t.verifyEmailResend}
+        </button>
+
+        <button
+          type="button"
+          onClick={() => signOut()}
+          className="mt-6 w-full text-center text-sm text-muted-foreground transition-colors hover:text-foreground"
+        >
+          {t.verifyEmailSignOut}
         </button>
       </div>
     </div>
