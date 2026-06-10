@@ -10,6 +10,12 @@ import type { Dictionary, Locale } from "@/lib/dictionaries";
 
 const STUCK_MS = 8_000;
 
+/** Firebase throttles repeated verification-email sends; treat that as "already
+ *  sent" rather than a failure. */
+function isRateLimited(e: unknown): boolean {
+  return (e as { code?: string })?.code === "auth/too-many-requests";
+}
+
 type Props = {
   lang: Locale;
   t: Dictionary["auth"];
@@ -146,6 +152,7 @@ function MfaGate({ t, onDone }: { t: Dictionary["auth"]; onDone: () => void }) {
             recentLogin: t.mfaRecentLogin,
             generic: t.error,
           }}
+          align="center"
           onEnrolled={onDone}
         />
         <button
@@ -188,7 +195,7 @@ function EmailVerifyGate({
     setStatus("sending");
     resendVerificationEmail()
       .then(() => setStatus("sent"))
-      .catch(() => setStatus("error"));
+      .catch((e) => setStatus(isRateLimited(e) ? "sent" : "error"));
   }, [resendVerificationEmail]);
 
   async function resend() {
@@ -197,8 +204,11 @@ function EmailVerifyGate({
     try {
       await resendVerificationEmail();
       setStatus("sent");
-    } catch {
-      setStatus("error");
+    } catch (e) {
+      // Firebase throttles verification emails per user. A rate-limit here just
+      // means a link was already sent — show the "check your inbox" hint, not a
+      // scary failure.
+      setStatus(isRateLimited(e) ? "sent" : "error");
     }
   }
 

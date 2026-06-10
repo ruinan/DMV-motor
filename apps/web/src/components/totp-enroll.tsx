@@ -27,11 +27,16 @@ export type TotpEnrollStrings = {
 export function TotpEnroll({
   strings,
   onEnrolled,
+  align = "start",
 }: {
   strings: TotpEnrollStrings;
   onEnrolled?: () => void;
+  /** "center" matches the full-screen enrollment gate; "start" (default) suits
+   *  the left-aligned /me security row. */
+  align?: "start" | "center";
 }) {
   const { startTotpEnrollment, finishTotpEnrollment } = useAuth();
+  const centered = align === "center";
   const [secret, setSecret] = useState<TotpSecret | null>(null);
   const [qrUrl, setQrUrl] = useState("");
   const [code, setCode] = useState("");
@@ -73,7 +78,7 @@ export function TotpEnroll({
 
   if (!secret) {
     return (
-      <div>
+      <div className={centered ? "flex flex-col items-center" : ""}>
         <Button onClick={begin} disabled={busy}>
           {busy ? <Loader2 className="size-4 animate-spin" /> : <ShieldCheck className="size-4" />}
           {strings.setup}
@@ -84,7 +89,7 @@ export function TotpEnroll({
   }
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className={`flex flex-col gap-4 ${centered ? "items-center text-center" : ""}`}>
       <p className="text-sm text-muted-foreground">{strings.scan}</p>
       <div className="w-fit rounded-lg border border-border bg-white p-3">
         <QRCodeSVG value={qrUrl} size={168} />
@@ -95,7 +100,7 @@ export function TotpEnroll({
           {secret.secretKey}
         </code>
       </p>
-      <div className="flex flex-wrap items-center gap-2">
+      <div className={`flex flex-wrap items-center gap-2 ${centered ? "justify-center" : ""}`}>
         <input
           inputMode="numeric"
           autoComplete="one-time-code"
