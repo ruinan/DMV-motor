@@ -20,15 +20,21 @@ public interface FirebaseAuthVerifier {
     VerifiedUser verify(String idToken);
 
     /**
-     * The authenticated identity plus {@code authTimeEpochSeconds} — when the
-     * user last proved their password (Firebase {@code auth_time}). Reauth gates
-     * use it to require a recent sign-in / re-auth before sensitive actions.
+     * The authenticated identity plus {@code authTimeEpochSeconds} (when the user
+     * last proved their password — Firebase {@code auth_time}; used by reauth
+     * gates) and {@code secondFactor} (the Firebase {@code sign_in_second_factor}
+     * claim, e.g. {@code "totp"}; null when the sign-in did NOT complete 2FA —
+     * used by the MFA gate).
      */
-    record VerifiedUser(String firebaseUid, String email, long authTimeEpochSeconds) {
+    record VerifiedUser(String firebaseUid, String email, long authTimeEpochSeconds,
+                        String secondFactor) {
+        public VerifiedUser(String firebaseUid, String email, long authTimeEpochSeconds) {
+            this(firebaseUid, email, authTimeEpochSeconds, null);
+        }
         /** Identity without a known auth time (e.g. provisioning tests) — treated
-         *  as epoch 0, i.e. never "recently" authenticated. */
+         *  as epoch 0, i.e. never "recently" authenticated, and no second factor. */
         public VerifiedUser(String firebaseUid, String email) {
-            this(firebaseUid, email, 0L);
+            this(firebaseUid, email, 0L, null);
         }
     }
 }

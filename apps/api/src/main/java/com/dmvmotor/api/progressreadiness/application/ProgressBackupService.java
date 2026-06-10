@@ -63,6 +63,7 @@ public class ProgressBackupService {
     private final ExamContext              examContext;
     private final AccessService            accessService;
     private final ReauthGuard              reauthGuard;
+    private final com.dmvmotor.api.common.MfaGuard mfaGuard;
     private final SummaryService           summaryService;
     private final PracticeService          practiceService;
     private final MockExamService          mockExamService;
@@ -75,6 +76,7 @@ public class ProgressBackupService {
                                  ExamContext examContext,
                                  AccessService accessService,
                                  ReauthGuard reauthGuard,
+                                 com.dmvmotor.api.common.MfaGuard mfaGuard,
                                  SummaryService summaryService,
                                  PracticeService practiceService,
                                  MockExamService mockExamService,
@@ -86,6 +88,7 @@ public class ProgressBackupService {
         this.examContext     = examContext;
         this.accessService   = accessService;
         this.reauthGuard     = reauthGuard;
+        this.mfaGuard        = mfaGuard;
         this.summaryService  = summaryService;
         this.practiceService = practiceService;
         this.mockExamService = mockExamService;
@@ -152,6 +155,7 @@ public class ProgressBackupService {
     public RestoreOutcome restore(Long userId) {
         Long examId = examContext.resolveExamId(userId);
         requirePass(userId, examId);
+        mfaGuard.requireMfa();             // mutates progress → 2FA-verified session
         reauthGuard.requireRecentReauth(); // mutates progress → recent password proof
 
         BackupRow row = repo.find(userId, examId)

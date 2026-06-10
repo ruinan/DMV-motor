@@ -55,6 +55,12 @@ public class UserIdResolver implements HandlerMethodArgumentResolver {
             // available even if the same request later checks freshness).
             webRequest.setAttribute(ReauthGuard.AUTH_TIME_ATTR,
                     user.authTimeEpochSeconds(), RequestAttributes.SCOPE_REQUEST);
+            // Expose the second factor so MfaGuard can require a 2FA-verified
+            // session on guarded actions. May be null (sign-in without 2FA).
+            if (user.secondFactor() != null) {
+                webRequest.setAttribute(MfaGuard.SECOND_FACTOR_ATTR,
+                        user.secondFactor(), RequestAttributes.SCOPE_REQUEST);
+            }
             return provisioner.provisionUserId(user);
         } catch (BusinessException e) {
             return null;

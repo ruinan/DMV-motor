@@ -4,6 +4,7 @@ import com.dmvmotor.api.billing.application.BillingService;
 import com.dmvmotor.api.common.ApiResponse;
 import com.dmvmotor.api.common.BusinessException;
 import com.dmvmotor.api.common.CurrentUser;
+import com.dmvmotor.api.common.MfaGuard;
 import com.dmvmotor.api.common.ReauthGuard;
 import com.dmvmotor.api.common.recaptcha.RecaptchaGuard;
 import com.dmvmotor.api.content.application.ExamContext;
@@ -33,13 +34,16 @@ public class BillingController {
     private final BillingService service;
     private final ExamContext    examContext;
     private final ReauthGuard    reauthGuard;
+    private final MfaGuard       mfaGuard;
     private final RecaptchaGuard recaptchaGuard;
 
     public BillingController(BillingService service, ExamContext examContext,
-                            ReauthGuard reauthGuard, RecaptchaGuard recaptchaGuard) {
+                            ReauthGuard reauthGuard, MfaGuard mfaGuard,
+                            RecaptchaGuard recaptchaGuard) {
         this.service        = service;
         this.examContext    = examContext;
         this.reauthGuard    = reauthGuard;
+        this.mfaGuard       = mfaGuard;
         this.recaptchaGuard = recaptchaGuard;
     }
 
@@ -56,6 +60,7 @@ public class BillingController {
                                    @RequestParam(name = "exam_id", required = false) Long examId) {
         requireAuth(userId);
         recaptchaGuard.requireHuman("subscribe");   // bot check
+        mfaGuard.requireMfa();                      // billing change → 2FA-verified session
         reauthGuard.requireRecentReauth();          // billing change → recent password proof
         Long resolved = examId != null ? examId : examContext.resolveExamId(userId);
         return ApiResponse.ok(Map.of("url", service.createCheckoutSession(userId, resolved)));
@@ -67,6 +72,7 @@ public class BillingController {
                                  @RequestParam(name = "exam_id", required = false) Long examId) {
         requireAuth(userId);
         recaptchaGuard.requireHuman("unsubscribe"); // bot check
+        mfaGuard.requireMfa();                      // billing change → 2FA-verified session
         reauthGuard.requireRecentReauth();          // billing change → recent password proof
         Long resolved = examId != null ? examId : examContext.resolveExamId(userId);
         service.cancelSubscription(userId, resolved);

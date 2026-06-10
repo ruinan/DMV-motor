@@ -39,6 +39,15 @@ public class StubFirebaseVerifier implements FirebaseAuthVerifier {
         }
         String token = idToken.trim();
 
+        // Optional "!nomfa" suffix simulates a session that did NOT complete 2FA
+        // (e.g. "5!nomfa"); without it the stub defaults to a 2FA-verified session
+        // ("totp"), so existing tokens keep passing the MFA gate.
+        String secondFactor = "totp";
+        if (token.endsWith("!nomfa")) {
+            secondFactor = null;
+            token = token.substring(0, token.length() - "!nomfa".length()).trim();
+        }
+
         // Optional "~<epochSeconds>" suffix sets a custom auth_time so reauth
         // tests can simulate a STALE session (e.g. "5~1700000000"); without it,
         // auth_time = now (a fresh sign-in), preserving the existing shim.
@@ -54,13 +63,13 @@ public class StubFirebaseVerifier implements FirebaseAuthVerifier {
         }
 
         if (token.startsWith("test-")) {
-            return new VerifiedUser(token, token + "@local", authTime);
+            return new VerifiedUser(token, token + "@local", authTime, secondFactor);
         }
 
         try {
             long numericId = Long.parseLong(token);
             String uid = "test-" + numericId;
-            return new VerifiedUser(uid, "test" + numericId + "@local", authTime);
+            return new VerifiedUser(uid, "test" + numericId + "@local", authTime, secondFactor);
         } catch (NumberFormatException e) {
             throw new BusinessException("UNAUTHORIZED",
                     "Invalid dev-mode token (expected numeric id or 'test-<uid>')",

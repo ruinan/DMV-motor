@@ -22,7 +22,8 @@ public class FirebaseIdTokenVerifier implements FirebaseAuthVerifier {
     public VerifiedUser verify(String idToken) {
         try {
             FirebaseToken decoded = FirebaseAuth.getInstance().verifyIdToken(idToken);
-            return new VerifiedUser(decoded.getUid(), decoded.getEmail(), authTime(decoded));
+            return new VerifiedUser(decoded.getUid(), decoded.getEmail(),
+                    authTime(decoded), secondFactor(decoded));
         } catch (FirebaseAuthException e) {
             throw new BusinessException("UNAUTHORIZED",
                     "Invalid or expired Firebase ID token",
@@ -35,5 +36,18 @@ public class FirebaseIdTokenVerifier implements FirebaseAuthVerifier {
     private static long authTime(FirebaseToken decoded) {
         Object v = decoded.getClaims().get("auth_time");
         return v instanceof Number n ? n.longValue() : 0L;
+    }
+
+    /** The token's {@code firebase.sign_in_second_factor} (e.g. {@code "totp"});
+     *  present only when the sign-in completed a second factor. null otherwise —
+     *  which the MFA gate treats as "2FA not satisfied". */
+    @SuppressWarnings("unchecked")
+    private static String secondFactor(FirebaseToken decoded) {
+        Object firebase = decoded.getClaims().get("firebase");
+        if (firebase instanceof java.util.Map<?, ?> m) {
+            Object sf = ((java.util.Map<String, Object>) m).get("sign_in_second_factor");
+            if (sf instanceof String s && !s.isBlank()) return s;
+        }
+        return null;
     }
 }
