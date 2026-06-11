@@ -348,6 +348,8 @@
     "starting": "Starting…",
     "remaining": "Attempts remaining",
     "noAttemptsLeft": "You're out of mock attempts. Refresh your access pass to keep simulating.",
+    "subscribeBody": "Mock exams need an active pass. Subscribe or redeem an activation code to unlock timed, full-length simulations.",
+    "subscribeCta": "Go to subscription",
     "errorAuthRequired": "Sign in to take a mock exam.",
     "errorPassRequired": "An access pass is required to take a mock exam.",
     "errorGeneric": "Something went wrong. Please try again.",

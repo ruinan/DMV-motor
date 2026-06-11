@@ -2,19 +2,12 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { Timer } from "lucide-react";
+import { Lock, Timer } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { apiFetch, ApiError } from "@/lib/api-client";
-import { useAuth } from "@/lib/auth-context";
+import { useMe } from "@/lib/hooks/use-me";
 import { ExamIndicator } from "@/components/exam-indicator";
 import type { Dictionary, Locale } from "@/lib/dictionaries";
-
-type AccessResponse = {
-  allowed: boolean;
-  mock_remaining: number;
-  reason: string;
-};
 
 type Choice = { key: string; text: string };
 
@@ -39,16 +32,15 @@ type Props = {
 
 export function MockLanding({ t, lang }: Props) {
   const router = useRouter();
-  const { user } = useAuth();
+  const me = useMe();
   const [starting, setStarting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const { data: access, isLoading } = useQuery({
-    queryKey: ["mock-access"],
-    queryFn: () => apiFetch<AccessResponse>("/api/v1/mock-exams/access"),
-    enabled: !!user,
-    staleTime: 30_000,
-  });
+  // Derive access straight from /me (already fetched app-wide) instead of a
+  // second mock-access call — fewer backend round-trips, one source of truth.
+  const hasPass = me.data?.access.has_active_pass ?? false;
+  const remaining = me.data?.access.mock_remaining ?? 0;
+  const canStart = hasPass && remaining > 0;
 
   async function start() {
     setStarting(true);
@@ -78,17 +70,42 @@ export function MockLanding({ t, lang }: Props) {
     }
   }
 
+  const header = (
+    <header className="flex flex-wrap items-start justify-between gap-3">
+      <div>
+        <h1 className="text-3xl font-bold tracking-tight text-foreground">
+          {t.title}
+        </h1>
+        <p className="mt-1 text-sm text-muted-foreground">{t.subtitle}</p>
+      </div>
+      <ExamIndicator lang={lang} />
+    </header>
+  );
+
+  // No active pass → don't surface a "0 attempts" counter or the raw backend
+  // "no active pass" reason. Guide the user to subscribe / redeem instead.
+  if (!me.isLoading && !hasPass) {
+    return (
+      <div className="mx-auto flex w-full max-w-xl flex-col gap-6">
+        {header}
+        <section className="flex flex-col items-center gap-4 rounded-xl border bg-card p-8 text-center shadow-sm">
+          <div className="flex size-12 items-center justify-center rounded-full bg-primary/10 text-primary">
+            <Lock className="size-6" />
+          </div>
+          <p className="max-w-sm text-sm text-muted-foreground">
+            {t.subscribeBody}
+          </p>
+          <Button size="lg" onClick={() => router.push(`/${lang}/me#subscription`)}>
+            {t.subscribeCta}
+          </Button>
+        </section>
+      </div>
+    );
+  }
+
   return (
     <div className="mx-auto flex w-full max-w-xl flex-col gap-6">
-      <header className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight text-foreground">
-            {t.title}
-          </h1>
-          <p className="mt-1 text-sm text-muted-foreground">{t.subtitle}</p>
-        </div>
-        <ExamIndicator lang={lang} />
-      </header>
+      {header}
 
       <section className="flex items-center gap-4 rounded-xl border bg-card p-6 shadow-sm">
         <div className="flex size-12 items-center justify-center rounded-full bg-primary/10 text-primary">
@@ -97,7 +114,7 @@ export function MockLanding({ t, lang }: Props) {
         <div className="flex-1">
           <p className="text-sm text-muted-foreground">{t.remaining}</p>
           <p className="text-2xl font-semibold tabular-nums">
-            {isLoading ? "…" : (access?.mock_remaining ?? 0)}
+            {me.isLoading ? "…" : remaining}
           </p>
         </div>
       </section>
@@ -108,17 +125,16 @@ export function MockLanding({ t, lang }: Props) {
         </div>
       )}
 
-      {access && !access.allowed && (
+      {/* Has a pass but used every attempt — distinct from "not subscribed". */}
+      {!me.isLoading && !canStart && (
         <div className="rounded-md border border-destructive/40 bg-destructive/10 p-4 text-sm text-destructive">
-          {access.reason || t.noAttemptsLeft}
+          {t.noAttemptsLeft}
         </div>
       )}
 
       <Button
         size="lg"
-        disabled={
-          starting || isLoading || (!!access && !access.allowed)
-        }
+        disabled={starting || me.isLoading || !canStart}
         onClick={start}
       >
         {starting ? t.starting : t.startExam}

@@ -55,7 +55,15 @@ export default async function RootLayout({
       lang={lang}
       className={`${inter.variable} ${mono.variable} h-full antialiased`}
     >
-      <body className="min-h-full bg-background text-foreground">
+      {/* Browser extensions (password managers, Grammarly, etc.) inject
+          attributes onto <body> before React hydrates, which trips React 19's
+          "attributes didn't match" warning. suppressHydrationWarning scopes the
+          allowance to this one element — it does NOT silence real mismatches in
+          the app tree below. */}
+      <body
+        suppressHydrationWarning
+        className="min-h-full bg-background text-foreground"
+      >
         <QueryProvider>
           <AuthProvider>
             {children}

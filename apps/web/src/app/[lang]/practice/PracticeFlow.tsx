@@ -605,6 +605,11 @@ export function PracticeFlow({ t, lang }: Props) {
 
   return (
     <Container>
+      {/* Show which exam this session is scoped to so free-trial practice isn't
+          ambiguous about M1 vs Class C. Renders nothing for anonymous visitors. */}
+      <div className="flex justify-center">
+        <ExamIndicator lang={lang} />
+      </div>
       <div className="flex items-end justify-between gap-3">
         <div className="flex-1">
           <ProgressBar

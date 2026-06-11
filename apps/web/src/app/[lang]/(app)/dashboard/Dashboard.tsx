@@ -377,7 +377,13 @@ function SessionCard({
         className="flex w-full flex-col gap-2 p-4 text-left transition-colors hover:bg-muted/40"
       >
         <div className="flex items-center justify-between">
-          <span className="text-xs font-medium text-muted-foreground">
+          {/* Relative time is computed from the client clock/locale, which can
+              differ from the SSR render — suppress the (cosmetic) hydration
+              mismatch so React keeps the client value. */}
+          <span
+            suppressHydrationWarning
+            className="text-xs font-medium text-muted-foreground"
+          >
             {dateLabel}
           </span>
           <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
@@ -585,7 +591,12 @@ function MockCard({
       className="group flex flex-col gap-2 rounded-xl border border-border/40 bg-card p-4 text-sm shadow-sm transition-colors hover:bg-muted/40"
     >
       <div className="flex items-center justify-between">
-        <span className="text-xs font-medium text-muted-foreground">{date}</span>
+        <span
+          suppressHydrationWarning
+          className="text-xs font-medium text-muted-foreground"
+        >
+          {date}
+        </span>
         <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${statusTone}`}>
           {statusLabel}
         </span>

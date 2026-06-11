@@ -348,6 +348,8 @@
     "starting": "正在开始…",
     "remaining": "剩余次数",
     "noAttemptsLeft": "模拟考次数已用完，请续订考试通行证。",
+    "subscribeBody": "模拟考需要考试通行证。订阅或兑换激活码即可解锁限时全真模拟考场。",
+    "subscribeCta": "去订阅",
     "errorAuthRequired": "请先登录以进入模拟考试。",
     "errorPassRequired": "模拟考需要考试通行证。",
     "errorGeneric": "出错啦，请重试。",
