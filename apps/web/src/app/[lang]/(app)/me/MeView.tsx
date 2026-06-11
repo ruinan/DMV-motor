@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -16,6 +16,7 @@ import {
   RefreshCw,
   ShieldCheck,
   Sparkles,
+  Ticket,
   Trash2,
   User,
 } from "lucide-react";
@@ -108,6 +109,7 @@ export function MeView({ t, lang }: Props) {
 
           <Group label={t.groupBilling}>
             <SubscriptionSection t={t} lang={lang} data={data} />
+            <RedeemSection t={t} />
             <BackupSection t={t} data={data} />
             <PaymentSection t={t} />
           </Group>
@@ -638,6 +640,77 @@ function ExamCatalog({ t, lang }: { t: Dictionary["me"]; lang: Locale }) {
         onCancel={() => setPendingReauth(null)}
       />
     </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Activation code — redeem a code to unlock an exam (gift / promo / offline)
+// ---------------------------------------------------------------------------
+
+function RedeemSection({ t }: { t: Dictionary["me"] }) {
+  const queryClient = useQueryClient();
+  const [code, setCode] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
+
+  async function submit(e: FormEvent) {
+    e.preventDefault();
+    const value = code.trim();
+    if (!value || busy) return;
+    setBusy(true);
+    setMsg(null);
+    try {
+      await apiFetch(`/api/v1/access/redeem?code=${encodeURIComponent(value)}`, {
+        method: "POST",
+      });
+      await queryClient.invalidateQueries();
+      setCode("");
+      setMsg({ ok: true, text: t.redeemSuccess });
+    } catch (err) {
+      const errCode = err instanceof ApiError ? err.code : "";
+      const text =
+        errCode === "ALREADY_REDEEMED"
+          ? t.redeemAlready
+          : errCode === "CODE_EXHAUSTED"
+            ? t.redeemExhausted
+            : errCode === "CODE_EXPIRED"
+              ? t.redeemExpired
+              : errCode === "INVALID_CODE"
+                ? t.redeemInvalid
+                : t.redeemError;
+      setMsg({ ok: false, text });
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Section
+      id="redeem"
+      icon={<Ticket className="size-4" />}
+      title={t.redeemTitle}
+      description={t.redeemBody}
+    >
+      <form onSubmit={submit} className="flex flex-wrap items-center gap-2">
+        <input
+          value={code}
+          onChange={(e) => setCode(e.target.value)}
+          placeholder={t.redeemPlaceholder}
+          autoComplete="off"
+          className="h-10 min-w-0 flex-1 rounded-lg border border-border bg-background px-3 font-mono text-sm uppercase tracking-wider text-foreground placeholder:font-sans placeholder:normal-case placeholder:tracking-normal focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+        />
+        <Button type="submit" disabled={busy || !code.trim()}>
+          {busy ? "…" : t.redeemSubmit}
+        </Button>
+      </form>
+      {msg && (
+        <p
+          className={`mt-3 text-sm ${msg.ok ? "text-success" : "text-destructive"}`}
+        >
+          {msg.text}
+        </p>
+      )}
+    </Section>
   );
 }
 

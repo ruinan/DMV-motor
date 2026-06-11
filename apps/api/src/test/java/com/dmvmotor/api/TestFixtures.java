@@ -38,6 +38,8 @@ public class TestFixtures {
     public void truncateAll() {
         jdbc.execute("""
                 TRUNCATE
+                    code_redemptions,
+                    redemption_codes,
                     progress_backups,
                     reminder_tasks,
                     mock_review_plans,
@@ -97,6 +99,21 @@ public class TestFixtures {
 
     public void setExamStatus(Long examId, String status) {
         jdbc.update("UPDATE exams SET status = ? WHERE id = ?", status, examId);
+    }
+
+    // ---------------------------------------------------------------
+    // Redemption codes (V37)
+    // ---------------------------------------------------------------
+
+    /** Seed an active redemption code for {@code examId} (null = current-exam)
+     *  with the given redemption cap. Returns the code id. */
+    public Long insertRedemptionCode(String code, Long examId, int maxRedemptions) {
+        return jdbc.queryForObject("""
+                INSERT INTO redemption_codes
+                    (code, exam_id, duration_days, mock_quota, max_redemptions, status)
+                VALUES (?, ?, 30, 5, ?, 'active')
+                RETURNING id
+                """, Long.class, code, examId, maxRedemptions);
     }
 
     // ---------------------------------------------------------------
