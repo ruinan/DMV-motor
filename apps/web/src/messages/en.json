@@ -64,7 +64,12 @@
     "switchExamConfirmTitle": "Switch exam?",
     "switchExamConfirmBody": "Practice, mock exams and progress will switch to the new exam. You can switch back anytime.",
     "switchExamConfirmYes": "Switch",
-    "switchExamConfirmCancel": "Cancel"
+    "switchExamConfirmCancel": "Cancel",
+    "examLocked": "Not opened yet",
+    "openExamTitle": "Open {exam}?",
+    "openExamBody": "Start a free trial, or subscribe for full access — full question bank, mistakes, mock exams and saved progress.",
+    "openExamFree": "Free trial",
+    "openExamSubscribe": "Subscribe"
   },
   "studyHub": {
     "title": "Study",

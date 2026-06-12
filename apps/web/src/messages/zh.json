@@ -64,7 +64,12 @@
     "switchExamConfirmTitle": "切换考试？",
     "switchExamConfirmBody": "练习、模考和进度都会切换到新考试。你随时可以切回来。",
     "switchExamConfirmYes": "切换",
-    "switchExamConfirmCancel": "取消"
+    "switchExamConfirmCancel": "取消",
+    "examLocked": "尚未开通",
+    "openExamTitle": "开通{exam}？",
+    "openExamBody": "可以免费试用，或订阅解锁全部内容——完整题库、错题、模考与进度保存。",
+    "openExamFree": "免费试用",
+    "openExamSubscribe": "订阅"
   },
   "studyHub": {
     "title": "学习中心",

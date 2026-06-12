@@ -36,6 +36,14 @@ export function MobileAppBar({ t, lang }: Props) {
           yes: t.nav.switchExamConfirmYes,
           cancel: t.nav.switchExamConfirmCancel,
         }}
+        openLabels={{
+          locked: t.nav.examLocked,
+          title: t.nav.openExamTitle,
+          body: t.nav.openExamBody,
+          free: t.nav.openExamFree,
+          subscribe: t.nav.openExamSubscribe,
+          cancel: t.nav.switchExamConfirmCancel,
+        }}
       />
     </header>
   );
