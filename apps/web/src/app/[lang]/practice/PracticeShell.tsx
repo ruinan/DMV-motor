@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { useAuth } from "@/lib/auth-context";
 import { useMe } from "@/lib/hooks/use-me";
 import { AppSidebar } from "@/components/app-sidebar";
@@ -25,11 +26,26 @@ type Props = {
 export function PracticeShell({ t, lang }: Props) {
   const { user, loading } = useAuth();
   const me = useMe();
+  // Anonymous practice has no /me current exam, so PracticeFlow reports the exam
+  // being practiced up here (set when the visitor picks one on the landing) to
+  // theme the page per exam — amber motorcycle / blue car — like the signed-in
+  // shell below. Undefined on the landing (no pick yet) → neutral.
+  const [anonExamClass, setAnonExamClass] = useState<string | undefined>(
+    undefined,
+  );
 
   // Anonymous/free practice must not block on Firebase rehydration. If auth
   // later resolves to a user, the signed-in chrome replaces this shell.
   if (loading || !user) {
-    return <PracticeFlow t={t.practice} lang={lang} />;
+    return (
+      <div className="min-h-screen bg-background" data-exam={anonExamClass}>
+        <PracticeFlow
+          t={t.practice}
+          lang={lang}
+          onExamClass={setAnonExamClass}
+        />
+      </div>
+    );
   }
 
   // Signed in: same chrome as the rest of the (app) surfaces, including the

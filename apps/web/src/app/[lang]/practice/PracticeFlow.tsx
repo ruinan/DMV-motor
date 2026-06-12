@@ -82,9 +82,12 @@ type Phase =
 type Props = {
   t: Dictionary["practice"];
   lang: Locale;
+  /** Anonymous-only: report the exam being practiced up to the shell so it can
+   *  theme the page per exam (signed-in is themed from /me there instead). */
+  onExamClass?: (licenseClass: string | undefined) => void;
 };
 
-export function PracticeFlow({ t, lang }: Props) {
+export function PracticeFlow({ t, lang, onExamClass }: Props) {
   // Drive isLoggedIn off Firebase auth state, not /me fetch state — otherwise
   // the anonymous "Sign in or register" UI flashes for the half-second between
   // Firebase resolving the user and /me returning the profile. authLoading is
@@ -102,6 +105,9 @@ export function PracticeFlow({ t, lang }: Props) {
   // free sessions to "random" regardless.
   const [practiceMode, setPracticeMode] =
     useState<"random" | "weak_points" | "review_learned">("random");
+  // The exam an anonymous visitor picked for this session — drives the per-exam
+  // page theme reported to the shell. Null for signed-in (they use current_exam).
+  const [sessionExamId, setSessionExamId] = useState<string | null>(null);
 
   // Auto-resume on mount — Next.js App Router unmounts client components when
   // the URL [lang] segment changes (so the language toggle effectively kicks
@@ -155,6 +161,19 @@ export function PracticeFlow({ t, lang }: Props) {
   const hasPass = me.data?.access.has_active_pass ?? false;
   const entryType: "free_trial" | "full" = hasPass ? "full" : "free_trial";
 
+  // Per-exam page theme (theme.css [data-exam]). On the landing (idle) there's
+  // no single exam to theme by — the anonymous picker shows both. Once a session
+  // is under way, theme by the exam being practiced: the anonymous pick, falling
+  // back to the signed-in user's current exam. Reported up to the shell.
+  const sessionExam = exams.data?.find((e) => e.id === sessionExamId);
+  const themeExamClass =
+    phase.kind === "idle"
+      ? me.data?.current_exam?.license_class
+      : sessionExam?.license_class ?? me.data?.current_exam?.license_class;
+  useEffect(() => {
+    onExamClass?.(themeExamClass);
+  }, [themeExamClass, onExamClass]);
+
   // -------------------------------------------------------------------------
   // Actions
   // -------------------------------------------------------------------------
@@ -177,6 +196,8 @@ export function PracticeFlow({ t, lang }: Props) {
   // the backend ignores it for signed-in users (they always use their current
   // exam). So the signed-in "Start" buttons call start() with no arg.
   async function start(examId?: string) {
+    // Remember the anonymous pick so the shell themes the page for this exam.
+    setSessionExamId(examId ?? null);
     setPhase({ kind: "starting" });
     try {
       const { startRes, status } = await withMinDuration(
