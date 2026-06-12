@@ -507,6 +507,12 @@ function ExamCatalog({ t, lang }: { t: Dictionary["me"]; lang: Locale }) {
   const subscribedById = new Map(
     (entitlements.data ?? []).map((e) => [e.exam_id, e.subscribed]),
   );
+  // "Opened" (Free trial started / practiced) vs never opened (Locked) — so the
+  // catalog status matches the switcher's three states instead of calling every
+  // un-subscribed exam "Free trial".
+  const openedById = new Map(
+    (entitlements.data ?? []).map((e) => [e.exam_id, e.opened]),
+  );
 
   async function toggle(examId: string, subscribed: boolean) {
     if (busy || !canManage) return;
@@ -577,6 +583,7 @@ function ExamCatalog({ t, lang }: { t: Dictionary["me"]; lang: Locale }) {
     <div className="flex flex-col gap-2">
       {exams.data.map((exam) => {
         const subscribed = subscribedById.get(exam.id) ?? false;
+        const opened = openedById.get(exam.id) ?? false;
         const isBusy = busy === exam.id;
         return (
           <div
@@ -599,7 +606,11 @@ function ExamCatalog({ t, lang }: { t: Dictionary["me"]; lang: Locale }) {
                     : "bg-muted text-muted-foreground"
                 }`}
               >
-                {subscribed ? t.catalogSubscribed : t.catalogFree}
+                {subscribed
+                  ? t.catalogSubscribed
+                  : opened
+                    ? t.examFree
+                    : t.examLocked}
               </span>
               {canManage ? (
                 <Button
