@@ -145,6 +145,9 @@ export function PracticeFlow({ t, lang, onExamClass }: Props) {
     // "never updated" while the user kept practicing the same topic.
     queryClient.invalidateQueries({ queryKey: ["engagement"] });
     queryClient.invalidateQueries({ queryKey: ["recommendations"] });
+    // Practicing an exam for the first time flips its entitlements has_activity
+    // → the switcher should show it as "Free" (not Locked) right away.
+    queryClient.invalidateQueries({ queryKey: ["entitlements"] });
   }
 
   // Resolve the session id whenever the phase carries one — used by the
