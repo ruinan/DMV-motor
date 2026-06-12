@@ -177,7 +177,8 @@ function EmailVerifyGate({
   email: string | null;
   onVerified: () => void;
 }) {
-  const { resendVerificationEmail, reloadUser, signOut } = useAuth();
+  const { resendVerificationEmail, reloadUser, devVerifyEmail, signOut } =
+    useAuth();
   // Guards the one-shot auto-send so re-renders / dev StrictMode double-mount
   // don't fire a second email (Firebase rate-limits and it's confusing UX).
   const sent = useRef(false);
@@ -186,6 +187,12 @@ function EmailVerifyGate({
   );
   const [checking, setChecking] = useState(false);
   const [stillUnverified, setStillUnverified] = useState(false);
+  // Local testing has no real inbox (Auth emulator never sends mail), so offer a
+  // one-click bypass that applies the emulator's pending oob code. Build-time
+  // inlined; the button never renders in a real (prod) build.
+  const isEmulator =
+    process.env.NEXT_PUBLIC_USE_FIREBASE_EMULATOR === "true";
+  const [bypassing, setBypassing] = useState(false);
 
   // Auto-send one verification email when the gate first appears — covers both
   // a fresh sign-up and a user stranded here by an earlier build that never
@@ -221,6 +228,19 @@ function EmailVerifyGate({
       else setStillUnverified(true);
     } finally {
       setChecking(false);
+    }
+  }
+
+  async function devBypass() {
+    setBypassing(true);
+    setStillUnverified(false);
+    try {
+      if (await devVerifyEmail()) onVerified();
+      else setStillUnverified(true);
+    } catch {
+      setStillUnverified(true);
+    } finally {
+      setBypassing(false);
     }
   }
 
@@ -276,6 +296,19 @@ function EmailVerifyGate({
         >
           {status === "sending" ? t.verifyEmailSending : t.verifyEmailResend}
         </button>
+
+        {isEmulator && (
+          <button
+            type="button"
+            data-testid="verify-dev-bypass"
+            onClick={devBypass}
+            disabled={bypassing}
+            className="mt-4 inline-flex h-10 w-full items-center justify-center gap-2 rounded-xl border border-dashed border-border text-sm font-medium text-muted-foreground transition-colors hover:bg-muted disabled:opacity-60"
+          >
+            {bypassing ? <Loader2 className="size-4 animate-spin" /> : null}
+            {bypassing ? t.verifyEmailDevBypassBusy : t.verifyEmailDevBypass}
+          </button>
+        )}
 
         <button
           type="button"

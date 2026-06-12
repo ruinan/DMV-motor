@@ -212,6 +212,8 @@
     "verifyEmailStillUnverified": "Still unverified. Click the link in the email, then try again.",
     "verifyEmailError": "Couldn't send the email. Please try again in a moment.",
     "verifyEmailSignOut": "Sign out instead",
+    "verifyEmailDevBypass": "(local emulator) Skip verification",
+    "verifyEmailDevBypassBusy": "Verifying…",
     "mfaEnrollError": "Couldn't start two-factor setup. Sign out and back in, then try again.",
     "mfaUnverifiedEmail": "Verify your email first, then set up two-factor.",
     "recaptchaNotice": "Protected by reCAPTCHA to keep bots out.",

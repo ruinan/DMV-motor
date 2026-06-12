@@ -12,6 +12,7 @@ import {
 import { useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import {
+  applyActionCode,
   browserLocalPersistence,
   createUserWithEmailAndPassword,
   EmailAuthProvider,
@@ -29,7 +30,7 @@ import {
   type TotpSecret,
   type User,
 } from "firebase/auth";
-import { firebaseAuth } from "@/lib/firebase";
+import { firebaseApp, firebaseAuth } from "@/lib/firebase";
 
 /**
  * Thrown by {@link AuthState.signIn} when the account has 2FA enrolled and
@@ -62,6 +63,10 @@ type AuthState = {
   /** Reload the signed-in user from Firebase and report whether the email is now
    *  verified. Used by the verification gate to detect the user clicked the link. */
   reloadUser: () => Promise<boolean>;
+  /** EMULATOR-ONLY dev bypass: pull the pending verification oob code straight
+   *  from the Auth emulator and apply it, so local testing (no real inbox) can
+   *  get past the email-verification gate. No-op / throws against real Firebase. */
+  devVerifyEmail: () => Promise<boolean>;
   /** Finish a 2FA-gated sign-in: verify the TOTP code against the resolver. */
   resolveMfaSignIn: (resolver: MultiFactorResolver, code: string) => Promise<void>;
   /** Begin TOTP enrollment: returns the secret + an otpauth URL for the QR. */
@@ -152,6 +157,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // reload() mutates currentUser in place; force a token refresh so the
         // onIdTokenChanged listener re-publishes the user and downstream reads
         // (and the next backend call) see the verified state.
+        await u.getIdToken(true);
+        return u.emailVerified;
+      },
+      devVerifyEmail: async () => {
+        const u = firebaseAuth.currentUser;
+        if (!u || !u.email) throw new Error("Not signed in");
+        // Hard guard: this hits the emulator's admin REST surface, which only
+        // exists when the SDK is pointed at the emulator. Never against prod.
+        if (!firebaseAuth.emulatorConfig) {
+          throw new Error("Email-verify bypass is emulator-only");
+        }
+        const projectId = firebaseApp.options.projectId;
+        const res = await fetch(
+          `http://127.0.0.1:9099/emulator/v1/projects/${projectId}/oobCodes`,
+        );
+        const data = (await res.json()) as {
+          oobCodes?: { email: string; requestType: string; oobCode: string }[];
+        };
+        // Most recent VERIFY_EMAIL code for this user (the gate auto-sends one).
+        const match = (data.oobCodes ?? [])
+          .filter(
+            (c) => c.email === u.email && c.requestType === "VERIFY_EMAIL",
+          )
+          .pop();
+        if (!match) throw new Error("No verification code found in emulator");
+        await applyActionCode(firebaseAuth, match.oobCode);
+        await u.reload();
         await u.getIdToken(true);
         return u.emailVerified;
       },

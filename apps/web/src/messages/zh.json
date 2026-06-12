@@ -212,6 +212,8 @@
     "verifyEmailStillUnverified": "邮箱仍未验证。请点击邮件里的链接后再试。",
     "verifyEmailError": "邮件发送失败，请稍后再试。",
     "verifyEmailSignOut": "改为退出登录",
+    "verifyEmailDevBypass": "（本地模拟器）跳过验证",
+    "verifyEmailDevBypassBusy": "验证中…",
     "mfaEnrollError": "无法开始两步验证设置。请退出再重新登录后再试。",
     "mfaUnverifiedEmail": "请先验证邮箱，再设置两步验证。",
     "recaptchaNotice": "本页由 reCAPTCHA 保护，拦截机器人。",

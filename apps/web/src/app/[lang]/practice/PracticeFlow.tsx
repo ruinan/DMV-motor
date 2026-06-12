@@ -481,17 +481,21 @@ export function PracticeFlow({ t, lang }: Props) {
               ) : (
                 <div className="flex flex-col gap-3">
                   {(exams.data ?? []).map((exam) => {
-                    // Both exam buttons share one neutral dark style so the two
-                    // options read as one consistent set; only the icon differs
-                    // (motorcycle vs car). Uniform h/w so they don't size to
-                    // their labels.
-                    const Icon = exam.license_class.startsWith("M") ? Bike : Car;
+                    // Each exam button carries its OWN theme color so the choice
+                    // matches the per-exam accent the user lands in once inside
+                    // (theme.css [data-exam]): warm amber for motorcycle, blue
+                    // for Class C / car. Explicit hex because both exams render
+                    // on one page, outside any data-exam scope. Uniform h/w so
+                    // they don't size to their labels.
+                    const isMoto = exam.license_class.startsWith("M");
+                    const Icon = isMoto ? Bike : Car;
                     return (
                       <button
                         key={exam.id}
                         type="button"
                         onClick={() => start(exam.id)}
-                        className="flex h-14 w-full items-center justify-center gap-2.5 rounded-xl bg-foreground px-4 text-base font-semibold text-background shadow-sm transition hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
+                        style={{ backgroundColor: isMoto ? "#b45309" : "#1b5e9b" }}
+                        className="flex h-14 w-full items-center justify-center gap-2.5 rounded-xl px-4 text-base font-semibold text-white shadow-sm transition hover:brightness-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
                       >
                         <Icon className="size-5 shrink-0" aria-hidden />
                         {exam.name}
