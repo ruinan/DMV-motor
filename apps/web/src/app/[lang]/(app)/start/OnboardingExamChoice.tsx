@@ -70,8 +70,15 @@ export function OnboardingExamChoice({
         ) : (
           <div className="mt-10 grid grid-cols-1 gap-4 sm:grid-cols-2">
             {exams.data.map((exam) => {
-              const Icon =
-                exam.license_class.startsWith("M") ? Bike : Car;
+              // Per-exam theme color (theme.css [data-exam]) — amber for
+              // motorcycle, blue for Class C / car. The /start page has no
+              // data-exam scope (both exams share one screen), so set each card's
+              // accent explicitly instead of inheriting a single shared --primary
+              // (which rendered BOTH cards blue). Mirrors the free-practice picker.
+              const isMoto = exam.license_class.startsWith("M");
+              const Icon = isMoto ? Bike : Car;
+              const solid = isMoto ? "#b45309" : "#1b5e9b";
+              const rgb = isMoto ? "180, 83, 9" : "27, 94, 155";
               const isSubmitting = submitting === exam.id;
               return (
                 <button
@@ -79,15 +86,22 @@ export function OnboardingExamChoice({
                   type="button"
                   onClick={() => choose(exam.id)}
                   disabled={!!submitting}
-                  className="group flex flex-col items-start gap-4 rounded-2xl border-2 border-border bg-card p-6 text-left shadow-sm transition-all hover:-translate-y-0.5 hover:border-primary hover:bg-primary/5 hover:shadow-md disabled:cursor-not-allowed disabled:opacity-60"
+                  style={{ borderColor: `rgba(${rgb}, 0.4)` }}
+                  className="group flex flex-col items-start gap-4 rounded-2xl border-2 bg-card p-6 text-left shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md disabled:cursor-not-allowed disabled:opacity-60"
                 >
-                  <span className="flex size-12 items-center justify-center rounded-full bg-primary/10 text-primary">
+                  <span
+                    className="flex size-12 items-center justify-center rounded-full"
+                    style={{ backgroundColor: `rgba(${rgb}, 0.12)`, color: solid }}
+                  >
                     <Icon className="size-6" />
                   </span>
-                  <span className="text-lg font-semibold text-foreground">
+                  <span className="text-lg font-semibold" style={{ color: solid }}>
                     {exam.name}
                   </span>
-                  <span className="inline-flex items-center gap-1.5 text-sm font-medium text-primary">
+                  <span
+                    className="inline-flex items-center gap-1.5 text-sm font-medium"
+                    style={{ color: solid }}
+                  >
                     {labels.select}
                     {isSubmitting ? (
                       <Loader2 className="size-4 animate-spin" />
