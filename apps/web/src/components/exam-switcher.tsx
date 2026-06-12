@@ -8,6 +8,7 @@ import { useSetExam } from "@/lib/hooks/use-set-exam";
 import { useExamLock } from "@/lib/hooks/use-exam-lock";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { OpenExamDialog } from "@/components/open-exam-dialog";
+import { FreeBadge } from "@/components/free-badge";
 import type { Locale } from "@/lib/dictionaries";
 
 /**
@@ -175,9 +176,9 @@ export function ExamSwitcher({
                   <span className={`truncate ${locked ? "text-muted-foreground" : ""}`}>
                     {exam.name}
                   </span>
-                  {!active && status === "free" && (
-                    <span className="ml-auto shrink-0 rounded-full bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
-                      {openLabels.freeBadge}
+                  {status === "free" && (
+                    <span className="ml-auto">
+                      <FreeBadge label={openLabels.freeBadge} />
                     </span>
                   )}
                   {locked && (

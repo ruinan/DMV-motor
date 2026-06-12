@@ -12,6 +12,7 @@ import {
   Globe2,
   KeyRound,
   Loader2,
+  Lock,
   LogOut,
   RefreshCw,
   ShieldCheck,
@@ -25,6 +26,7 @@ import { TotpEnroll } from "@/components/totp-enroll";
 import { apiFetch, ApiError } from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
 import { ExamPicker } from "@/components/exam-picker";
+import { FreeBadge } from "@/components/free-badge";
 import { examName, type CurrentExam } from "@/lib/hooks/use-me";
 import { useExams } from "@/lib/hooks/use-exams";
 import { useEntitlements } from "@/lib/hooks/use-entitlements";
@@ -599,19 +601,18 @@ function ExamCatalog({ t, lang }: { t: Dictionary["me"]; lang: Locale }) {
               </p>
             </div>
             <div className="flex shrink-0 items-center gap-2">
-              <span
-                className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
-                  subscribed
-                    ? "bg-primary/10 text-primary"
-                    : "bg-muted text-muted-foreground"
-                }`}
-              >
-                {subscribed
-                  ? t.catalogSubscribed
-                  : opened
-                    ? t.examFree
-                    : t.examLocked}
-              </span>
+              {subscribed ? (
+                <span className="inline-flex items-center rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">
+                  {t.catalogSubscribed}
+                </span>
+              ) : opened ? (
+                <FreeBadge label={t.examFree} />
+              ) : (
+                <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
+                  <Lock className="size-3" aria-hidden />
+                  {t.examLocked}
+                </span>
+              )}
               {canManage ? (
                 <Button
                   variant={subscribed ? "outline" : "default"}

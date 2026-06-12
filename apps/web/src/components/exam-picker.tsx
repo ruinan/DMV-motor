@@ -8,6 +8,7 @@ import { useMe } from "@/lib/hooks/use-me";
 import { useSetExam } from "@/lib/hooks/use-set-exam";
 import { useExamLock } from "@/lib/hooks/use-exam-lock";
 import { OpenExamDialog } from "@/components/open-exam-dialog";
+import { FreeBadge } from "@/components/free-badge";
 import type { Locale } from "@/lib/dictionaries";
 
 type Labels = {
@@ -117,10 +118,8 @@ export function ExamPicker({
             >
               {active && <CheckCircle2 className="size-4" />}
               {exam.name}
-              {!active && status === "free" && (
-                <span className="rounded-full bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
-                  {labels.openLabels.freeBadge}
-                </span>
+              {status === "free" && (
+                <FreeBadge label={labels.openLabels.freeBadge} />
               )}
               {locked && <Lock className="size-3.5" aria-label={labels.openLabels.locked} />}
               {isSubmitting && <Loader2 className="size-4 animate-spin" />}
