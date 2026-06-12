@@ -300,6 +300,8 @@
     "catalogSubscribedNote": "完整权限 —— 无限练习、模拟考试与 AI 辅助。",
     "catalogFreeNote": "仅免费试用 —— 练习受限，无模考与 AI。",
     "catalogDevNote": "开发模式：订阅/取消订阅走测试授权，暂不真实扣费。",
+    "catalogSubscribeDone": "订阅成功 —— 已解锁完整权限。",
+    "catalogUnsubscribeDone": "已取消订阅 —— 回到免费档。",
     "catalogEmpty": "暂无可用的考试。",
     "sectionBackup": "进度备份",
     "sectionBackupBody": "当前考试的进度会自动备份；换设备、清除数据或切换平台后都能恢复。",

@@ -27,22 +27,29 @@ class ReauthGuardTest {
     void noRequestContext_requiresReauth() {
         RequestContextHolder.resetRequestAttributes();
         BusinessException ex = assertThrows(BusinessException.class,
-                () -> new ReauthGuard(WINDOW).requireRecentReauth());
+                () -> new ReauthGuard(WINDOW, true).requireRecentReauth());
         assertEquals("REAUTH_REQUIRED", ex.getErrorCode());
     }
 
     @Test
     void freshAuthTime_passes() {
         bindAuthTime(Instant.now().getEpochSecond());
-        assertDoesNotThrow(() -> new ReauthGuard(WINDOW).requireRecentReauth());
+        assertDoesNotThrow(() -> new ReauthGuard(WINDOW, true).requireRecentReauth());
     }
 
     @Test
     void staleAuthTime_requiresReauth() {
         bindAuthTime(Instant.now().getEpochSecond() - (WINDOW + 60));
         BusinessException ex = assertThrows(BusinessException.class,
-                () -> new ReauthGuard(WINDOW).requireRecentReauth());
+                () -> new ReauthGuard(WINDOW, true).requireRecentReauth());
         assertEquals("REAUTH_REQUIRED", ex.getErrorCode());
+    }
+
+    @Test
+    void disabled_passesEvenWithoutRecentAuth() {
+        // Master switch off (local dev) → no reauth wall, even with no auth_time.
+        RequestContextHolder.resetRequestAttributes();
+        assertDoesNotThrow(() -> new ReauthGuard(WINDOW, false).requireRecentReauth());
     }
 
     private static void bindAuthTime(long epochSeconds) {

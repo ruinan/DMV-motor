@@ -300,6 +300,8 @@
     "catalogSubscribedNote": "Full access — unlimited practice, mock exams and AI help.",
     "catalogFreeNote": "Free trial only — limited practice, no mock exams or AI.",
     "catalogDevNote": "Dev mode: subscribe/unsubscribe use the test grant — no real charge yet.",
+    "catalogSubscribeDone": "Subscribed — full access unlocked.",
+    "catalogUnsubscribeDone": "Unsubscribed — back to the free tier.",
     "catalogEmpty": "No exams are available yet.",
     "sectionBackup": "Progress backup",
     "sectionBackupBody": "Your progress for this exam is backed up automatically and can be restored if your device is wiped or you switch platforms.",

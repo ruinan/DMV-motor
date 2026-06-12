@@ -485,6 +485,7 @@ function ExamCatalog({ t, lang }: { t: Dictionary["me"]; lang: Locale }) {
   const queryClient = useQueryClient();
   const [busy, setBusy] = useState<string | null>(null);
   const [errMsg, setErrMsg] = useState<string | null>(null);
+  const [info, setInfo] = useState<string | null>(null);
   // A billing action that hit the backend reauth gate, parked until the user
   // re-enters their password — then retried with a fresh token.
   const [pendingReauth, setPendingReauth] = useState<{
@@ -520,6 +521,7 @@ function ExamCatalog({ t, lang }: { t: Dictionary["me"]; lang: Locale }) {
     if (busy || !canManage) return;
     setBusy(examId);
     setErrMsg(null);
+    setInfo(null);
     try {
       // Bot check on subscription changes — token is null (no header) when
       // reCAPTCHA isn't configured (dev), so the backend gate no-ops there.
@@ -532,6 +534,7 @@ function ExamCatalog({ t, lang }: { t: Dictionary["me"]; lang: Locale }) {
             headers,
           });
           await queryClient.invalidateQueries();
+          setInfo(t.catalogUnsubscribeDone);
         } else {
           // Hand off to Stripe's hosted Checkout — leaves the app entirely.
           const res = await apiFetch<{ url: string }>(
@@ -549,6 +552,7 @@ function ExamCatalog({ t, lang }: { t: Dictionary["me"]; lang: Locale }) {
           headers,
         });
         await queryClient.invalidateQueries();
+        setInfo(subscribed ? t.catalogUnsubscribeDone : t.catalogSubscribeDone);
       }
     } catch (e) {
       // Backend reauth gate → prompt for the password, then retry this action.
@@ -638,6 +642,7 @@ function ExamCatalog({ t, lang }: { t: Dictionary["me"]; lang: Locale }) {
         );
       })}
       {errMsg && <p className="text-sm text-destructive">{errMsg}</p>}
+      {info && <p className="text-sm text-success">{info}</p>}
       {devEnabled && !billingEnabled && (
         <p className="mt-1 text-xs text-muted-foreground">{t.catalogDevNote}</p>
       )}

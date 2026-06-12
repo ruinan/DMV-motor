@@ -24,12 +24,19 @@ public class ReauthGuard {
     public static final String AUTH_TIME_ATTR = "dmv.auth.authTime";
 
     private final long windowSeconds;
+    /** Master switch. Off (e.g. local dev against the Auth emulator) makes the
+     *  guard a no-op so sensitive actions don't need a password re-prompt that's
+     *  awkward to satisfy locally. Defaults ON — prod always enforces it. */
+    private final boolean enabled;
 
-    public ReauthGuard(@Value("${app.auth.reauth-window-seconds:300}") long windowSeconds) {
+    public ReauthGuard(@Value("${app.auth.reauth-window-seconds:300}") long windowSeconds,
+                       @Value("${app.auth.reauth-enabled:true}") boolean enabled) {
         this.windowSeconds = windowSeconds;
+        this.enabled = enabled;
     }
 
     public void requireRecentReauth() {
+        if (!enabled) return;
         Long authTime = currentAuthTime();
         long now = Instant.now().getEpochSecond();
         if (authTime == null || now - authTime > windowSeconds) {
