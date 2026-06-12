@@ -201,6 +201,7 @@
     "mfaBadCode": "验证码不对，请用 App 上最新的验证码再试。",
     "mfaGateTitle": "设置两步验证",
     "mfaGateBody": "你的账号需要启用第二重验证。请添加验证器 App 后继续。",
+    "mfaGateDevSkip": "（本地模拟器）跳过两步验证",
     "mfaGateSignOut": "改为退出登录",
     "verifyEmailTitle": "验证你的邮箱",
     "verifyEmailBody": "我们已向 {email} 发送了一封验证邮件。点击其中的链接，然后回到这里继续。邮箱验证后才能设置两步验证。",

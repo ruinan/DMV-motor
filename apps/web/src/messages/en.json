@@ -201,6 +201,7 @@
     "mfaBadCode": "That code didn't match. Try the latest code from your app.",
     "mfaGateTitle": "Set up two-factor authentication",
     "mfaGateBody": "Your account requires a second factor. Add an authenticator app to continue.",
+    "mfaGateDevSkip": "(local emulator) Skip 2FA",
     "mfaGateSignOut": "Sign out instead",
     "verifyEmailTitle": "Verify your email",
     "verifyEmailBody": "We sent a verification link to {email}. Open it, then come back here and continue. Two-factor setup unlocks once your email is verified.",

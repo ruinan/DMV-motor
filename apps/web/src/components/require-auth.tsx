@@ -122,14 +122,47 @@ export function RequireAuth({ lang, t, children }: Props) {
   // Forced 2FA: a signed-in user without an enrolled second factor must set one
   // up before reaching any app surface. Rendered inline (not a redirect) so it
   // can't loop with the exam-onboarding /start gate in AppChrome.
-  if (!hasMfaEnrolled(user) && !mfaJustEnrolled) {
-    return <MfaGate t={t} onDone={() => setMfaJustEnrolled(true)} />;
+  //
+  // Local testing can't enroll a real authenticator easily, so against the Auth
+  // emulator we offer a STICKY skip (persisted) — otherwise forced-2FA walls off
+  // every local session. Build-time inlined, so prod tree-shakes this out and the
+  // gate stays mandatory there. (Backend MFA enforcement is its own flag, off
+  // locally by default — see app.auth.mfa-required.)
+  const isEmulator = process.env.NEXT_PUBLIC_USE_FIREBASE_EMULATOR === "true";
+  const devMfaSkipped =
+    isEmulator &&
+    typeof window !== "undefined" &&
+    window.localStorage.getItem("dmv-dev-skip-mfa") === "1";
+  if (!hasMfaEnrolled(user) && !mfaJustEnrolled && !devMfaSkipped) {
+    return (
+      <MfaGate
+        t={t}
+        onDone={() => setMfaJustEnrolled(true)}
+        onSkip={
+          isEmulator
+            ? () => {
+                window.localStorage.setItem("dmv-dev-skip-mfa", "1");
+                setMfaJustEnrolled(true);
+              }
+            : undefined
+        }
+      />
+    );
   }
 
   return <>{children}</>;
 }
 
-function MfaGate({ t, onDone }: { t: Dictionary["auth"]; onDone: () => void }) {
+function MfaGate({
+  t,
+  onDone,
+  onSkip,
+}: {
+  t: Dictionary["auth"];
+  onDone: () => void;
+  /** Emulator-only sticky skip; undefined (and so hidden) against real Firebase. */
+  onSkip?: () => void;
+}) {
   const { signOut } = useAuth();
   return (
     <div className="flex min-h-screen items-center justify-center bg-muted/40 p-4">
@@ -156,6 +189,16 @@ function MfaGate({ t, onDone }: { t: Dictionary["auth"]; onDone: () => void }) {
           align="center"
           onEnrolled={onDone}
         />
+        {onSkip && (
+          <button
+            type="button"
+            data-testid="mfa-dev-bypass"
+            onClick={onSkip}
+            className="mt-4 inline-flex h-10 w-full items-center justify-center rounded-xl border border-dashed border-border text-sm font-medium text-muted-foreground transition-colors hover:bg-muted"
+          >
+            {t.mfaGateDevSkip}
+          </button>
+        )}
         <button
           type="button"
           onClick={() => signOut()}

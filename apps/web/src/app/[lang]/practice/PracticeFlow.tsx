@@ -481,21 +481,27 @@ export function PracticeFlow({ t, lang }: Props) {
               ) : (
                 <div className="flex flex-col gap-3">
                   {(exams.data ?? []).map((exam) => {
-                    // Each exam button carries its OWN theme color so the choice
-                    // matches the per-exam accent the user lands in once inside
-                    // (theme.css [data-exam]): warm amber for motorcycle, blue
-                    // for Class C / car. Explicit hex because both exams render
-                    // on one page, outside any data-exam scope. Uniform h/w so
-                    // they don't size to their labels.
+                    // App accent idiom (matches the /start onboarding cards +
+                    // ExamIndicator pills): a faint tinted background with the
+                    // exam's THEME COLOR as the bold label + icon, so the color
+                    // reads off the text itself — not white-on-fill. Warm amber
+                    // for motorcycle, blue for Class C / car, matching theme.css
+                    // [data-exam]. Explicit rgb because both exams render on one
+                    // page, outside any data-exam scope.
                     const isMoto = exam.license_class.startsWith("M");
                     const Icon = isMoto ? Bike : Car;
+                    const rgb = isMoto ? "180, 83, 9" : "27, 94, 155";
                     return (
                       <button
                         key={exam.id}
                         type="button"
                         onClick={() => start(exam.id)}
-                        style={{ backgroundColor: isMoto ? "#b45309" : "#1b5e9b" }}
-                        className="flex h-14 w-full items-center justify-center gap-2.5 rounded-xl px-4 text-base font-semibold text-white shadow-sm transition hover:brightness-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
+                        style={{
+                          color: `rgb(${rgb})`,
+                          backgroundColor: `rgba(${rgb}, 0.1)`,
+                          borderColor: `rgba(${rgb}, 0.45)`,
+                        }}
+                        className="flex h-14 w-full items-center justify-center gap-2.5 rounded-xl border-2 px-4 text-base font-bold shadow-sm transition hover:-translate-y-0.5 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
                       >
                         <Icon className="size-5 shrink-0" aria-hidden />
                         {exam.name}
