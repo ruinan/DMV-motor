@@ -13,8 +13,10 @@ import org.springframework.stereotype.Repository;
 
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 @Repository
 public class PracticeSessionRepository {
@@ -185,6 +187,22 @@ public class PracticeSessionRepository {
                 .set(pa.SELECTED_CHOICE_KEY,   selectedKey)
                 .set(pa.IS_CORRECT,            isCorrect)
                 .execute();
+    }
+
+    /**
+     * The set of exam ids this user has any practice session for. Drives the
+     * "engaged / free-opened" signal in the entitlements endpoint: an exam the
+     * learner has practiced reads as opened (Free), not Locked, even after they
+     * switch away from it. Paid stays a separate, server-authoritative concern.
+     */
+    public Set<Long> examIdsWithActivity(Long userId) {
+        var ps = Tables.PRACTICE_SESSIONS;
+        return new HashSet<>(
+                dsl.selectDistinct(PS_EXAM_ID)
+                        .from(ps)
+                        .where(ps.USER_ID.eq(userId))
+                        .and(PS_EXAM_ID.isNotNull())
+                        .fetch(PS_EXAM_ID));
     }
 
     public boolean existsInProgressByUserId(Long userId, int learningCycle) {

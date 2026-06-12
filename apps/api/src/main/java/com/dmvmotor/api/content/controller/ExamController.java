@@ -6,6 +6,7 @@ import com.dmvmotor.api.common.BusinessException;
 import com.dmvmotor.api.common.CurrentUser;
 import com.dmvmotor.api.content.domain.Exam;
 import com.dmvmotor.api.content.infrastructure.ExamRepository;
+import com.dmvmotor.api.practice.infrastructure.PracticeSessionRepository;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -13,6 +14,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
+import java.util.Set;
 
 /**
  * Exam catalog — the (state × license type) options a learner can prepare for.
@@ -25,10 +27,13 @@ public class ExamController {
 
     private final ExamRepository examRepo;
     private final AccessService  accessService;
+    private final PracticeSessionRepository practiceSessions;
 
-    public ExamController(ExamRepository examRepo, AccessService accessService) {
-        this.examRepo      = examRepo;
-        this.accessService = accessService;
+    public ExamController(ExamRepository examRepo, AccessService accessService,
+                          PracticeSessionRepository practiceSessions) {
+        this.examRepo         = examRepo;
+        this.accessService    = accessService;
+        this.practiceSessions = practiceSessions;
     }
 
     @GetMapping
@@ -52,10 +57,15 @@ public class ExamController {
             throw new BusinessException("UNAUTHORIZED",
                     "Authentication required", HttpStatus.UNAUTHORIZED);
         }
+        // "Engaged" exams (any practice session) read as Free even without a
+        // pass, so the switcher shows them unlocked. Paid stays authoritative
+        // via getAccess; this only softens the locked-vs-free UX gate.
+        Set<Long> engaged = practiceSessions.examIdsWithActivity(userId);
         List<EntitlementDto> entitlements = examRepo.findAllActive().stream()
                 .map(e -> new EntitlementDto(
                         String.valueOf(e.id()),
-                        accessService.getAccess(userId, e.id()).hasActivePass()))
+                        accessService.getAccess(userId, e.id()).hasActivePass(),
+                        engaged.contains(e.id())))
                 .toList();
         return ApiResponse.ok(new EntitlementListDto(entitlements));
     }
@@ -71,5 +81,5 @@ public class ExamController {
 
     record EntitlementListDto(List<EntitlementDto> entitlements) {}
 
-    record EntitlementDto(String examId, boolean subscribed) {}
+    record EntitlementDto(String examId, boolean subscribed, boolean hasActivity) {}
 }

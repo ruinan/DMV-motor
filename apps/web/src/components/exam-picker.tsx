@@ -17,6 +17,7 @@ type Labels = {
   // "Open this exam" sheet (free trial vs subscribe) for un-opened exams.
   openLabels: {
     locked: string;
+    freeBadge: string; // "Free" pill on opened-but-unpaid exams
     title: string;
     body: string;
     free: string;
@@ -96,7 +97,8 @@ export function ExamPicker({
       <div className="flex flex-wrap gap-2">
         {exams.data.map((exam) => {
           const active = exam.id === currentId;
-          const locked = lock.isLocked(exam.id, currentId);
+          const status = lock.examStatus(exam.id, currentId);
+          const locked = status === "locked";
           const isSubmitting = submitting === exam.id;
           return (
             <button
@@ -115,6 +117,11 @@ export function ExamPicker({
             >
               {active && <CheckCircle2 className="size-4" />}
               {exam.name}
+              {!active && status === "free" && (
+                <span className="rounded-full bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
+                  {labels.openLabels.freeBadge}
+                </span>
+              )}
               {locked && <Lock className="size-3.5" aria-label={labels.openLabels.locked} />}
               {isSubmitting && <Loader2 className="size-4 animate-spin" />}
             </button>

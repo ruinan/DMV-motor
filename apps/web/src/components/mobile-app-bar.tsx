@@ -38,6 +38,7 @@ export function MobileAppBar({ t, lang }: Props) {
         }}
         openLabels={{
           locked: t.nav.examLocked,
+          freeBadge: t.nav.planFree,
           title: t.nav.openExamTitle,
           body: t.nav.openExamBody,
           free: t.nav.openExamFree,

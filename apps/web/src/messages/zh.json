@@ -278,6 +278,7 @@
     "examNotSet": "尚未设置",
     "examPickerEmpty": "暂无可选考试。",
     "examLocked": "尚未开通",
+    "examFree": "免费版",
     "examOpenTitle": "开通{exam}？",
     "examOpenBody": "可以免费试用，或订阅解锁全部内容——完整题库、错题、模考与进度保存。",
     "examOpenFree": "免费试用",

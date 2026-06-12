@@ -334,6 +334,7 @@ function ExamSection({
           empty: t.examPickerEmpty,
           openLabels: {
             locked: t.examLocked,
+            freeBadge: t.examFree,
             title: t.examOpenTitle,
             body: t.examOpenBody,
             free: t.examOpenFree,

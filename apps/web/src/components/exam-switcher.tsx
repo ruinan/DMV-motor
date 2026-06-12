@@ -35,6 +35,7 @@ export function ExamSwitcher({
   // tapping an exam the user hasn't opened yet. {exam} in title is interpolated.
   openLabels: {
     locked: string;
+    freeBadge: string; // "Free" pill on opened-but-unpaid exams
     title: string;
     body: string;
     free: string;
@@ -150,7 +151,8 @@ export function ExamSwitcher({
         >
           {options.map((exam) => {
             const active = exam.id === currentId;
-            const locked = lock.isLocked(exam.id, currentId);
+            const status = lock.examStatus(exam.id, currentId);
+            const locked = status === "locked";
             return (
               <li key={exam.id} role="option" aria-selected={active}>
                 <button
@@ -173,6 +175,11 @@ export function ExamSwitcher({
                   <span className={`truncate ${locked ? "text-muted-foreground" : ""}`}>
                     {exam.name}
                   </span>
+                  {!active && status === "free" && (
+                    <span className="ml-auto shrink-0 rounded-full bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
+                      {openLabels.freeBadge}
+                    </span>
+                  )}
                   {locked && (
                     <Lock
                       className="ml-auto size-3.5 shrink-0 text-muted-foreground"

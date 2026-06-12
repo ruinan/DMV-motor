@@ -278,6 +278,7 @@
     "examNotSet": "Not set yet",
     "examPickerEmpty": "No exams are available yet.",
     "examLocked": "Not opened yet",
+    "examFree": "Free",
     "examOpenTitle": "Open {exam}?",
     "examOpenBody": "Start a free trial, or subscribe for full access — full question bank, mistakes, mock exams and saved progress.",
     "examOpenFree": "Free trial",

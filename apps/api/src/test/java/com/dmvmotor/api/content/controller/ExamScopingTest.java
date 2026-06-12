@@ -93,6 +93,23 @@ class ExamScopingTest extends IntegrationTestBase {
     }
 
     @Test
+    void entitlements_reflectsPerExamActivity() throws Exception {
+        // "Engaged" (free-opened) signal: an exam the user has practiced reads as
+        // has_activity=true even with no pass, so the switcher shows it as Free
+        // (not Locked). An untouched exam reads false → Locked.
+        Long examB = fixtures.insertExam("WA", "C", "Washington Class C", "华盛顿 C 类", 83);
+        fixtures.insertPracticeSessionForExam(userId, 0, caM1);
+
+        mockMvc.perform(get("/api/v1/exams/entitlements")
+                        .header("Authorization", "Bearer " + userId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.entitlements[?(@.exam_id=='%d')].has_activity"
+                        .formatted(caM1)).value(hasItem(true)))
+                .andExpect(jsonPath("$.data.entitlements[?(@.exam_id=='%d')].has_activity"
+                        .formatted(examB)).value(hasItem(false)));
+    }
+
+    @Test
     void entitlements_anonymous_returns401() throws Exception {
         mockMvc.perform(get("/api/v1/exams/entitlements"))
                 .andExpect(status().isUnauthorized())
