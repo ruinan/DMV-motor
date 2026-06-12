@@ -332,6 +332,14 @@ function ExamSection({
           loading: t.loading,
           errorGeneric: t.errorGeneric,
           empty: t.examPickerEmpty,
+          openLabels: {
+            locked: t.examLocked,
+            title: t.examOpenTitle,
+            body: t.examOpenBody,
+            free: t.examOpenFree,
+            subscribe: t.examOpenSubscribe,
+            cancel: t.cancel,
+          },
         }}
       />
     </Section>

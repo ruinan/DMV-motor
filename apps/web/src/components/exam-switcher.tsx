@@ -1,12 +1,11 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
 import { Bike, Car, Check, ChevronDown, Loader2, Lock } from "lucide-react";
 import { useExams } from "@/lib/hooks/use-exams";
 import { useMe, examName } from "@/lib/hooks/use-me";
 import { useSetExam } from "@/lib/hooks/use-set-exam";
-import { useEntitlements } from "@/lib/hooks/use-entitlements";
+import { useExamLock } from "@/lib/hooks/use-exam-lock";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { OpenExamDialog } from "@/components/open-exam-dialog";
 import type { Locale } from "@/lib/dictionaries";
@@ -43,34 +42,19 @@ export function ExamSwitcher({
     cancel: string;
   };
 }) {
-  const router = useRouter();
   const exams = useExams(lang);
   const me = useMe();
-  const entitlements = useEntitlements();
   const setExam = useSetExam();
+  // Shared lock rule + open-sheet handlers (also used by the settings picker).
+  const lock = useExamLock(lang);
   const [open, setOpen] = useState(false);
   const [pending, setPending] = useState<string | null>(null);
   // Double-check before switching — re-scopes practice/mock/progress (B37).
   const [confirmId, setConfirmId] = useState<string | null>(null);
-  // The exam whose "open" sheet (free trial / subscribe) is showing, if any.
-  const [openExamId, setOpenExamId] = useState<string | null>(null);
   const ref = useRef<HTMLDivElement>(null);
 
   const current = me.data?.current_exam ?? null;
   const currentId = current?.id ?? null;
-
-  // An exam is "opened" (full switch) when it's the current one or the user
-  // holds an active pass for it. Everything else is locked: tapping it offers a
-  // free trial or a subscription instead of switching straight in.
-  const subscribedIds = new Set(
-    (entitlements.data ?? []).filter((e) => e.subscribed).map((e) => e.exam_id),
-  );
-  function isLocked(examId: string) {
-    if (examId === currentId) return false;
-    // Until we know the user's passes, don't flash a lock on an owned exam.
-    if (!entitlements.data) return false;
-    return !subscribedIds.has(examId);
-  }
 
   useEffect(() => {
     if (!open) return;
@@ -99,8 +83,8 @@ export function ExamSwitcher({
     setOpen(false);
     if (id === currentId) return;
     // Not opened yet → offer free trial / subscribe instead of switching in.
-    if (isLocked(id)) {
-      setOpenExamId(id);
+    if (lock.isLocked(id, currentId)) {
+      lock.requestOpen(id);
       return;
     }
     setConfirmId(id); // confirm before re-scoping everything
@@ -116,25 +100,7 @@ export function ExamSwitcher({
     }
   }
 
-  // Free trial: re-scope to the exam (no payment) and drop into practice.
-  async function openFree(id: string) {
-    setOpenExamId(null);
-    setPending(id);
-    try {
-      await setExam(id);
-      router.push(`/${lang}/practice`);
-    } finally {
-      setPending(null);
-    }
-  }
-
-  // Subscribe: the settings catalog handles per-exam checkout / redeem.
-  function openSubscribe() {
-    setOpenExamId(null);
-    router.push(`/${lang}/me#subscription`);
-  }
-
-  const openExam = options.find((e) => e.id === openExamId) ?? null;
+  const openExam = options.find((e) => e.id === lock.openExamId) ?? null;
 
   // Both variants are accent-tinted so the switcher is an obvious, tappable
   // control (the old "plain" was muted grey text that users missed) and it picks
@@ -184,7 +150,7 @@ export function ExamSwitcher({
         >
           {options.map((exam) => {
             const active = exam.id === currentId;
-            const locked = isLocked(exam.id);
+            const locked = lock.isLocked(exam.id, currentId);
             return (
               <li key={exam.id} role="option" aria-selected={active}>
                 <button
@@ -237,9 +203,9 @@ export function ExamSwitcher({
         freeLabel={openLabels.free}
         subscribeLabel={openLabels.subscribe}
         cancelLabel={openLabels.cancel}
-        onFree={() => openExam && openFree(openExam.id)}
-        onSubscribe={openSubscribe}
-        onCancel={() => setOpenExamId(null)}
+        onFree={() => openExam && lock.openFree(openExam.id)}
+        onSubscribe={lock.openSubscribe}
+        onCancel={lock.closeOpen}
       />
     </div>
   );
