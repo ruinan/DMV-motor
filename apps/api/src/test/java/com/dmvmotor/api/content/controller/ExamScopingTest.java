@@ -93,20 +93,59 @@ class ExamScopingTest extends IntegrationTestBase {
     }
 
     @Test
-    void entitlements_reflectsPerExamActivity() throws Exception {
-        // "Engaged" (free-opened) signal: an exam the user has practiced reads as
-        // has_activity=true even with no pass, so the switcher shows it as Free
-        // (not Locked). An untouched exam reads false → Locked.
+    void entitlements_practicedExam_readsOpened() throws Exception {
+        // "Opened" (Free) signal: an exam the user has practiced reads opened=true
+        // even with no pass, so the switcher shows it Free (not Locked). An
+        // untouched exam reads false → Locked.
         Long examB = fixtures.insertExam("WA", "C", "Washington Class C", "华盛顿 C 类", 83);
         fixtures.insertPracticeSessionForExam(userId, 0, caM1);
 
         mockMvc.perform(get("/api/v1/exams/entitlements")
                         .header("Authorization", "Bearer " + userId))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.entitlements[?(@.exam_id=='%d')].has_activity"
+                .andExpect(jsonPath("$.data.entitlements[?(@.exam_id=='%d')].opened"
                         .formatted(caM1)).value(hasItem(true)))
-                .andExpect(jsonPath("$.data.entitlements[?(@.exam_id=='%d')].has_activity"
+                .andExpect(jsonPath("$.data.entitlements[?(@.exam_id=='%d')].opened"
                         .formatted(examB)).value(hasItem(false)));
+    }
+
+    @Test
+    void openFree_marksExamOpened_withoutGrantingAPass_andIsIdempotent() throws Exception {
+        // The "Free trial" action must persist immediately — tapping it opens the
+        // exam (Free) even if the user never practices, and twice is harmless.
+        Long examB = fixtures.insertExam("WA", "C", "Washington Class C", "华盛顿 C 类", 83);
+
+        mockMvc.perform(post("/api/v1/exams/{id}/open-free", examB)
+                        .header("Authorization", "Bearer " + userId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.opened").value(true));
+        // Idempotent: a second open-free still succeeds.
+        mockMvc.perform(post("/api/v1/exams/{id}/open-free", examB)
+                        .header("Authorization", "Bearer " + userId))
+                .andExpect(status().isOk());
+
+        // Now opened=true but subscribed=false (free grants no pass).
+        mockMvc.perform(get("/api/v1/exams/entitlements")
+                        .header("Authorization", "Bearer " + userId))
+                .andExpect(jsonPath("$.data.entitlements[?(@.exam_id=='%d')].opened"
+                        .formatted(examB)).value(hasItem(true)))
+                .andExpect(jsonPath("$.data.entitlements[?(@.exam_id=='%d')].subscribed"
+                        .formatted(examB)).value(hasItem(false)));
+    }
+
+    @Test
+    void openFree_unknownExam_returns400() throws Exception {
+        mockMvc.perform(post("/api/v1/exams/{id}/open-free", 999999)
+                        .header("Authorization", "Bearer " + userId))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error.code").value("INVALID_EXAM"));
+    }
+
+    @Test
+    void openFree_anonymous_returns401() throws Exception {
+        mockMvc.perform(post("/api/v1/exams/{id}/open-free", caM1))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.error.code").value("UNAUTHORIZED"));
     }
 
     @Test

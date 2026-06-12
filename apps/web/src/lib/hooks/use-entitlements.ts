@@ -6,9 +6,10 @@ import { useAuth } from "@/lib/auth-context";
 export type Entitlement = {
   exam_id: string;
   subscribed: boolean;
-  /** True once the user has any practice activity for this exam — drives the
-   *  "Free" (opened) vs "Locked" (never opened) distinction in the switcher. */
-  has_activity: boolean;
+  /** True once the user has opened this exam — tapped Free trial (persisted
+   *  server-side) OR practiced it. Drives the "Free" (opened) vs "Locked"
+   *  (never opened) distinction in the switcher. */
+  opened: boolean;
 };
 
 /**

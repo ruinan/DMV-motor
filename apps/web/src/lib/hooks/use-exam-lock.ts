@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { apiFetch } from "@/lib/api-client";
 import { useEntitlements } from "@/lib/hooks/use-entitlements";
 import { useSetExam } from "@/lib/hooks/use-set-exam";
 import type { Locale } from "@/lib/dictionaries";
@@ -38,20 +39,23 @@ export function useExamLock(lang: Locale) {
     const ent = byId.get(examId);
     if (ent?.subscribed) return "paid";
     // The current exam is always at least "opened"; otherwise read the server's
-    // engagement signal. Until entitlements load, treat as free (never flash a
-    // lock on an exam we might own).
+    // opened signal. Until entitlements load, treat as free (never flash a lock
+    // on an exam we might own).
     if (examId === currentId || !entitlements.data) return "free";
-    return ent?.has_activity ? "free" : "locked";
+    return ent?.opened ? "free" : "locked";
   }
 
   function isLocked(examId: string, currentId: string | null) {
     return examStatus(examId, currentId) === "locked";
   }
 
-  // Free trial: re-scope to the exam (no payment) and drop into practice.
+  // Free trial: persistently mark the exam as opened (so it stays Free even if
+  // the user never practices), re-scope to it, and drop into practice. The
+  // open-free call grants nothing beyond the free tier.
   async function openFree(examId: string) {
     setOpenExamId(null);
-    await setExam(examId);
+    await apiFetch(`/api/v1/exams/${examId}/open-free`, { method: "POST" });
+    await setExam(examId); // re-scopes + invalidates all (incl. entitlements)
     router.push(`/${lang}/practice`);
   }
 

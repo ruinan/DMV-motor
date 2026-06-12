@@ -38,6 +38,7 @@ public class TestFixtures {
     public void truncateAll() {
         jdbc.execute("""
                 TRUNCATE
+                    exam_free_unlocks,
                     code_redemptions,
                     redemption_codes,
                     progress_backups,
