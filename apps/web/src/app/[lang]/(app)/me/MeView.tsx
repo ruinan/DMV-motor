@@ -36,6 +36,7 @@ import { useRecaptcha } from "@/lib/hooks/use-recaptcha";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { clearAllAiThreads } from "@/lib/hooks/use-ai-explain";
 import { ReauthDialog } from "@/components/reauth-dialog";
+import { ChangePasswordDialog } from "@/components/change-password-dialog";
 import type { Dictionary, Locale } from "@/lib/dictionaries";
 
 type MeResponse = {
@@ -117,7 +118,6 @@ export function MeView({ t, lang }: Props) {
           </Group>
 
           <Group label={t.groupSecurity}>
-            <MfaSection t={t} />
             <SecuritySection t={t} />
           </Group>
 
@@ -921,50 +921,16 @@ function BackupSection({
 }
 
 // ---------------------------------------------------------------------------
-// Two-factor authentication (TOTP)
-// ---------------------------------------------------------------------------
-
-function MfaSection({ t }: { t: Dictionary["me"] }) {
-  const { user } = useAuth();
-  const [done, setDone] = useState(false);
-  const enrolled = hasMfaEnrolled(user) || done;
-
-  return (
-    <Section
-      id="mfa"
-      icon={<ShieldCheck className="size-4" />}
-      title={t.sectionMfa}
-      description={t.sectionMfaBody}
-    >
-      {enrolled ? (
-        <p className="flex items-center gap-2 text-sm font-medium text-success">
-          <CheckCircle2 className="size-4" />
-          {t.mfaEnrolled}
-        </p>
-      ) : (
-        <TotpEnroll
-          strings={{
-            setup: t.mfaSetup,
-            scan: t.mfaScan,
-            manualKey: t.mfaManualKey,
-            codePlaceholder: t.mfaCodePlaceholder,
-            verify: t.mfaVerify,
-            badCode: t.mfaBadCode,
-            recentLogin: t.mfaRecentLogin,
-            generic: t.errorGeneric,
-          }}
-          onEnrolled={() => setDone(true)}
-        />
-      )}
-    </Section>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Security
+// Security — password & login protection (change password + two-factor)
 // ---------------------------------------------------------------------------
 
 function SecuritySection({ t }: { t: Dictionary["me"] }) {
+  const { user } = useAuth();
+  const [pwOpen, setPwOpen] = useState(false);
+  const [pwDone, setPwDone] = useState(false);
+  const [mfaDone, setMfaDone] = useState(false);
+  const enrolled = hasMfaEnrolled(user) || mfaDone;
+
   return (
     <Section
       id="security"
@@ -972,16 +938,85 @@ function SecuritySection({ t }: { t: Dictionary["me"] }) {
       title={t.sectionSecurity}
       description={t.sectionSecurityBody}
     >
-      <ul className="flex flex-col gap-3 text-sm">
-        <li className="flex items-center justify-between">
-          <span>{t.securityChangePassword}</span>
-          <ComingSoon label={t.comingSoon} />
-        </li>
-        <li className="flex items-center justify-between">
-          <span>{t.securityTwoFactor}</span>
-          <ComingSoon label={t.comingSoon} />
-        </li>
-      </ul>
+      <div className="flex flex-col gap-5">
+        {/* Change password */}
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <p className="text-sm font-medium text-foreground">
+              {t.securityChangePassword}
+            </p>
+            {pwDone && (
+              <p className="mt-0.5 flex items-center gap-1.5 text-xs font-medium text-success">
+                <CheckCircle2 className="size-3.5" />
+                {t.changePwSuccess}
+              </p>
+            )}
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              setPwDone(false);
+              setPwOpen(true);
+            }}
+          >
+            {t.securityChange}
+          </Button>
+        </div>
+
+        {/* Two-factor */}
+        <div className="border-t border-border/60 pt-5">
+          <div className="mb-2 flex items-center gap-2">
+            <ShieldCheck className="size-4 text-muted-foreground" />
+            <p className="text-sm font-medium text-foreground">
+              {t.securityTwoFactor}
+            </p>
+          </div>
+          {enrolled ? (
+            <p className="flex items-center gap-2 text-sm font-medium text-success">
+              <CheckCircle2 className="size-4" />
+              {t.mfaEnrolled}
+            </p>
+          ) : (
+            <TotpEnroll
+              strings={{
+                setup: t.mfaSetup,
+                scan: t.mfaScan,
+                manualKey: t.mfaManualKey,
+                codePlaceholder: t.mfaCodePlaceholder,
+                verify: t.mfaVerify,
+                badCode: t.mfaBadCode,
+                recentLogin: t.mfaRecentLogin,
+                generic: t.errorGeneric,
+              }}
+              onEnrolled={() => setMfaDone(true)}
+            />
+          )}
+        </div>
+      </div>
+
+      <ChangePasswordDialog
+        open={pwOpen}
+        labels={{
+          title: t.changePwTitle,
+          body: t.changePwBody,
+          current: t.changePwCurrent,
+          next: t.changePwNew,
+          confirm: t.changePwConfirm,
+          submit: t.changePwSubmit,
+          submitting: t.changePwSubmitting,
+          mismatch: t.changePwMismatch,
+          weak: t.changePwWeak,
+          wrongCurrent: t.changePwWrongCurrent,
+          generic: t.errorGeneric,
+          cancel: t.cancel,
+        }}
+        onSuccess={() => {
+          setPwOpen(false);
+          setPwDone(true);
+        }}
+        onCancel={() => setPwOpen(false)}
+      />
     </Section>
   );
 }

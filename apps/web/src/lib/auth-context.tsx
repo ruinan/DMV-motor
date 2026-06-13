@@ -23,6 +23,7 @@ import {
   sendEmailVerification,
   sendPasswordResetEmail,
   setPersistence,
+  updatePassword,
   signInWithEmailAndPassword,
   signOut as firebaseSignOut,
   TotpMultiFactorGenerator,
@@ -58,6 +59,9 @@ type AuthState = {
   /** Re-verify the current user's password before a sensitive action; refreshes
    *  the ID token so its auth_time updates (the backend reauth gate reads it). */
   reauth: (password: string) => Promise<void>;
+  /** Change the password: re-authenticate with the current password, then set
+   *  the new one. Throws auth/wrong-password (current) or auth/weak-password. */
+  changePassword: (currentPassword: string, newPassword: string) => Promise<void>;
   /** (Re)send the email-verification link to the signed-in user. */
   resendVerificationEmail: () => Promise<void>;
   /** Reload the signed-in user from Firebase and report whether the email is now
@@ -195,6 +199,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // Force-refresh so the cached token carries the new auth_time; the next
         // apiFetch then passes the backend reauth gate.
         await u.getIdToken(true);
+      },
+      changePassword: async (currentPassword, newPassword) => {
+        const u = firebaseAuth.currentUser;
+        if (!u || !u.email) throw new Error("Not signed in");
+        // Firebase requires a recent login to set a new password — re-auth with
+        // the current one first (also surfaces a clear "wrong current password").
+        const credential = EmailAuthProvider.credential(u.email, currentPassword);
+        await reauthenticateWithCredential(u, credential);
+        await updatePassword(u, newPassword);
       },
       resolveMfaSignIn: async (resolver, code) => {
         // TOTP is the only factor we enroll; use the first hint.
