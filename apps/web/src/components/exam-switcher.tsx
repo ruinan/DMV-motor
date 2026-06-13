@@ -111,8 +111,10 @@ export function ExamSwitcher({
     variant === "chip"
       ? "inline-flex items-center gap-1.5 rounded-full border border-primary/40 bg-accent px-3 py-1.5 text-sm font-medium text-primary hover:bg-primary/10"
       // "plain" (sidebar / mobile bar): fill the row so it reads as a deliberate
-      // control, not an awkward little pill — chevron pinned right.
-      : "flex w-full items-center justify-between gap-1.5 rounded-md border border-primary/40 bg-accent px-3 py-2 text-xs font-semibold text-primary hover:bg-primary/10";
+      // control, not an awkward little pill — chevron pinned right. Same text
+      // size, rounding and padding as the dropdown rows below so the trigger and
+      // the open menu read as one consistent control.
+      : "flex w-full items-center justify-between gap-2 rounded-lg border border-primary/40 bg-accent px-3 py-2.5 text-sm font-semibold text-primary hover:bg-primary/10";
 
   return (
     <div ref={ref} className={variant === "plain" ? "relative w-full" : "relative"}>
@@ -128,7 +130,7 @@ export function ExamSwitcher({
         {variant === "chip" && prefix && (
           <span className="text-muted-foreground">{prefix}:</span>
         )}
-        <ExamIcon className="size-3.5 shrink-0" aria-hidden />
+        <ExamIcon className="size-4 shrink-0" aria-hidden />
         <span
           className={
             variant === "plain"
@@ -139,54 +141,70 @@ export function ExamSwitcher({
           {currentLabel}
         </span>
         {pending ? (
-          <Loader2 className="size-3.5 animate-spin" />
+          <Loader2 className="size-4 shrink-0 animate-spin" />
         ) : (
-          <ChevronDown className="size-3.5" aria-hidden />
+          <ChevronDown
+            className={`size-4 shrink-0 text-primary/70 transition-transform ${open ? "rotate-180" : ""}`}
+            aria-hidden
+          />
         )}
       </button>
 
       {open && options.length > 0 && (
         <ul
           role="listbox"
-          className="absolute left-0 z-30 mt-1 max-h-72 min-w-[14rem] overflow-auto rounded-lg border border-border bg-card p-1 shadow-lg"
+          className={`absolute z-30 mt-1.5 max-h-72 overflow-auto rounded-lg border border-border bg-card p-1.5 shadow-lg ${
+            // Match the trigger's width: full-width in the sidebar (plain),
+            // a sensible min-width for the compact dashboard chip.
+            variant === "plain" ? "left-0 right-0" : "left-0 min-w-[16rem]"
+          }`}
         >
           {options.map((exam) => {
             const active = exam.id === currentId;
             const status = lock.examStatus(exam.id, currentId);
             const locked = status === "locked";
+            const RowIcon = exam.license_class.startsWith("M") ? Bike : Car;
             return (
               <li key={exam.id} role="option" aria-selected={active}>
                 <button
                   type="button"
                   onClick={() => pick(exam.id)}
                   disabled={!!pending}
-                  className={`flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm transition-colors ${
+                  className={`flex w-full items-center gap-2 rounded-md px-3 py-2.5 text-left text-sm transition-colors ${
                     active
                       ? "bg-primary/10 font-medium text-primary"
                       : "text-foreground hover:bg-muted"
                   } disabled:opacity-60`}
                 >
-                  <span className="flex size-4 shrink-0 items-center justify-center">
-                    {active ? (
-                      <Check className="size-4" />
-                    ) : pending === exam.id ? (
-                      <Loader2 className="size-4 animate-spin" />
-                    ) : null}
-                  </span>
+                  <RowIcon
+                    className={`size-4 shrink-0 ${
+                      active
+                        ? "text-primary"
+                        : locked
+                          ? "text-muted-foreground"
+                          : "text-foreground/70"
+                    }`}
+                    aria-hidden
+                  />
                   <span className={`truncate ${locked ? "text-muted-foreground" : ""}`}>
                     {exam.name}
                   </span>
-                  {status === "free" && (
-                    <span className="ml-auto">
+                  <span className="ml-auto flex shrink-0 items-center gap-1.5">
+                    {status === "free" && (
                       <FreeBadge label={openLabels.freeBadge} />
-                    </span>
-                  )}
-                  {locked && (
-                    <Lock
-                      className="ml-auto size-3.5 shrink-0 text-muted-foreground"
-                      aria-label={openLabels.locked}
-                    />
-                  )}
+                    )}
+                    {locked && (
+                      <Lock
+                        className="size-3.5 text-muted-foreground"
+                        aria-label={openLabels.locked}
+                      />
+                    )}
+                    {pending === exam.id ? (
+                      <Loader2 className="size-4 animate-spin" />
+                    ) : active ? (
+                      <Check className="size-4 text-primary" />
+                    ) : null}
+                  </span>
                 </button>
               </li>
             );
