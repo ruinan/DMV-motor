@@ -60,4 +60,10 @@ public class UserRepository {
                 .where(u.ID.eq(userId))
                 .execute();
     }
+
+    /** Hard-delete the user row. User-owned FKs cascade (see V6 et al.). */
+    public void deleteById(Long userId) {
+        var u = Tables.USERS;
+        dsl.deleteFrom(u).where(u.ID.eq(userId)).execute();
+    }
 }

@@ -8,6 +8,7 @@ import {
   CheckCircle2,
   CloudUpload,
   CreditCard,
+  Download,
   GraduationCap,
   Globe2,
   KeyRound,
@@ -37,6 +38,8 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { clearAllAiThreads } from "@/lib/hooks/use-ai-explain";
 import { ReauthDialog } from "@/components/reauth-dialog";
 import { ChangePasswordDialog } from "@/components/change-password-dialog";
+import { ChangeEmailDialog } from "@/components/change-email-dialog";
+import { DeleteAccountDialog } from "@/components/delete-account-dialog";
 import type { Dictionary, Locale } from "@/lib/dictionaries";
 
 type MeResponse = {
@@ -119,6 +122,7 @@ export function MeView({ t, lang }: Props) {
 
           <Group label={t.groupSecurity}>
             <SecuritySection t={t} />
+            <DataExportSection t={t} />
           </Group>
 
           <Group label={t.groupDanger}>
@@ -143,7 +147,11 @@ function Hero({
   data: MeResponse;
   onSignOut: () => void;
 }) {
-  const initial = (data.email?.[0] ?? "?").toUpperCase();
+  const { user } = useAuth();
+  // Firebase is the source of truth for the login email; the backend copy is a
+  // snapshot from first sign-in and can lag after a change-email.
+  const email = user?.email ?? data.email;
+  const initial = (email?.[0] ?? "?").toUpperCase();
   const stateLabel =
     (t[`state_${data.access.state}` as keyof typeof t] as string | undefined) ??
     data.access.state;
@@ -161,7 +169,7 @@ function Hero({
       </span>
       <div className="min-w-0 flex-1">
         <p className="truncate text-base font-semibold text-foreground">
-          {data.email}
+          {email}
         </p>
         <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
           <span
@@ -285,6 +293,7 @@ function ProfileSection({
   t: Dictionary["me"];
   data: MeResponse;
 }) {
+  const { user } = useAuth();
   return (
     <Section
       id="profile"
@@ -294,7 +303,7 @@ function ProfileSection({
     >
       <dl className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <Field label={t.userId} value={data.user_id} />
-        <Field label={t.email} value={data.email} />
+        <Field label={t.email} value={user?.email ?? data.email} />
       </dl>
     </Section>
   );
@@ -928,6 +937,8 @@ function SecuritySection({ t }: { t: Dictionary["me"] }) {
   const { user } = useAuth();
   const [pwOpen, setPwOpen] = useState(false);
   const [pwDone, setPwDone] = useState(false);
+  const [emailOpen, setEmailOpen] = useState(false);
+  const [emailSentTo, setEmailSentTo] = useState<string | null>(null);
   const [mfaDone, setMfaDone] = useState(false);
   const enrolled = hasMfaEnrolled(user) || mfaDone;
 
@@ -939,8 +950,34 @@ function SecuritySection({ t }: { t: Dictionary["me"] }) {
       description={t.sectionSecurityBody}
     >
       <div className="flex flex-col gap-5">
-        {/* Change password */}
+        {/* Change email */}
         <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="min-w-0">
+            <p className="text-sm font-medium text-foreground">{t.securityEmail}</p>
+            <p className="truncate text-xs text-muted-foreground">
+              {user?.email ?? ""}
+            </p>
+            {emailSentTo && (
+              <p className="mt-0.5 flex items-center gap-1.5 text-xs font-medium text-success">
+                <CheckCircle2 className="size-3.5" />
+                {t.changeEmailSent.replace("{email}", emailSentTo)}
+              </p>
+            )}
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              setEmailSentTo(null);
+              setEmailOpen(true);
+            }}
+          >
+            {t.securityChange}
+          </Button>
+        </div>
+
+        {/* Change password */}
+        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border/60 pt-5">
           <div>
             <p className="text-sm font-medium text-foreground">
               {t.securityChangePassword}
@@ -1017,12 +1054,92 @@ function SecuritySection({ t }: { t: Dictionary["me"] }) {
         }}
         onCancel={() => setPwOpen(false)}
       />
+
+      <ChangeEmailDialog
+        open={emailOpen}
+        labels={{
+          title: t.changeEmailTitle,
+          body: t.changeEmailBody,
+          newEmail: t.changeEmailNew,
+          current: t.changePwCurrent,
+          submit: t.changeEmailSubmit,
+          submitting: t.changeEmailSubmitting,
+          invalidEmail: t.changeEmailInvalid,
+          inUse: t.changeEmailInUse,
+          wrongCurrent: t.changePwWrongCurrent,
+          generic: t.errorGeneric,
+          cancel: t.cancel,
+        }}
+        onSuccess={(sentTo) => {
+          setEmailOpen(false);
+          setEmailSentTo(sentTo);
+        }}
+        onCancel={() => setEmailOpen(false)}
+      />
     </Section>
   );
 }
 
 // ---------------------------------------------------------------------------
-// Danger zone — reset learning (real) + delete account (stub)
+// Data export — download everything we store about you as JSON (CCPA portability)
+// ---------------------------------------------------------------------------
+
+function DataExportSection({ t }: { t: Dictionary["me"] }) {
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  async function exportData() {
+    if (busy) return;
+    setBusy(true);
+    setErr(null);
+    const started = Date.now();
+    try {
+      const data = await apiFetch("/api/v1/me/export");
+      // Keep the spinner up at least 0.3s so the action reads as "working".
+      const elapsed = Date.now() - started;
+      if (elapsed < 300) await new Promise((r) => setTimeout(r, 300 - elapsed));
+      const blob = new Blob([JSON.stringify(data, null, 2)], {
+        type: "application/json",
+      });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `dmv-prep-export-${new Date().toISOString().slice(0, 10)}.json`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      setErr(e instanceof ApiError ? e.message : t.errorGeneric);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Section
+      icon={<Download className="size-4" />}
+      title={t.sectionDataExport}
+      description={t.sectionDataExportBody}
+    >
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <p className="max-w-md text-xs text-muted-foreground">{t.dataExportHint}</p>
+        <Button variant="outline" size="sm" onClick={exportData} disabled={busy}>
+          {busy ? (
+            <Loader2 className="size-4 animate-spin" />
+          ) : (
+            <Download className="size-4" />
+          )}
+          {busy ? t.dataExportBusy : t.dataExportCta}
+        </Button>
+      </div>
+      {err && <p className="mt-3 text-sm text-destructive">{err}</p>}
+    </Section>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Danger zone — reset learning (real) + delete account (real)
 // Sign out lives in Hero — it's session ending, not destructive.
 // ---------------------------------------------------------------------------
 
@@ -1126,6 +1243,7 @@ function ResetLearningRow({ t }: { t: Dictionary["me"] }) {
 }
 
 function DeleteAccountRow({ t }: { t: Dictionary["me"] }) {
+  const [open, setOpen] = useState(false);
   return (
     <div className="flex flex-wrap items-center justify-between gap-3 py-3 first:pt-0 last:pb-0">
       <div>
@@ -1134,13 +1252,25 @@ function DeleteAccountRow({ t }: { t: Dictionary["me"] }) {
         </p>
         <p className="text-xs text-muted-foreground">{t.deleteAccountBody}</p>
       </div>
-      <div className="flex items-center gap-2">
-        <Button variant="destructive" disabled>
-          <Trash2 className="size-4" />
-          {t.deleteAccount}
-        </Button>
-        <ComingSoon label={t.comingSoon} />
-      </div>
+      <Button variant="destructive" onClick={() => setOpen(true)}>
+        <Trash2 className="size-4" />
+        {t.deleteAccount}
+      </Button>
+      <DeleteAccountDialog
+        open={open}
+        labels={{
+          title: t.deleteAccount,
+          body: t.deleteAccountBody,
+          warn: t.deleteAccountWarn,
+          password: t.deleteAccountPassword,
+          submit: t.deleteAccountConfirm,
+          submitting: t.deleteAccountSubmitting,
+          wrongPassword: t.deleteAccountWrongPassword,
+          generic: t.errorGeneric,
+          cancel: t.cancel,
+        }}
+        onCancel={() => setOpen(false)}
+      />
     </div>
   );
 }

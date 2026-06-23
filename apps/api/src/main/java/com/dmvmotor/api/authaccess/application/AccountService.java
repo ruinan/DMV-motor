@@ -1,5 +1,6 @@
 package com.dmvmotor.api.authaccess.application;
 
+import com.dmvmotor.api.authaccess.infrastructure.AccountExportRepository;
 import com.dmvmotor.api.authaccess.infrastructure.UserRepository;
 import com.dmvmotor.api.authaccess.infrastructure.UserRepository.UserRow;
 import com.dmvmotor.api.aisupport.infrastructure.AiExplanationRepository;
@@ -23,19 +24,22 @@ public class AccountService {
     private final ReviewRepository          reviewRepo;
     private final ExamRepository            examRepo;
     private final AiExplanationRepository   aiExplanationRepo;
+    private final AccountExportRepository   exportRepo;
 
     public AccountService(UserRepository userRepo,
                           AccessService accessService,
                           PracticeSessionRepository practiceSessionRepo,
                           ReviewRepository reviewRepo,
                           ExamRepository examRepo,
-                          AiExplanationRepository aiExplanationRepo) {
+                          AiExplanationRepository aiExplanationRepo,
+                          AccountExportRepository exportRepo) {
         this.userRepo            = userRepo;
         this.accessService       = accessService;
         this.practiceSessionRepo = practiceSessionRepo;
         this.reviewRepo          = reviewRepo;
         this.examRepo            = examRepo;
         this.aiExplanationRepo   = aiExplanationRepo;
+        this.exportRepo          = exportRepo;
     }
 
     public MeResult getMe(Long userId) {
@@ -70,6 +74,26 @@ public class AccountService {
                         "No such active exam: " + examId, HttpStatus.BAD_REQUEST));
         userRepo.updateCurrentExam(userId, examId);
         return exam;
+    }
+
+    /**
+     * Export everything the app stores about this user (CCPA data portability).
+     * Read-only; assembled server-side from the authenticated owner's rows.
+     */
+    public java.util.Map<String, Object> exportData(Long userId) {
+        return exportRepo.export(userId);
+    }
+
+    /**
+     * Permanently delete the user and all of their data. Every user-owned FK is
+     * declared {@code ON DELETE CASCADE} (V6 plus every table added since), so a
+     * single delete of the {@code users} row removes practice sessions/attempts,
+     * mistakes, mock attempts, review packs, access passes, AI explanations,
+     * progress backups, redemptions and free-unlocks. Irreversible.
+     */
+    @Transactional
+    public void deleteAccount(Long userId) {
+        userRepo.deleteById(userId);
     }
 
     @Transactional

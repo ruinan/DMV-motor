@@ -6,8 +6,10 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.web.servlet.MockMvc;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
@@ -15,6 +17,7 @@ class AccountControllerTest extends IntegrationTestBase {
 
     @Autowired MockMvc      mockMvc;
     @Autowired TestFixtures fixtures;
+    @Autowired JdbcTemplate jdbc;
 
     private Long userId;
 
@@ -250,5 +253,106 @@ class AccountControllerTest extends IntegrationTestBase {
                 .andExpect(jsonPath("$.data.user_id").value(String.valueOf(userId)))
                 // No in-progress session in the NEW cycle
                 .andExpect(jsonPath("$.data.learning.has_in_progress_practice").value(false));
+    }
+
+    // ---------------------------------------------------------------
+    // DELETE /api/v1/me  (hard delete — GDPR/CCPA "right to delete")
+    // ---------------------------------------------------------------
+
+    @Test
+    void deleteAccount_authenticated_removesUserAndCascadesChildRows() throws Exception {
+        // Seed a child row so the cascade is observable: every user-owned FK is
+        // ON DELETE CASCADE, so removing the user must remove this session too.
+        Long topicId   = fixtures.insertTopic("LANES", "Lane", "车道", false, 10);
+        Long q1        = fixtures.insertQuestion(topicId, "A");
+        Long v1        = fixtures.insertEnVariantReturningId(q1, "stem 1", "expl 1");
+        Long sessionId = fixtures.insertInProgressPracticeSession(userId, 0, "full", "en");
+        fixtures.insertPracticeAttempt(userId, sessionId, q1, v1, "A", true);
+
+        mockMvc.perform(delete("/api/v1/me")
+                        .header("Authorization", "Bearer " + userId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.deleted").value(true));
+
+        assertEquals(0, count("SELECT count(*) FROM users WHERE id = ?", userId),
+                "user row must be gone");
+        assertEquals(0, count("SELECT count(*) FROM practice_sessions WHERE user_id = ?", userId),
+                "child practice_sessions must cascade-delete");
+        assertEquals(0, count("SELECT count(*) FROM practice_attempts WHERE user_id = ?", userId),
+                "child practice_attempts must cascade-delete");
+    }
+
+    @Test
+    void deleteAccount_staleReauthSession_returns403() throws Exception {
+        // "~<epoch>" suffix forces an old auth_time → outside the reauth window.
+        mockMvc.perform(delete("/api/v1/me")
+                        .header("Authorization", "Bearer " + userId + "~1700000000"))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.error.code").value("REAUTH_REQUIRED"));
+
+        assertEquals(1, count("SELECT count(*) FROM users WHERE id = ?", userId),
+                "user must NOT be deleted when reauth is stale");
+    }
+
+    @Test
+    void deleteAccount_anonymous_returns401() throws Exception {
+        mockMvc.perform(delete("/api/v1/me"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.error.code").value("UNAUTHORIZED"));
+    }
+
+    // ---------------------------------------------------------------
+    // GET /api/v1/me/export  (CCPA data portability)
+    // ---------------------------------------------------------------
+
+    @Test
+    void exportData_authenticated_includesProfileAndLearningData() throws Exception {
+        Long topicId   = fixtures.insertTopic("LANES", "Lane", "车道", false, 10);
+        Long q1        = fixtures.insertQuestion(topicId, "A");
+        Long v1        = fixtures.insertEnVariantReturningId(q1, "stem 1", "expl 1");
+        Long sessionId = fixtures.insertInProgressPracticeSession(userId, 0, "full", "en");
+        fixtures.insertPracticeAttempt(userId, sessionId, q1, v1, "A", true);
+
+        mockMvc.perform(get("/api/v1/me/export")
+                        .header("Authorization", "Bearer " + userId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.exported_at").exists())
+                .andExpect(jsonPath("$.data.profile.email").value("alice@example.com"))
+                .andExpect(jsonPath("$.data.profile.user_id").exists())
+                .andExpect(jsonPath("$.data.practice_sessions.length()").value(1))
+                .andExpect(jsonPath("$.data.practice_attempts.length()").value(1));
+    }
+
+    @Test
+    void exportData_returnsOnlyTheCallersOwnData() throws Exception {
+        Long topicId = fixtures.insertTopic("LANES", "Lane", "车道", false, 10);
+        Long q1      = fixtures.insertQuestion(topicId, "A");
+        Long v1      = fixtures.insertEnVariantReturningId(q1, "stem 1", "expl 1");
+
+        Long aliceSession = fixtures.insertInProgressPracticeSession(userId, 0, "full", "en");
+        fixtures.insertPracticeAttempt(userId, aliceSession, q1, v1, "A", true);
+
+        // A second user with their own attempt must NOT leak into alice's export.
+        Long bob = fixtures.insertUser("bob@example.com");
+        Long bobSession = fixtures.insertInProgressPracticeSession(bob, 0, "full", "en");
+        fixtures.insertPracticeAttempt(bob, bobSession, q1, v1, "A", true);
+
+        mockMvc.perform(get("/api/v1/me/export")
+                        .header("Authorization", "Bearer " + userId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.profile.email").value("alice@example.com"))
+                .andExpect(jsonPath("$.data.practice_attempts.length()").value(1));
+    }
+
+    @Test
+    void exportData_anonymous_returns401() throws Exception {
+        mockMvc.perform(get("/api/v1/me/export"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.error.code").value("UNAUTHORIZED"));
+    }
+
+    private int count(String sql, Object... args) {
+        Integer n = jdbc.queryForObject(sql, Integer.class, args);
+        return n == null ? 0 : n;
     }
 }

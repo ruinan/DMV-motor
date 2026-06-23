@@ -7,6 +7,8 @@ import com.dmvmotor.api.common.ApiResponse;
 import com.dmvmotor.api.common.BusinessException;
 import com.dmvmotor.api.common.CurrentUser;
 import com.dmvmotor.api.common.Ids;
+import com.dmvmotor.api.common.MfaGuard;
+import com.dmvmotor.api.common.ReauthGuard;
 import com.dmvmotor.api.content.domain.Exam;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
@@ -23,9 +25,15 @@ import java.util.Map;
 public class AccountController {
 
     private final AccountService accountService;
+    private final MfaGuard       mfaGuard;
+    private final ReauthGuard    reauthGuard;
 
-    public AccountController(AccountService accountService) {
+    public AccountController(AccountService accountService,
+                            MfaGuard mfaGuard,
+                            ReauthGuard reauthGuard) {
         this.accountService = accountService;
+        this.mfaGuard       = mfaGuard;
+        this.reauthGuard    = reauthGuard;
     }
 
     @GetMapping
@@ -57,6 +65,30 @@ public class AccountController {
         requireAuth(userId);
         accountService.resetLearning(userId);
         return ApiResponse.ok(Map.of("reset", true));
+    }
+
+    /**
+     * Export everything stored about the user as JSON (GDPR/CCPA data
+     * portability). Read-only access to the caller's own data — no reauth needed.
+     */
+    @GetMapping("/export")
+    public ApiResponse<?> exportData(@CurrentUser Long userId) {
+        requireAuth(userId);
+        return ApiResponse.ok(accountService.exportData(userId));
+    }
+
+    /**
+     * Permanently delete the account and all of the user's data (GDPR/CCPA
+     * "right to delete"). Irreversible — guarded like other destructive,
+     * high-stakes actions: a 2FA-verified session and a recent password proof.
+     */
+    @DeleteMapping
+    public ApiResponse<?> deleteAccount(@CurrentUser Long userId) {
+        requireAuth(userId);
+        mfaGuard.requireMfa();             // account deletion → 2FA-verified session
+        reauthGuard.requireRecentReauth(); // account deletion → recent password proof
+        accountService.deleteAccount(userId);
+        return ApiResponse.ok(Map.of("deleted", true));
     }
 
     // ---------------------------------------------------------------

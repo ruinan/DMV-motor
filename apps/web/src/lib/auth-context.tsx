@@ -15,6 +15,7 @@ import {
   applyActionCode,
   browserLocalPersistence,
   createUserWithEmailAndPassword,
+  deleteUser,
   EmailAuthProvider,
   getMultiFactorResolver,
   multiFactor,
@@ -27,11 +28,13 @@ import {
   signInWithEmailAndPassword,
   signOut as firebaseSignOut,
   TotpMultiFactorGenerator,
+  verifyBeforeUpdateEmail,
   type MultiFactorResolver,
   type TotpSecret,
   type User,
 } from "firebase/auth";
 import { firebaseApp, firebaseAuth } from "@/lib/firebase";
+import { apiFetch } from "@/lib/api-client";
 
 /**
  * Thrown by {@link AuthState.signIn} when the account has 2FA enrolled and
@@ -62,6 +65,12 @@ type AuthState = {
   /** Change the password: re-authenticate with the current password, then set
    *  the new one. Throws auth/wrong-password (current) or auth/weak-password. */
   changePassword: (currentPassword: string, newPassword: string) => Promise<void>;
+  /** Change the sign-in email: re-authenticate, then send a confirmation link to
+   *  the NEW address. The email only changes once that link is clicked. */
+  changeEmail: (newEmail: string, currentPassword: string) => Promise<void>;
+  /** Permanently delete the account: re-authenticate, hard-delete all server-side
+   *  data, then remove the Firebase identity and land on the marketing index. */
+  deleteAccount: (password: string) => Promise<void>;
   /** (Re)send the email-verification link to the signed-in user. */
   resendVerificationEmail: () => Promise<void>;
   /** Reload the signed-in user from Firebase and report whether the email is now
@@ -208,6 +217,37 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const credential = EmailAuthProvider.credential(u.email, currentPassword);
         await reauthenticateWithCredential(u, credential);
         await updatePassword(u, newPassword);
+      },
+      changeEmail: async (newEmail, currentPassword) => {
+        const u = firebaseAuth.currentUser;
+        if (!u || !u.email) throw new Error("Not signed in");
+        // Re-auth first (Firebase requires recent login + surfaces a clear wrong
+        // password). verifyBeforeUpdateEmail sends a confirmation link to the NEW
+        // address; the email only actually changes once that link is clicked, so
+        // a typo can't lock the user out of their account.
+        const credential = EmailAuthProvider.credential(u.email, currentPassword);
+        await reauthenticateWithCredential(u, credential);
+        await verifyBeforeUpdateEmail(u, newEmail);
+      },
+      deleteAccount: async (password) => {
+        const u = firebaseAuth.currentUser;
+        if (!u || !u.email) throw new Error("Not signed in");
+        // Recent login is required by BOTH the backend reauth gate and Firebase
+        // deleteUser(); re-auth once up front.
+        const credential = EmailAuthProvider.credential(u.email, password);
+        await reauthenticateWithCredential(u, credential);
+        await u.getIdToken(true);
+        // 1) Server-side hard delete (cascades every user-owned row) while the
+        //    token is still valid.
+        await apiFetch("/api/v1/me", { method: "DELETE" });
+        // 2) Remove the Firebase identity so the email can't sign back in or be
+        //    JIT re-provisioned into a fresh empty account.
+        await deleteUser(u);
+        // 3) Land on the marketing index (the auth listener also clears state).
+        if (typeof window !== "undefined") {
+          const lang = window.location.pathname.split("/")[1] || "en";
+          router.push(`/${lang}`);
+        }
       },
       resolveMfaSignIn: async (resolver, code) => {
         // TOTP is the only factor we enroll; use the first hint.
