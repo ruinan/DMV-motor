@@ -572,9 +572,9 @@ export function MockExam({ t, lang, attemptId }: Props) {
                   type="button"
                   disabled={submitting || exiting || showVerdict}
                   onClick={() => pick(c.key)}
-                  className={`flex w-full items-start gap-3 rounded-lg border-2 px-4 py-3 text-left transition-colors disabled:cursor-default ${cls}`}
+                  className={`flex w-full items-center gap-3 rounded-lg border-2 px-4 py-3 text-left transition-colors disabled:cursor-default ${cls}`}
                 >
-                  <span className="mt-0.5 inline-flex size-7 shrink-0 items-center justify-center rounded-full border border-border bg-background text-sm font-semibold">
+                  <span className="inline-flex size-7 shrink-0 items-center justify-center rounded-full border border-border bg-background text-sm font-semibold">
                     {c.key}
                   </span>
                   <span className="flex-1 text-sm sm:text-base">{c.text}</span>

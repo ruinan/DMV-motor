@@ -703,19 +703,19 @@ export function PracticeFlow({ t, lang, onExamClass }: Props) {
                     if (phase.kind !== "answering" || phase.submitting) return;
                     setPhase({ ...phase, picked: c.key });
                   }}
-                  className={`flex w-full items-start gap-3 rounded-xl border-2 px-4 py-4 text-left transition-all disabled:cursor-default ${stateClass}`}
+                  className={`flex w-full items-center gap-3 rounded-xl border-2 px-4 py-4 text-left transition-all disabled:cursor-default ${stateClass}`}
                 >
-                  <span className="mt-0.5 inline-flex size-8 shrink-0 items-center justify-center rounded-full border border-border bg-background text-sm font-bold text-foreground">
+                  <span className="inline-flex size-8 shrink-0 items-center justify-center rounded-full border border-border bg-background text-sm font-bold text-foreground">
                     {c.key}
                   </span>
-                  <span className="flex-1 pt-1 text-sm leading-6 sm:text-base">
+                  <span className="flex-1 text-sm leading-6 sm:text-base">
                     {c.text}
                   </span>
                   {isFeedback && isCorrect && (
-                    <CheckCircle2 className="mt-1 size-5 shrink-0 text-success" />
+                    <CheckCircle2 className="size-5 shrink-0 text-success" />
                   )}
                   {isFeedback && isWrongPick && (
-                    <XCircle className="mt-1 size-5 shrink-0 text-destructive" />
+                    <XCircle className="size-5 shrink-0 text-destructive" />
                   )}
                 </button>
               </li>

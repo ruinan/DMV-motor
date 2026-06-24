@@ -122,9 +122,9 @@ function MockReviewItem({
           return (
             <li
               key={c.key}
-              className={`flex items-start gap-3 rounded-lg border-2 px-3 py-2 text-sm ${tone}`}
+              className={`flex items-center gap-3 rounded-lg border-2 px-3 py-2 text-sm ${tone}`}
             >
-              <span className="mt-0.5 inline-flex size-6 shrink-0 items-center justify-center rounded-full border border-border bg-background text-xs font-semibold">
+              <span className="inline-flex size-6 shrink-0 items-center justify-center rounded-full border border-border bg-background text-xs font-semibold">
                 {c.key}
               </span>
               <span className="flex-1">{c.text}</span>
