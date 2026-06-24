@@ -17,7 +17,6 @@ import {
   LogOut,
   RefreshCw,
   ShieldCheck,
-  Sparkles,
   Ticket,
   Trash2,
   User,
@@ -109,20 +108,18 @@ export function MeView({ t, lang }: Props) {
 
           <Group label={t.groupAccount}>
             <ProfileSection t={t} data={data} />
-            <ExamSection t={t} lang={lang} data={data} />
             <LanguageSection t={t} lang={lang} data={data} />
+            <DataSection t={t} data={data} />
           </Group>
 
           <Group label={t.groupBilling}>
-            <SubscriptionSection t={t} lang={lang} data={data} />
+            <ExamAccessSection t={t} lang={lang} data={data} />
             <RedeemSection t={t} />
-            <BackupSection t={t} data={data} />
             <PaymentSection t={t} />
           </Group>
 
           <Group label={t.groupSecurity}>
             <SecuritySection t={t} />
-            <DataExportSection t={t} />
           </Group>
 
           <Group label={t.groupDanger}>
@@ -313,7 +310,11 @@ function ProfileSection({
 // Exam (state × license the user is preparing for)
 // ---------------------------------------------------------------------------
 
-function ExamSection({
+// Merged "Exams & subscription": the exam you're studying (switcher) + the
+// current exam's access at a glance + the per-exam subscribe/unsubscribe
+// catalog — all in one place. Keeps id="subscription" so existing deep links
+// (#subscription from the backup upsell and the exam switcher) still land here.
+function ExamAccessSection({
   t,
   lang,
   data,
@@ -325,14 +326,18 @@ function ExamSection({
   const current = data.current_exam
     ? examName(data.current_exam, lang)
     : t.examNotSet;
+  const expiresAt = data.access.expires_at
+    ? new Date(data.access.expires_at).toLocaleDateString()
+    : null;
 
   return (
     <Section
-      id="exam"
+      id="subscription"
       icon={<GraduationCap className="size-4" />}
       title={t.sectionExam}
       description={t.sectionExamBody}
     >
+      {/* Which exam you're preparing for + switcher */}
       <p className="mb-3 text-sm text-muted-foreground">
         {t.examCurrent}:{" "}
         <span className="font-medium text-foreground">{current}</span>
@@ -354,6 +359,32 @@ function ExamSection({
           },
         }}
       />
+
+      {/* Current exam's access at a glance — mock quota + expiry the catalog
+          badges don't surface. data.access is scoped to the current exam (V32). */}
+      <dl className="mt-5 grid grid-cols-1 gap-4 border-t border-border/60 pt-5 sm:grid-cols-3">
+        <Field
+          label={t.accessState}
+          value={
+            (t[`state_${data.access.state}` as keyof typeof t] as
+              | string
+              | undefined) ?? data.access.state
+          }
+        />
+        <Field label={t.mockRemaining} value={data.access.mock_remaining} />
+        <Field
+          label={t.expiresAt}
+          value={expiresAt ?? <span className="text-muted-foreground">—</span>}
+        />
+      </dl>
+
+      {/* All exams — subscribe / unsubscribe independently */}
+      <div className="mt-5 border-t border-border/60 pt-5">
+        <p className="mb-3 text-sm font-medium text-foreground">
+          {t.catalogTitle}
+        </p>
+        <ExamCatalog t={t} lang={lang} />
+      </div>
     </Section>
   );
 }
@@ -429,55 +460,6 @@ function LanguageSection({
         })}
       </div>
       {errMsg && <p className="mt-3 text-sm text-destructive">{errMsg}</p>}
-    </Section>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Subscription — anchor target #subscription
-// ---------------------------------------------------------------------------
-
-function SubscriptionSection({
-  t,
-  lang,
-  data,
-}: {
-  t: Dictionary["me"];
-  lang: Locale;
-  data: MeResponse;
-}) {
-  const expiresAt = data.access.expires_at
-    ? new Date(data.access.expires_at).toLocaleDateString()
-    : null;
-
-  return (
-    <Section
-      id="subscription"
-      icon={<Sparkles className="size-4" />}
-      title={t.sectionSubscription}
-      description={t.sectionSubscriptionBody}
-    >
-      {/* Current exam's access at a glance — mock quota + expiry the catalog
-          badges don't surface. data.access is scoped to the current exam (V32). */}
-      <dl className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <Field
-          label={t.accessState}
-          value={
-            (t[`state_${data.access.state}` as keyof typeof t] as
-              | string
-              | undefined) ?? data.access.state
-          }
-        />
-        <Field label={t.mockRemaining} value={data.access.mock_remaining} />
-        <Field
-          label={t.expiresAt}
-          value={expiresAt ?? <span className="text-muted-foreground">—</span>}
-        />
-      </dl>
-
-      <div className="mt-5">
-        <ExamCatalog t={t} lang={lang} />
-      </div>
     </Section>
   );
 }
@@ -770,10 +752,11 @@ function PaymentSection({ t }: { t: Dictionary["me"] }) {
 }
 
 // ---------------------------------------------------------------------------
-// Progress backup — paid restorable snapshots of the current exam's progress
+// Progress backup — paid restorable snapshots of the current exam's progress.
+// Body-only panel; the "Your data" section provides the card + type dropdown.
 // ---------------------------------------------------------------------------
 
-function BackupSection({
+function BackupPanel({
   t,
   data,
 }: {
@@ -834,12 +817,8 @@ function BackupSection({
   const has = backup.data?.has_backup ?? false;
 
   return (
-    <Section
-      id="backup"
-      icon={<CloudUpload className="size-4" />}
-      title={t.sectionBackup}
-      description={t.sectionBackupBody}
-    >
+    <div>
+      <p className="mb-4 text-sm text-muted-foreground">{t.sectionBackupBody}</p>
       {!hasPass ? (
         <a
           href="#subscription"
@@ -925,7 +904,7 @@ function BackupSection({
           />
         </>
       )}
-    </Section>
+    </div>
   );
 }
 
@@ -1081,10 +1060,11 @@ function SecuritySection({ t }: { t: Dictionary["me"] }) {
 }
 
 // ---------------------------------------------------------------------------
-// Data export — download everything we store about you as JSON (CCPA portability)
+// Data export — download everything we store about you as JSON (CCPA portability).
+// Body-only panel; the "Your data" section provides the card + type dropdown.
 // ---------------------------------------------------------------------------
 
-function DataExportSection({ t }: { t: Dictionary["me"] }) {
+function ExportPanel({ t }: { t: Dictionary["me"] }) {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
@@ -1117,11 +1097,8 @@ function DataExportSection({ t }: { t: Dictionary["me"] }) {
   }
 
   return (
-    <Section
-      icon={<Download className="size-4" />}
-      title={t.sectionDataExport}
-      description={t.sectionDataExportBody}
-    >
+    <div>
+      <p className="mb-4 text-sm text-muted-foreground">{t.sectionDataExportBody}</p>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="max-w-md text-xs text-muted-foreground">{t.dataExportHint}</p>
         <Button variant="outline" size="sm" onClick={exportData} disabled={busy}>
@@ -1134,6 +1111,45 @@ function DataExportSection({ t }: { t: Dictionary["me"] }) {
         </Button>
       </div>
       {err && <p className="mt-3 text-sm text-destructive">{err}</p>}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Your data — progress backup + data export under one section, switched by a
+// type dropdown ("按类型来分") so the two data controls live together.
+// ---------------------------------------------------------------------------
+
+function DataSection({ t, data }: { t: Dictionary["me"]; data: MeResponse }) {
+  const [view, setView] = useState<"backup" | "export">("backup");
+  return (
+    <Section
+      icon={<CloudUpload className="size-4" />}
+      title={t.sectionData}
+      description={t.sectionDataBody}
+    >
+      <div className="mb-5 max-w-xs">
+        <label
+          htmlFor="data-view"
+          className="mb-1.5 block text-xs font-medium text-muted-foreground"
+        >
+          {t.dataTypeLabel}
+        </label>
+        <select
+          id="data-view"
+          value={view}
+          onChange={(e) => setView(e.target.value as "backup" | "export")}
+          className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+        >
+          <option value="backup">{t.dataTypeBackup}</option>
+          <option value="export">{t.dataTypeExport}</option>
+        </select>
+      </div>
+      {view === "backup" ? (
+        <BackupPanel t={t} data={data} />
+      ) : (
+        <ExportPanel t={t} />
+      )}
     </Section>
   );
 }
