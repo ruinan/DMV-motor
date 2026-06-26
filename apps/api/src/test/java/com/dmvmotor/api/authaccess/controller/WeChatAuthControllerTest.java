@@ -15,6 +15,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -101,6 +103,87 @@ class WeChatAuthControllerTest extends IntegrationTestBase {
         mockMvc.perform(post("/api/v1/auth/wechat"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.error.code").value("INVALID_CODE"));
+    }
+
+    @Test
+    void link_thenUnlink_togglesWeChatForAccount() throws Exception {
+        Long userId = fixtures.insertUser("binder@example.com");
+
+        mockMvc.perform(post("/api/v1/auth/wechat/link").contentType(MediaType.APPLICATION_JSON)
+                        .header("Authorization", "Bearer " + userId)
+                        .content(body("{\"code\":\"bindcode\"}")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.linked").value(true));
+
+        mockMvc.perform(get("/api/v1/auth/methods").param("email", "binder@example.com"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.password").value(true))   // email account
+                .andExpect(jsonPath("$.data.wechat").value(true));    // now linked
+
+        mockMvc.perform(delete("/api/v1/auth/wechat/link")
+                        .header("Authorization", "Bearer " + userId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.unlinked").value(1));
+
+        mockMvc.perform(get("/api/v1/auth/methods").param("email", "binder@example.com"))
+                .andExpect(jsonPath("$.data.wechat").value(false));
+    }
+
+    @Test
+    void link_openidAlreadyLinkedToAnother_returns409() throws Exception {
+        Long userA = fixtures.insertUser("a@example.com");
+        Long userB = fixtures.insertUser("b@example.com");
+
+        mockMvc.perform(post("/api/v1/auth/wechat/link").contentType(MediaType.APPLICATION_JSON)
+                        .header("Authorization", "Bearer " + userA)
+                        .content(body("{\"code\":\"shared\"}")))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(post("/api/v1/auth/wechat/link").contentType(MediaType.APPLICATION_JSON)
+                        .header("Authorization", "Bearer " + userB)
+                        .content(body("{\"code\":\"shared\"}")))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.error.code").value("WECHAT_ALREADY_LINKED"));
+    }
+
+    @Test
+    void link_authedWithoutCode_returns400() throws Exception {
+        Long userId = fixtures.insertUser("nocode@example.com");
+        mockMvc.perform(post("/api/v1/auth/wechat/link").contentType(MediaType.APPLICATION_JSON)
+                        .header("Authorization", "Bearer " + userId)
+                        .content(body("{\"code\":\"  \"}")))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error.code").value("INVALID_CODE"));
+    }
+
+    @Test
+    void link_anonymous_returns401() throws Exception {
+        mockMvc.perform(post("/api/v1/auth/wechat/link").contentType(MediaType.APPLICATION_JSON)
+                        .content(body("{\"code\":\"x\"}")))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void link_staleSession_requiresReauth() throws Exception {
+        Long userId = fixtures.insertUser("stale@example.com");
+        mockMvc.perform(post("/api/v1/auth/wechat/link").contentType(MediaType.APPLICATION_JSON)
+                        .header("Authorization", "Bearer " + userId + "~1000000000")
+                        .content(body("{\"code\":\"x\"}")))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.error.code").value("REAUTH_REQUIRED"));
+    }
+
+    @Test
+    void methods_wechatOnlyAccount_reportsWechatNotPassword() throws Exception {
+        // A WeChat-created account (firebase_uid wx_...) → wechat true, password false.
+        mockMvc.perform(post("/api/v1/auth/wechat").contentType(MediaType.APPLICATION_JSON)
+                        .content(body("{\"code\":\"solo\",\"email\":\"solo@example.com\"}")))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(get("/api/v1/auth/methods").param("email", "solo@example.com"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.password").value(false))
+                .andExpect(jsonPath("$.data.wechat").value(true));
     }
 
     // ---------------------------------------------------------------

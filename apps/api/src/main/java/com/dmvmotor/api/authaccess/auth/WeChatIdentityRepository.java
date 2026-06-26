@@ -58,4 +58,34 @@ public class WeChatIdentityRepository {
                 RETURNING id
                 """, Long.class, firebaseUid, email);
     }
+
+    /** Removes all WeChat links for an account (unbind). Returns rows deleted. */
+    public int deleteByUserId(Long userId) {
+        return jdbc.update("DELETE FROM wechat_identities WHERE user_id = ?", userId);
+    }
+
+    /** Whether {@code email} has a password (email/password) account — i.e. a
+     *  users row whose firebase_uid was NOT minted by WeChat ({@code wx_} prefix).
+     *  ({@code @} escapes the LIKE underscore so {@code wx_} is matched literally.) */
+    public boolean passwordAccountExists(String email) {
+        Boolean exists = jdbc.queryForObject("""
+                SELECT EXISTS(
+                    SELECT 1 FROM users
+                    WHERE lower(email) = lower(?)
+                      AND firebase_uid IS NOT NULL
+                      AND firebase_uid NOT LIKE 'wx@_%' ESCAPE '@')
+                """, Boolean.class, email);
+        return Boolean.TRUE.equals(exists);
+    }
+
+    /** Whether an account for {@code email} has a linked WeChat identity. */
+    public boolean wechatAccountExists(String email) {
+        Boolean exists = jdbc.queryForObject("""
+                SELECT EXISTS(
+                    SELECT 1 FROM wechat_identities wi
+                    JOIN users u ON u.id = wi.user_id
+                    WHERE lower(u.email) = lower(?))
+                """, Boolean.class, email);
+        return Boolean.TRUE.equals(exists);
+    }
 }

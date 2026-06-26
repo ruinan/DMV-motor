@@ -1,5 +1,7 @@
 package com.dmvmotor.api.authaccess.auth;
 
+import com.dmvmotor.api.common.BusinessException;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -17,6 +19,11 @@ import org.springframework.transaction.annotation.Transactional;
  */
 @Service
 public class WeChatAuthService {
+
+    /** Firebase uid prefix for accounts first created via WeChat (no password
+     *  unless one is later linked). Used to tell WeChat-first from password
+     *  accounts in {@link #methods}. */
+    static final String WECHAT_UID_PREFIX = "wx_";
 
     private final WeChatGateway gateway;
     private final FirebaseTokenMinter minter;
@@ -51,9 +58,44 @@ public class WeChatAuthService {
             return WeChatLoginOutcome.loginRequired();
         }
 
-        String firebaseUid = "wx_" + openid;
+        String firebaseUid = WECHAT_UID_PREFIX + openid;
         Long userId = repo.createAccount(firebaseUid, normalizedEmail);
         repo.insertIdentity(openid, session.unionid(), userId);
         return WeChatLoginOutcome.authenticated(minter.mintCustomToken(firebaseUid));
+    }
+
+    /** Which login methods exist for {@code email} — drives the web "this account
+     *  uses WeChat / set a password" UX. A heuristic: WeChat-first accounts carry a
+     *  {@code wx_} firebase_uid (see {@link #WECHAT_UID_PREFIX}); a later-linked
+     *  password isn't reflected (acceptable for a UX hint). */
+    public LoginMethods methods(String email) {
+        String e = email == null ? "" : email.trim();
+        return new LoginMethods(repo.passwordAccountExists(e), repo.wechatAccountExists(e));
+    }
+
+    public record LoginMethods(boolean password, boolean wechat) {}
+
+    /**
+     * Links the WeChat account behind {@code code} to {@code userId} (an authed
+     * "bind WeChat" from an already-signed-in session). Idempotent if it's already
+     * this user's; conflicts if the openid belongs to a different account.
+     */
+    @Transactional
+    public void link(Long userId, String code) {
+        WeChatGateway.WeChatSession session = gateway.codeToSession(code);
+        Long owner = repo.findUserIdByOpenid(session.openid());
+        if (owner != null) {
+            if (owner.equals(userId)) return;   // already linked to this account
+            throw new BusinessException("WECHAT_ALREADY_LINKED",
+                    "This WeChat account is already linked to another account",
+                    HttpStatus.CONFLICT);
+        }
+        repo.insertIdentity(session.openid(), session.unionid(), userId);
+    }
+
+    /** Unbinds WeChat from {@code userId}. Returns how many links were removed. */
+    @Transactional
+    public int unlink(Long userId) {
+        return repo.deleteByUserId(userId);
     }
 }
