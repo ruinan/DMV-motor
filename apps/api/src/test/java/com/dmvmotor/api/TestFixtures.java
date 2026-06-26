@@ -60,6 +60,7 @@ public class TestFixtures {
                     questions,
                     sub_topics,
                     topics,
+                    wechat_identities,
                     access_passes,
                     users
                 RESTART IDENTITY CASCADE

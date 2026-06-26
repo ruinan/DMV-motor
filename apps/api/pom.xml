@@ -139,6 +139,10 @@
                         <!-- The only class calling reCAPTCHA Enterprise (GCP) — needs live
                              creds; the verification GATE is fake-tested. -->
                         <exclude>com/dmvmotor/api/common/recaptcha/RecaptchaEnterpriseVerifier.class</exclude>
+                        <!-- Prod-only WeChat/Firebase adapters — need live creds; the WeChat
+                             login LOGIC is fake-tested. -->
+                        <exclude>com/dmvmotor/api/authaccess/auth/WeChatGatewayImpl*.class</exclude>
+                        <exclude>com/dmvmotor/api/authaccess/auth/FirebaseTokenMinterImpl.class</exclude>
                     </excludes>
                 </configuration>
                 <executions>

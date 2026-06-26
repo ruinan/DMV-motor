@@ -101,3 +101,10 @@ app:
   redeem:
     max-attempts: ${APP_REDEEM_MAX_ATTEMPTS:10}
     window-seconds: ${APP_REDEEM_WINDOW_SECONDS:300}
+
+  # WeChat mini-program login (code2session). Absent in dev/test → WeChat login is
+  # disabled (the gateway throws WECHAT_NOT_CONFIGURED). Prod sources these from
+  # the family-entity mini-program via Secret Manager / Cloud Run env. NEVER commit.
+  wechat:
+    appid: ${APP_WECHAT_APPID:}
+    secret: ${APP_WECHAT_SECRET:}
