@@ -1,87 +1,124 @@
 # WeChat Login + Account Linking — Audit & Feature Breakdown
 
-> Status: PLAN (2026-06-25). Decomposition for the WeChat mini-program login,
-> with **account linking** (a person's WeChat login and email/password login
-> resolve to the **same** account). Companion to `wechat-miniapp.md`.
-> **No code yet** — this is the audited breakdown to review before building.
+> Status: PLAN v2 (2026-06-26). WeChat mini-program login with **account linking**,
+> **email as the universal account key**, packaged as a **modular auth component**
+> in the monolith (designed for cheap later extraction). Companion to
+> `wechat-miniapp.md`. **No code yet** — audited breakdown to review before building.
 
 ## 1. Audit — current auth/identity surface
 
 | Area | Finding | Implication |
 |---|---|---|
-| `users` table | `id`, `email VARCHAR(255)` **nullable**, `firebase_uid VARCHAR(128)` UNIQUE (`uq_users_firebase_uid`, V11), `language_preference`. **No phone column.** | WeChat users (no email) provision fine. No phone → can't auto-match WeChat↔email by phone. |
-| Auth path | token → `FirebaseAuthVerifier.verify()` → `VerifiedUser(firebaseUid, email, authTime, secondFactor)` → `UserProvisioner.provisionUserId()` JIT-inserts a `users` row keyed on `firebase_uid`. | The account is keyed on `firebase_uid`. Anything that yields a valid Firebase token with a uid reuses the **entire** path. |
-| Verifier seam | `FirebaseAuthVerifier` interface; `FirebaseIdTokenVerifier` (prod, `app.auth.firebase.enabled=true`) / `StubFirebaseVerifier` (dev/test). | Mirror this pattern for the new pieces (real impl + fake). |
-| Firebase Admin | `FirebaseConfig` initializes `FirebaseApp` (ADC + projectId), gated on `app.auth.firebase.enabled`. | `FirebaseAuth.getInstance().createCustomToken(uid)` is available in prod; dev/test need a **fake minter**. |
+| `users` table | `id`, `email VARCHAR(255)` **nullable**, `firebase_uid VARCHAR(128)` UNIQUE (`uq_users_firebase_uid`, V11), `language_preference`. **No phone, email not unique.** | Email can become the key, but uniqueness must be enforced at the registration boundary (see §3). |
+| Auth path | token → `FirebaseAuthVerifier.verify()` → `VerifiedUser(firebaseUid, email, authTime, secondFactor)` → `UserProvisioner.provisionUserId()` JIT-inserts keyed on `firebase_uid`. | Account key = `firebase_uid`. Any valid Firebase token reuses the whole path. |
+| Verifier seam | `FirebaseAuthVerifier` iface; `FirebaseIdTokenVerifier` (prod) / `StubFirebaseVerifier` (dev/test). | Mirror this (real + fake) for new seams. |
+| Firebase Admin | `FirebaseConfig` inits `FirebaseApp` (ADC + projectId), gated `app.auth.firebase.enabled`. | `createCustomToken` available in prod; dev/test need a **fake minter**. ⚠️ see §6 IAM risk. |
 
-**Bottom line:** WeChat login is a Firebase **custom-token** bridge. We only ADD code;
-`FirebaseIdTokenVerifier`, `UserProvisioner`, the `firebase_uid` keying, every
-protected endpoint, and the web email/password/2FA flow stay **untouched**.
+**Bottom line:** WeChat login is a Firebase **custom-token** bridge. Core verifier /
+provisioner / `firebase_uid` keying / protected endpoints / web email-password-2FA
+stay **untouched**; everything new is additive.
 
-## 2. Identity & linking model (chosen: side-table, Option A)
+## 2. Architecture — modular auth component (chosen)
 
-Keep `users.firebase_uid` as the single account key. Add a side table mapping
-WeChat identities to accounts:
+Auth lives as a **self-contained module** in `com.dmvmotor.api.authaccess.auth`
+(already the home of the verifier/provisioner). It owns identity, providers,
+linking, and login-method detection behind seams so a second project can lift it,
+and a future extraction to a library/service is cheap. **Not** a separate service
+(Firebase already is the token authority; a service would duplicate it + add ops).
+
+Seams (interface + real impl excluded from coverage + fake for tests, like the
+existing verifier): `FirebaseAuthVerifier` (exists), `WeChatGateway`
+(`code2session`), `FirebaseTokenMinter` (`createCustomToken`). Identity persistence
+behind `WeChatIdentityRepository`.
+
+## 3. Identity model — email is the universal key
+
+**Invariants:** one account per **email**; one `firebase_uid` per account (the token
+key, unchanged). A `wechat_identities` side table maps WeChat → account:
 
 ```
 wechat_identities(
-  openid      VARCHAR PRIMARY KEY,   -- WeChat user id within our mini-program
-  unionid     VARCHAR NULL,          -- cross-property id (only if Open Platform bound)
-  user_id     BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  created_at  TIMESTAMPTZ
-)
+  openid     VARCHAR PRIMARY KEY,
+  unionid    VARCHAR NULL,
+  user_id    BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  created_at TIMESTAMPTZ )
 ```
 
-**WeChat login** (`code` → `code2session` → `openid`):
-- `openid` **found** in `wechat_identities` → load `user_id` → fetch that user's
-  `firebase_uid` → mint a custom token **with that uid** → the client lands on the
-  existing account (which may be an email account). ✅ linked, via the existing key.
-- `openid` **not found** → new WeChat user → create a standalone account
-  (`firebase_uid = "wx_<openid>"`, email null) + insert `wechat_identities`.
+### Registration entry points
+- **Email registration** (existing Firebase email/password) — unchanged. Afterward,
+  **guide**: "Have WeChat? Link it → use the mini-program free."
+- **WeChat registration** (mini-program) — `wx.login` → `openid`, then **email is
+  required**:
+  - email is **new** → create account (`email`, `firebase_uid = "wx_<openid>"`) +
+    `wechat_identities` row. (Email verification can be lazy — no existing account to
+    hijack.)
+  - email **matches an existing account** → **must prove ownership before linking**
+    (email verification link, or the existing account's password) → then attach
+    `openid → that user_id`. ⚠️ Without this, typing someone else's email hijacks
+    their account.
 
-**Linking** is always an **explicit "bind" from a logged-in session**, never an
-auto-merge of two pre-existing accounts (WeChat hands us no email → no reliable
-auto-match):
-- Email user (logged in) binds WeChat → attach `openid → my user_id`.
-- WeChat-first user (logged in) binds email/password → Firebase `linkWithCredential`
-  adds an email credential to the **same** `firebase_uid` (same `users` row).
+### WeChat login (returning)
+`code` → `openid` → `wechat_identities` lookup:
+- **found** → `user_id` → that account's `firebase_uid` → mint custom token with
+  **that uid** → lands on the existing account (email-first or wechat-first alike).
+- **not found** → treat as WeChat registration (collect email, above).
 
-So "打通" = the two login methods point at one `firebase_uid`. No two-account merge,
-no progress-merge complexity.
+### One account per email (anti-duplicate)
+Firebase issues a uid per provider, but we want one account per email. Enforced at
+the **registration boundary**, leaving `UserProvisioner` untouched:
+- Before creating a Firebase email/password user, the client checks
+  `GET /api/v1/auth/methods?email=…`. If the email already has an account, route to
+  **login / link**, never a second signup.
+- A wechat-first user who wants web/password access **links email-password to the
+  same Firebase uid** (`linkWithCredential`), not a fresh signup → same `firebase_uid`,
+  same `users` row.
 
-## 3. Feature breakdown (tasks)
+### Login-method detection
+`GET /api/v1/auth/methods?email=…` → `{ password: bool, wechat: bool }` (from
+`users` + `wechat_identities`). Drives "this account uses WeChat — sign in with
+WeChat / set a password." (Mild account-enumeration surface → rate-limit; acceptable.)
 
-### Phase 1 — Backend WeChat login (no linking yet)
-- **T1 `WeChatGateway` seam** — interface + `WeChatGatewayImpl` (real `sns/jscode2session`, JaCoCo-excluded like `StripeGatewayImpl`) + `FakeWeChatGateway` (tests). Config `app.wechat.appid` / `app.wechat.secret` (env/Secret Manager; absent in dev → gateway disabled or fake).
-- **T2 `FirebaseTokenMinter` seam** — interface + impl (`createCustomToken`) + fake (tests), because `FirebaseAuth` is prod-only.
-- **T3 migration** — `Vxx__wechat_identities.sql` (table above).
-- **T4 `WeChatAuthService`** — `code` → gateway → `openid` → resolve-or-create user → mint custom token. New-openid → standalone account.
-- **T5 `POST /api/v1/auth/wechat`** — public; body `{code}` → `{firebaseToken}`.
-- **Tests** — service (known openid → existing user; new openid → new account + identity row); controller (token returned; bad/expired code → 401/400); fake gateway.
+## 4. Feature breakdown (tasks)
 
-### Phase 2 — Account linking
-- **T6 `POST /api/v1/auth/wechat/link`** — authed (existing token) → `code` → `openid` → insert `openid → current user_id`. If `openid` already maps to a **different** user → 409 `WECHAT_ALREADY_LINKED`.
-- **T7 `DELETE /api/v1/auth/wechat/link`** (optional) — unbind WeChat from the account.
-- **T8 email-on-WeChat-account** — binding email/password is client-side Firebase `linkWithCredential`; backend just sees `email` populate on the next token. (Note: §49 intentionally does NOT sync `users.email` from the token to avoid breaking fixtures — revisit whether linked email should persist.)
-- **Tests** — link happy; link openid already linked elsewhere → 409; anonymous → 401.
+### Phase 1 — Backend WeChat login (account creation + returning login)
+- **T1 `WeChatGateway`** seam + `WeChatGatewayImpl` (`sns/jscode2session`, JaCoCo-excluded) + `FakeWeChatGateway`. Config `app.wechat.appid/secret` (Secret Manager / gitignored local).
+- **T2 `FirebaseTokenMinter`** seam + impl (`createCustomToken`) + fake.
+- **T3 migration** `Vxx__wechat_identities.sql`.
+- **T4 `WeChatIdentityRepository`** (JdbcTemplate) — find by openid, insert, find user's firebase_uid.
+- **T5 `WeChatAuthService`** — code → openid → returning(found)/register(new). Register requires email; new-email → create account; existing-email → require verification (T6).
+- **T6 email-ownership verification** before linking to an existing account (verify-link or password challenge).
+- **T7 `POST /api/v1/auth/wechat`** (public) → `{firebaseToken}` or a "needs email / needs verification" response.
+- **Tests:** service (new email, existing-email-needs-verify, returning), controller, fakes.
+
+### Phase 2 — Linking + detection
+- **T8 `GET /api/v1/auth/methods?email=`** → `{password, wechat}` (+ rate-limit).
+- **T9 `POST /api/v1/auth/wechat/link`** (authed) → attach `openid → current user`; openid already linked elsewhere → 409 `WECHAT_ALREADY_LINKED`.
+- **T10 `DELETE /api/v1/auth/wechat/link`** (optional) — unbind.
+- **Tests:** methods lookup, link happy / 409 / 401.
 
 ### Phase 3 — Frontend (separate, later)
-- Mini-program (Taro): `wx.login()` → `POST /auth/wechat` → `signInWithCustomToken`.
-- Settings "bind WeChat" / "bind email" (mini-program and/or web).
+- Mini-program (Taro): `wx.login` → `/auth/wechat` → `signInWithCustomToken`; mandatory-email step; "set password" optional.
+- Web: post-registration "link WeChat (free mini-program)" prompt; method-aware login.
 
-## 4. "不动" invariants (must NOT change)
-`FirebaseIdTokenVerifier`, `UserProvisioner`, `users.firebase_uid` keying, every
-protected endpoint, and the web email/password/email-verify/2FA flow.
+## 5. Resolved decisions
+- **Linking:** email is the key; guided link from email side, mandatory email on WeChat side. ✅
+- **Anti-takeover:** verify email ownership before linking to an existing account. ✅
+- **Architecture:** modular component in the monolith (not a service). ✅
+- **reCAPTCHA on `/auth/wechat`:** default **no** (the WeChat `code` is itself a bot barrier); revisit if abused.
+- **unionid:** **store now** (nullable, cheap; future cross-property identity).
 
-## 5. Open decisions (confirm before Phase 1)
-1. **New WeChat user (unknown openid)** → auto-create standalone account
-   (recommended, lowest friction; link later from settings) vs. force link first.
-2. **Linking is explicit-bind** (no automatic email matching, since WeChat gives no
-   email) — acceptable?
-3. **reCAPTCHA on `/auth/wechat`?** Likely unnecessary (the WeChat `code` is itself
-   a bot barrier + ties to a real WeChat account).
-4. **unionid** — capture it now (future cross-property identity) or defer? Cheap to
-   store now; only meaningful if a WeChat Open Platform account is set up later.
+## 6. Risks / "不动" invariants
+- ⚠️ **IAM:** `createCustomToken` on Cloud Run ADC needs the runtime SA to hold
+  `roles/iam.serviceAccountTokenCreator` (signBlob). `verifyIdToken` doesn't — so this
+  is invisible until prod. **Grant before prod relies on it.** (Fakes hide it in tests.)
+- **Untouched:** `FirebaseIdTokenVerifier`, `UserProvisioner`, `firebase_uid` keying,
+  every protected endpoint, web email/password/email-verify/2FA.
+- **No merge** of two *already-separate* accounts (bind → 409). Email-as-key +
+  registration-boundary checks make this rare; a merge tool is out of scope.
+- **§49 email no-sync:** linked email may not appear in `users.email`; revisit if
+  detection/display needs it.
+- **MfaGuard:** custom-token sessions have no second factor; keep `mfa-required` off
+  or exempt them.
 
-## 6. Migrations
-One new migration (`wechat_identities`). No change to `users`.
+## 7. Migrations
+One new (`wechat_identities`). No change to `users`.
