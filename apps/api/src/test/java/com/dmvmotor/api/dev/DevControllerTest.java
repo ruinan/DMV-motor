@@ -2,13 +2,16 @@ package com.dmvmotor.api.dev;
 
 import com.dmvmotor.api.IntegrationTestBase;
 import com.dmvmotor.api.TestFixtures;
+import com.jayway.jsonpath.JsonPath;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.MvcResult;
 
 import static org.hamcrest.Matchers.hasItem;
+import static org.hamcrest.Matchers.startsWith;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -107,6 +110,36 @@ class DevControllerTest extends IntegrationTestBase {
     @Test
     void revokePass_anonymous_returns401() throws Exception {
         mockMvc.perform(post("/api/v1/dev/revoke-pass"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.error.code").value("UNAUTHORIZED"));
+    }
+
+    @Test
+    void mintCodes_generatesUnguessableRedeemableCodes() throws Exception {
+        MvcResult res = mockMvc.perform(post("/api/v1/dev/redemption-codes")
+                        .param("exam_id", String.valueOf(examId))
+                        .param("count", "2")
+                        .header("Authorization", "Bearer " + userId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.codes.length()").value(2))
+                .andExpect(jsonPath("$.data.codes[0]").value(startsWith("DMVPREP-")))
+                .andReturn();
+        String code = JsonPath.read(res.getResponse().getContentAsString(), "$.data.codes[0]");
+
+        // A fresh user can redeem the minted code → active pass.
+        Long redeemer = fixtures.insertUser("minted@example.com");
+        fixtures.setUserCurrentExam(redeemer, examId);
+        mockMvc.perform(post("/api/v1/access/redeem")
+                        .param("code", code)
+                        .header("Authorization", "Bearer " + redeemer))
+                .andExpect(status().isOk());
+        mockMvc.perform(get("/api/v1/access").header("Authorization", "Bearer " + redeemer))
+                .andExpect(jsonPath("$.data.has_active_pass").value(true));
+    }
+
+    @Test
+    void mintCodes_anonymous_returns401() throws Exception {
+        mockMvc.perform(post("/api/v1/dev/redemption-codes"))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.error.code").value("UNAUTHORIZED"));
     }

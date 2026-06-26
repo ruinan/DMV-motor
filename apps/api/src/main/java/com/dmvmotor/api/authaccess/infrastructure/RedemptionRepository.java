@@ -64,6 +64,19 @@ public class RedemptionRepository {
                 """, codeId) == 1;
     }
 
+    /**
+     * Inserts a freshly-minted active code. Throws
+     * {@link org.springframework.dao.DuplicateKeyException} on a collision against
+     * the unique {@code UPPER(code)} index, so the caller can regenerate + retry.
+     */
+    public void insertCode(String code, Long examId, int durationDays, int mockQuota, int maxRedemptions) {
+        jdbc.update("""
+                INSERT INTO redemption_codes
+                    (code, exam_id, duration_days, mock_quota, max_redemptions, status)
+                VALUES (?, ?, ?, ?, ?, 'active')
+                """, code, examId, durationDays, mockQuota, maxRedemptions);
+    }
+
     public void insertRedemption(long codeId, long userId, long examId, long passId) {
         jdbc.update("""
                 INSERT INTO code_redemptions (code_id, user_id, exam_id, pass_id)

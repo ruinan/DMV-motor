@@ -45,15 +45,18 @@ public class DevController {
     private final com.dmvmotor.api.content.application.ExamContext examContext;
     private final com.dmvmotor.api.common.ReauthGuard reauthGuard;
     private final com.dmvmotor.api.common.MfaGuard mfaGuard;
+    private final com.dmvmotor.api.authaccess.application.RedemptionService redemptionService;
 
     public DevController(AccessRepository accessRepo,
                          com.dmvmotor.api.content.application.ExamContext examContext,
                          com.dmvmotor.api.common.ReauthGuard reauthGuard,
-                         com.dmvmotor.api.common.MfaGuard mfaGuard) {
+                         com.dmvmotor.api.common.MfaGuard mfaGuard,
+                         com.dmvmotor.api.authaccess.application.RedemptionService redemptionService) {
         this.accessRepo  = accessRepo;
         this.examContext = examContext;
         this.reauthGuard = reauthGuard;
         this.mfaGuard    = mfaGuard;
+        this.redemptionService = redemptionService;
     }
 
     @PostConstruct
@@ -115,5 +118,36 @@ public class DevController {
                 "exam_id",   String.valueOf(examId),
                 "cancelled", cancelled
         ));
+    }
+
+    private static final int MAX_MINT_COUNT = 100;
+
+    /**
+     * Mints one or more unguessable activation codes (SecureRandom) — the issuing
+     * tool for the redeem flow, replacing hand-typed founder codes. Dev-only;
+     * prod issues codes via a migration since its DB is private-IP. {@code exam_id}
+     * omitted = a code that redeems against the redeemer's current exam.
+     */
+    @PostMapping("/redemption-codes")
+    public ApiResponse<?> mintCodes(@CurrentUser Long userId,
+                                    @RequestParam(required = false) Long exam_id,
+                                    @RequestParam(defaultValue = "30") int duration_days,
+                                    @RequestParam(defaultValue = "5")  int mock_quota,
+                                    @RequestParam(defaultValue = "1")  int max_redemptions,
+                                    @RequestParam(defaultValue = "1")  int count) {
+        if (userId == null) {
+            throw new BusinessException("UNAUTHORIZED",
+                    "Authentication required", HttpStatus.UNAUTHORIZED);
+        }
+        if (count < 1 || count > MAX_MINT_COUNT) {
+            throw new BusinessException("INVALID_COUNT",
+                    "count must be between 1 and " + MAX_MINT_COUNT, HttpStatus.BAD_REQUEST);
+        }
+        java.util.List<String> codes = new java.util.ArrayList<>(count);
+        for (int i = 0; i < count; i++) {
+            codes.add(redemptionService.createCode(exam_id, duration_days, mock_quota, max_redemptions));
+        }
+        LOG.info("[dev] minted {} activation code(s) for exam {}", count, exam_id);
+        return ApiResponse.ok(Map.of("codes", codes));
     }
 }

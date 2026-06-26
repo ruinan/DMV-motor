@@ -94,3 +94,10 @@ app:
     project-id: ${APP_RECAPTCHA_PROJECT_ID:}
     site-key: ${APP_RECAPTCHA_SITE_KEY:}
     min-score: ${APP_RECAPTCHA_MIN_SCORE:0.5}
+
+  # Activation-code redemption throttle (per authenticated user, in-memory sliding
+  # window). High-entropy codes already make guessing infeasible; this is
+  # defense-in-depth against an account machine-gunning the redeem endpoint.
+  redeem:
+    max-attempts: ${APP_REDEEM_MAX_ATTEMPTS:10}
+    window-seconds: ${APP_REDEEM_WINDOW_SECONDS:300}
