@@ -1,0 +1,12 @@
+node_modules/
+dist/
+lib/
+.temp/
+.rn_temp/
+.swc/
+
+# Local secrets / per-env config — never commit
+.env
+.env.local
+.env.*.local
+project.private.config.json

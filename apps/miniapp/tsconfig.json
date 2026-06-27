@@ -1,0 +1,24 @@
+{
+  "compilerOptions": {
+    "target": "ES2017",
+    "module": "ESNext",
+    "moduleResolution": "node",
+    "removeComments": false,
+    "preserveConstEnums": true,
+    "moduleDetection": "force",
+    "useDefineForClassFields": true,
+    "outDir": "lib",
+    "sourceMap": true,
+    "baseUrl": ".",
+    "rootDir": ".",
+    "jsx": "react-jsx",
+    "allowSyntheticDefaultImports": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "strict": true,
+    "paths": { "@/*": ["./src/*"] },
+    "typeRoots": ["node_modules/@types"]
+  },
+  "include": ["./src", "./types", "./config"],
+  "exclude": ["node_modules", "dist"]
+}
