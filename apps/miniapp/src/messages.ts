@@ -13,7 +13,8 @@ export const messages = {
     loading: 'Loading…',
     signedInAs: 'Signed in',
     signOut: 'Sign out',
-    home: 'Home'
+    home: 'Home',
+    devSkip: 'Skip login (dev)'
   },
   zh: {
     appName: 'DMV 备考',
@@ -27,7 +28,8 @@ export const messages = {
     loading: '加载中…',
     signedInAs: '已登录',
     signOut: '退出登录',
-    home: '首页'
+    home: '首页',
+    devSkip: '跳过登录（开发）'
   }
 } as const
 

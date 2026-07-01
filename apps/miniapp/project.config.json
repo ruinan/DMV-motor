@@ -2,14 +2,38 @@
   "miniprogramRoot": "dist/",
   "projectname": "dmv-prep-miniapp",
   "description": "DMV Prep mini-program",
-  "appid": "touristappid",
+  "appid": "wx581164f3d39b37f5",
   "setting": {
     "urlCheck": false,
     "es6": false,
     "enhance": false,
     "postcss": false,
-    "minified": false
+    "minified": true,
+    "compileWorklet": false,
+    "uglifyFileName": false,
+    "uploadWithSourceMap": true,
+    "packNpmManually": false,
+    "packNpmRelationList": [],
+    "minifyWXSS": true,
+    "minifyWXML": true,
+    "localPlugins": false,
+    "disableUseStrict": false,
+    "useCompilerPlugins": false,
+    "condition": false,
+    "swc": false,
+    "disableSWC": true,
+    "babelSetting": {
+      "ignore": [],
+      "disablePlugins": [],
+      "outputPath": ""
+    }
   },
   "compileType": "miniprogram",
-  "comment": "appid is 'touristappid' (DevTools test mode). Put the REAL personal/business appid in project.private.config.json (gitignored). urlCheck=false lets DevTools call localhost during dev."
+  "comment": "appid is 'touristappid' (DevTools test mode). Put the REAL personal/business appid in project.private.config.json (gitignored). urlCheck=false lets DevTools call localhost during dev.",
+  "simulatorPluginLibVersion": {},
+  "packOptions": {
+    "ignore": [],
+    "include": []
+  },
+  "editorSetting": {}
 }

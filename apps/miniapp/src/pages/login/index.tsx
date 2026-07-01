@@ -1,7 +1,8 @@
 import { View, Text, Button, Input } from '@tarojs/components'
 import Taro, { useLoad } from '@tarojs/taro'
 import { useState } from 'react'
-import { loginWithWeChat, isSignedIn } from '@/lib/auth'
+import { loginWithWeChat, isSignedIn, devSignIn } from '@/lib/auth'
+import { DEV_BYPASS } from '@/config'
 import { t } from '@/lib/i18n'
 import './index.scss'
 
@@ -18,7 +19,15 @@ export default function Login() {
   const [hint, setHint] = useState('')
 
   useLoad(() => {
-    if (isSignedIn()) Taro.redirectTo({ url: '/pages/index/index' })
+    if (isSignedIn()) {
+      Taro.redirectTo({ url: '/pages/index/index' })
+      return
+    }
+    // Dev bypass: never sit on the login wall — stub-sign-in and go straight in.
+    if (DEV_BYPASS) {
+      devSignIn()
+      Taro.redirectTo({ url: '/pages/index/index' })
+    }
   })
 
   const go = async (withEmail?: string) => {

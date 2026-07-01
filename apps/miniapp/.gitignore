@@ -1,6 +1,8 @@
 node_modules/
 dist/
-lib/
+# Anchored to the miniapp root so it only ignores a root-level build output —
+# NOT src/lib/ (our auth/request/i18n/devStub source lives there).
+/lib/
 .temp/
 .rn_temp/
 .swc/

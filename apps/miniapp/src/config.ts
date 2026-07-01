@@ -5,3 +5,7 @@ export const API_BASE: string =
 
 export const FIREBASE_API_KEY: string =
   process.env.TARO_APP_FIREBASE_API_KEY || ''
+
+// Dev-only login bypass (front-end stub). Baked to '' in production builds by
+// config/index.ts, so this is always false in a real prod bundle.
+export const DEV_BYPASS: boolean = process.env.TARO_APP_DEV_BYPASS === '1'

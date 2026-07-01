@@ -3,7 +3,11 @@
   "version": "0.0.1",
   "private": true,
   "description": "DMV Prep WeChat mini-program (Taro + React).",
-  "templateInfo": { "name": "default", "typescript": true, "css": "sass" },
+  "templateInfo": {
+    "name": "default",
+    "typescript": true,
+    "css": "sass"
+  },
   "scripts": {
     "dev:weapp": "taro build --type weapp --watch",
     "build:weapp": "taro build --type weapp",
@@ -23,13 +27,16 @@
     "react-dom": "^18.3.1"
   },
   "devDependencies": {
+    "@babel/plugin-proposal-class-properties": "^7.18.6",
+    "@babel/preset-react": "^7.29.7",
     "@tarojs/cli": "4.0.9",
     "@tarojs/vite-runner": "4.0.9",
     "@types/react": "^18.3.1",
     "@types/webpack-env": "^1.18.5",
+    "@vitejs/plugin-react": "^4.7.0",
     "babel-preset-taro": "4.0.9",
     "typescript": "^5.4.5",
-    "vite": "^5.4.0"
+    "vite": "^4.5.0"
   },
   "comment": "Taro 4.0.9 pinned as a starting point. Run `npm install`; if the toolchain hiccups, regenerate config/ via `npm create taro@latest` and keep src/."
 }
