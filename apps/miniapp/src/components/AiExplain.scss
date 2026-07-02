@@ -1,0 +1,76 @@
+.ai-explain {
+  margin-top: 20rpx;
+  padding-top: 20rpx;
+  border-top: 1rpx solid var(--border);
+
+  .ai-reveal-btn {
+    background: var(--card);
+    color: var(--primary);
+    border: 1rpx solid var(--border);
+    border-radius: 12rpx;
+    font-size: 26rpx;
+    line-height: 2.4;
+  }
+
+  .ai-heading {
+    display: block;
+    font-size: 24rpx;
+    font-weight: 700;
+    color: var(--primary);
+    margin-bottom: 12rpx;
+  }
+
+  .ai-layer {
+    margin-bottom: 16rpx;
+
+    &.ai-layer--deep {
+      border-left: 4rpx solid var(--accent);
+      padding-left: 16rpx;
+    }
+
+    .ai-aspect-tag {
+      display: inline-block;
+      background: var(--accent);
+      color: var(--accent-foreground);
+      font-size: 20rpx;
+      border-radius: 6rpx;
+      padding: 2rpx 10rpx;
+      margin-bottom: 6rpx;
+    }
+
+    .ai-text {
+      display: block;
+      font-size: 26rpx;
+      line-height: 1.7;
+      color: var(--foreground);
+    }
+
+    .ai-cached { font-size: 22rpx; color: var(--muted-foreground); }
+  }
+
+  .ai-error, .ai-note {
+    display: block;
+    font-size: 24rpx;
+    color: var(--muted-foreground);
+    margin: 8rpx 0;
+  }
+  .ai-note--busy { color: var(--primary); }
+
+  .ai-aspects {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 12rpx;
+
+    .ai-deepen-label { font-size: 22rpx; color: var(--muted-foreground); }
+
+    .ai-aspect-chip {
+      border: 1rpx solid var(--border);
+      color: var(--primary);
+      background: var(--card);
+      border-radius: 999rpx;
+      padding: 8rpx 20rpx;
+      font-size: 24rpx;
+    }
+  }
+}

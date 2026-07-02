@@ -1,3 +1,288 @@
 .practice {
-  .muted { font-size: 28rpx; }
+  // ---------- idle ----------
+  .idle-head {
+    text-align: center;
+    margin: 24rpx 0 40rpx;
+
+    .idle-title { display: block; font-size: 48rpx; font-weight: 700; }
+    .idle-sub { display: block; margin-top: 12rpx; font-size: 26rpx; color: var(--muted-foreground); }
+  }
+
+  .mode-picker {
+    margin-bottom: 40rpx;
+
+    .mode-title { display: block; font-size: 28rpx; font-weight: 600; margin-bottom: 16rpx; }
+
+    .mode-option {
+      display: flex;
+      align-items: flex-start;
+      gap: 20rpx;
+      border: 2rpx solid var(--border);
+      border-radius: 16rpx;
+      background: var(--card);
+      padding: 20rpx;
+      margin-bottom: 16rpx;
+
+      &.mode-option--active {
+        border-color: var(--primary);
+        background: var(--accent);
+      }
+
+      .radio {
+        margin-top: 6rpx;
+        width: 28rpx;
+        height: 28rpx;
+        border-radius: 50%;
+        border: 3rpx solid var(--border);
+        box-sizing: border-box;
+
+        &.radio--on { border-width: 9rpx; border-color: var(--primary); }
+      }
+
+      .mode-label { display: block; font-size: 28rpx; font-weight: 500; }
+      .mode-desc { display: block; font-size: 23rpx; color: var(--muted-foreground); margin-top: 4rpx; }
+    }
+  }
+
+  .free-note { display: block; text-align: center; font-size: 24rpx; margin-bottom: 32rpx; }
+  .start-btn { width: 100%; }
+  .start-fresh {
+    display: block;
+    text-align: center;
+    margin-top: 24rpx;
+    font-size: 24rpx;
+    color: var(--muted-foreground);
+    text-decoration: underline;
+  }
+  .pass-note { display: block; text-align: center; margin-top: 24rpx; font-size: 24rpx; }
+
+  // ---------- starting ----------
+  .center-box {
+    min-height: 40vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 24rpx;
+
+    .pulse-dot {
+      width: 40rpx;
+      height: 40rpx;
+      border-radius: 50%;
+      background: var(--primary);
+      animation: practice-pulse 1s ease-in-out infinite;
+    }
+  }
+
+  // ---------- answering / feedback ----------
+  .progress-row {
+    margin-bottom: 24rpx;
+
+    .progress-meta {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      margin-bottom: 10rpx;
+      font-size: 24rpx;
+      .progress-count { font-weight: 600; }
+    }
+
+    .progress-track {
+      height: 8rpx;
+      border-radius: 999rpx;
+      background: var(--muted);
+      overflow: hidden;
+
+      .progress-fill { height: 100%; border-radius: 999rpx; background: var(--primary); }
+    }
+
+    .history-link {
+      display: block;
+      margin-top: 12rpx;
+      text-align: right;
+      font-size: 24rpx;
+      color: var(--muted-foreground);
+      text-decoration: underline;
+    }
+  }
+
+  .question-card {
+    border: 2rpx solid var(--border);
+    border-radius: var(--radius);
+    padding: 40rpx 32rpx;
+    margin-bottom: 24rpx;
+
+    .q-counter {
+      display: block;
+      text-align: center;
+      font-size: 22rpx;
+      font-weight: 700;
+      letter-spacing: 2rpx;
+      color: var(--primary);
+    }
+
+    .q-stem {
+      display: block;
+      text-align: center;
+      margin: 16rpx 0 32rpx;
+      font-size: 34rpx;
+      font-weight: 600;
+      line-height: 1.6;
+    }
+  }
+
+  .action-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 24rpx;
+
+    .exit-link { font-size: 28rpx; color: var(--muted-foreground); padding: 16rpx; }
+    .action-btn { flex: 1; max-width: 70%; margin: 0; }
+  }
+
+  // ---------- completed ----------
+  .done-card {
+    text-align: center;
+    padding: 48rpx 32rpx;
+
+    .done-icon {
+      display: block;
+      font-size: 80rpx;
+      color: var(--success);
+      margin-bottom: 8rpx;
+    }
+    .done-title { display: block; font-size: 40rpx; font-weight: 600; }
+    .done-body { display: block; margin-top: 12rpx; font-size: 26rpx; color: var(--muted-foreground); }
+    .done-readiness { display: block; margin-top: 16rpx; font-size: 24rpx; color: var(--success); }
+    .done-btn { margin-top: 24rpx; width: 100%; }
+  }
+
+  .btn-secondary {
+    background: var(--card);
+    color: var(--foreground);
+    border: 1rpx solid var(--border);
+    border-radius: 999rpx;
+    font-size: 30rpx;
+  }
+
+  .error-box {
+    border: 1rpx solid var(--destructive);
+    background: rgba(220, 38, 38, 0.08);
+    color: var(--destructive);
+    border-radius: 12rpx;
+    padding: 24rpx;
+    margin-bottom: 24rpx;
+    font-size: 26rpx;
+  }
+
+  // ---------- history overlay ----------
+  .history {
+    .history-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 24rpx;
+
+      .history-title { font-size: 36rpx; font-weight: 600; }
+      .history-back { font-size: 26rpx; color: var(--muted-foreground); padding: 8rpx; }
+    }
+
+    .attempt {
+      .attempt-head {
+        display: flex;
+        align-items: center;
+        gap: 12rpx;
+        margin-bottom: 12rpx;
+
+        .attempt-index {
+          width: 40rpx;
+          height: 40rpx;
+          line-height: 40rpx;
+          text-align: center;
+          border-radius: 50%;
+          background: var(--muted);
+          font-size: 22rpx;
+          font-weight: 600;
+        }
+        .attempt-verdict { font-size: 26rpx; font-weight: 600; }
+      }
+
+      .attempt-stem { display: block; font-size: 30rpx; line-height: 1.6; margin-bottom: 16rpx; }
+
+      .attempt-meta {
+        display: flex;
+        gap: 32rpx;
+        margin-top: 12rpx;
+        font-size: 22rpx;
+        color: var(--muted-foreground);
+      }
+
+      .attempt-expl {
+        margin-top: 12rpx;
+        background: var(--muted);
+        border-radius: 12rpx;
+        padding: 16rpx;
+        font-size: 24rpx;
+        color: var(--muted-foreground);
+        line-height: 1.6;
+      }
+    }
+  }
+}
+
+// Shared choice rows (also used by the history overlay)
+.choice {
+  display: flex;
+  align-items: center;
+  gap: 20rpx;
+  border: 3rpx solid var(--border);
+  border-radius: var(--radius);
+  background: var(--card);
+  padding: 24rpx;
+  margin-bottom: 16rpx;
+
+  .choice-key {
+    width: 52rpx;
+    height: 52rpx;
+    line-height: 48rpx;
+    text-align: center;
+    flex-shrink: 0;
+    border: 1rpx solid var(--border);
+    border-radius: 50%;
+    background: var(--background);
+    font-size: 26rpx;
+    font-weight: 700;
+  }
+
+  .choice-text { flex: 1; font-size: 28rpx; line-height: 1.55; }
+  .choice-mark { font-size: 32rpx; font-weight: 700; flex-shrink: 0; }
+
+  &.choice--selected { border-color: var(--primary); background: var(--accent); }
+  &.choice--correct { border-color: var(--success); background: rgba(22, 163, 74, 0.08); }
+  &.choice--wrong { border-color: var(--destructive); background: rgba(220, 38, 38, 0.08); }
+  &.choice--dim { .choice-text { color: var(--muted-foreground); } }
+
+  &.choice--small { padding: 16rpx; .choice-text { font-size: 24rpx; } }
+}
+
+.ok { color: var(--success); }
+.bad { color: var(--destructive); }
+
+.verdict-box {
+  margin-top: 24rpx;
+  border-radius: var(--radius);
+  padding: 24rpx;
+  border: 1rpx solid var(--border);
+
+  &.verdict-box--ok { border-color: rgba(22, 163, 74, 0.4); background: rgba(22, 163, 74, 0.05); }
+  &.verdict-box--bad { border-color: rgba(220, 38, 38, 0.4); background: rgba(220, 38, 38, 0.05); }
+
+  .verdict-title { display: block; font-size: 30rpx; font-weight: 600; }
+  .verdict-expl { display: block; margin-top: 12rpx; font-size: 26rpx; line-height: 1.7; color: var(--muted-foreground); }
+}
+
+@keyframes practice-pulse {
+  0%, 100% { opacity: 0.35; transform: scale(0.85); }
+  50% { opacity: 1; transform: scale(1.1); }
 }
