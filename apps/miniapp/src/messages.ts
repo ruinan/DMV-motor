@@ -139,7 +139,19 @@ export const M = {
     endExamNow: '结束考试（{n}s）',
     terminatedTitle: '考试结束——错题过多',
     terminatedBody: '你已答 {answered} 题，其中 {wrong} 道错。错题超过失败门槛，考试自动终止。',
-    terminatedTryAgain: '重新开始一次模考'
+    terminatedTryAgain: '重新开始一次模考',
+    history: '历史记录',
+    historyEmpty: '还没有模考记录。',
+    continueExam: '继续未完成的考试',
+    statsRecent3: '近3次平均',
+    statsBest: '最好成绩',
+    statsLatest: '最近一次',
+    statusSubmitted: '已交卷',
+    statusInProgress: '进行中',
+    statusExited: '中途退出',
+    statusFailed: '错题终止',
+    statusExpired: '超时结束',
+    notScored: '未计分'
   },
   me: {
     account: '账户',

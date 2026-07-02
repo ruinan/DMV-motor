@@ -172,14 +172,34 @@ type StubMistake = {
   source: string
 }
 
+type StubMockAnswer = { question_id: string; selected: string; is_correct: boolean }
+type StubMockAttempt = {
+  id: string
+  status: 'in_progress' | 'submitted' | 'ended_by_failure' | 'ended_by_exit'
+  questions: StubQuestion[]
+  answers: StubMockAnswer[]
+  started_at: string
+  submitted_at: string
+  score_percent: number
+  time_limit_seconds: number
+}
+
+const MOCK_QUOTA = 3
+const MOCK_MAX_WRONG = 2 // terminate on the 3rd wrong (mirrors the 85% cap idea)
+const MOCK_TIME_LIMIT_S = 600
+
 const sessions = new Map<string, StubSession>()
 const mistakes = new Map<string, StubMistake>()
+const mockAttempts = new Map<string, StubMockAttempt>()
+let mockRemaining = MOCK_QUOTA
 let seq = 1
 
 /** Test hook — wipe all mutable stub state. */
 export function resetStubState(): void {
   sessions.clear()
   mistakes.clear()
+  mockAttempts.clear()
+  mockRemaining = MOCK_QUOTA
   seq = 1
 }
 
@@ -196,7 +216,36 @@ function activeSession(): StubSession | null {
   return null
 }
 
-function recordMistake(q: StubQuestion): void {
+function mockDetail(a: StubMockAttempt) {
+  const finished = a.status !== 'in_progress'
+  const correct = a.answers.filter(x => x.is_correct).length
+  const wrong = a.answers.length - correct
+  return {
+    mock_attempt_id: a.id,
+    mock_exam_id: 'CA_C_STUB',
+    status: a.status,
+    language: 'zh',
+    questions: a.questions.map(publicQuestion),
+    saved_answers: a.answers.map(x => {
+      const q = a.questions.find(qq => qq.question_id === x.question_id)!
+      return {
+        question_id: x.question_id,
+        selected_choice_key: x.selected,
+        correct_choice_key: q.correct,
+        is_correct: x.is_correct,
+        explanation: finished ? q.explanation : ''
+      }
+    }),
+    score_percent: a.score_percent,
+    correct_count: correct,
+    wrong_count: wrong,
+    time_limit_seconds: a.time_limit_seconds,
+    started_at: a.started_at,
+    time_used_seconds: finished ? Math.min(a.time_limit_seconds, 137) : -1
+  }
+}
+
+function recordMistake(q: StubQuestion, source: string = 'practice'): void {
   const existing = mistakes.get(q.question_id)
   if (existing) {
     existing.wrong_count += 1
@@ -208,7 +257,7 @@ function recordMistake(q: StubQuestion): void {
       topic_id: q.topic_id,
       wrong_count: 1,
       last_wrong_at: new Date().toISOString(),
-      source: 'practice'
+      source
     })
   }
 }
@@ -320,6 +369,7 @@ export function stubRequest(path: string, method: string = 'GET', data?: any): a
     const s = activeSession()
     return {
       ...base,
+      access: { ...base.access, mock_remaining: mockRemaining },
       learning: {
         ...base.learning,
         has_in_progress_practice: !!s,
@@ -414,6 +464,127 @@ export function stubRequest(path: string, method: string = 'GET', data?: any): a
           }
         })
       }
+    }
+  }
+
+  // ---- mock exams ----
+  if (key === '/api/v1/mock-exams/attempts' && method === 'POST') {
+    if (mockRemaining <= 0) throw stubError('ACCESS_DENIED', 403, '模拟考次数已用完')
+    mockRemaining -= 1
+    const a: StubMockAttempt = {
+      id: `ma-${seq++}`,
+      status: 'in_progress',
+      questions: QUESTIONS,
+      answers: [],
+      started_at: new Date().toISOString(),
+      submitted_at: '',
+      score_percent: -1,
+      time_limit_seconds: MOCK_TIME_LIMIT_S
+    }
+    mockAttempts.set(a.id, a)
+    return {
+      mock_attempt_id: a.id,
+      status: a.status,
+      mock_remaining_after_start: mockRemaining,
+      questions: a.questions.map(publicQuestion)
+    }
+  }
+  if (key === '/api/v1/mock-exams/attempts/history' && method === 'GET') {
+    const attempts = Array.from(mockAttempts.values())
+      .sort((a, b) => b.started_at.localeCompare(a.started_at))
+      .map(a => ({
+        attempt_id: a.id,
+        mock_exam_id: 'CA_C_STUB',
+        mock_exam_code: 'CA_C_STUB',
+        status: a.status,
+        score_percent: a.score_percent,
+        correct_count: a.answers.filter(x => x.is_correct).length,
+        answered_count: a.answers.length,
+        started_at: a.started_at,
+        submitted_at: a.submitted_at
+      }))
+    return { attempts, total_in_db: attempts.length }
+  }
+  if (key === '/api/v1/mock-exams/attempts/stats' && method === 'GET') {
+    const all = Array.from(mockAttempts.values())
+    const submitted = all
+      .filter(a => a.status === 'submitted')
+      .sort((a, b) => b.submitted_at.localeCompare(a.submitted_at))
+    const scores = submitted.map(a => a.score_percent)
+    const recent3 = scores.slice(0, 3)
+    return {
+      total_attempts: all.length,
+      submitted_count: submitted.length,
+      exited_count: all.filter(a => a.status === 'ended_by_exit').length,
+      recent_3_avg_score_percent: recent3.length
+        ? Math.round(recent3.reduce((x, y) => x + y, 0) / recent3.length)
+        : -1,
+      best_score_percent: scores.length ? Math.max(...scores) : -1,
+      latest_score_percent: scores.length ? scores[0] : -1
+    }
+  }
+  const mm = key.match(/^\/api\/v1\/mock-exams\/attempts\/([^/]+)(\/[a-z-]+)?$/)
+  if (mm) {
+    const a = mockAttempts.get(mm[1])
+    if (!a) throw stubError('NOT_FOUND', 404, '考试不存在')
+    const sub = mm[2] || ''
+
+    if (sub === '' && method === 'GET') return mockDetail(a)
+
+    if (sub === '/answers' && method === 'POST') {
+      if (a.status !== 'in_progress') throw stubError('MOCK_EXPIRED', 409, '考试已结束')
+      const q = a.questions.find(x => x.question_id === data?.question_id)
+      if (!q) throw stubError('NOT_FOUND', 404, '题目不存在')
+      const isCorrect = data?.selected_choice_key === q.correct
+      a.answers.push({ question_id: q.question_id, selected: data?.selected_choice_key, is_correct: isCorrect })
+      if (!isCorrect) recordMistake(q, 'mock')
+      const wrong = a.answers.filter(x => !x.is_correct).length
+      const shouldTerminate = wrong > MOCK_MAX_WRONG
+      if (shouldTerminate) {
+        a.status = 'ended_by_failure'
+        a.submitted_at = new Date().toISOString()
+      }
+      return {
+        saved: true,
+        answered_count: a.answers.length,
+        is_correct: isCorrect,
+        correct_choice_key: q.correct,
+        wrong_count: wrong,
+        max_allowed_wrong: MOCK_MAX_WRONG,
+        should_terminate: shouldTerminate
+      }
+    }
+    if (sub === '/submit' && method === 'POST') {
+      if (a.status === 'in_progress') {
+        const correct = a.answers.filter(x => x.is_correct).length
+        a.status = 'submitted'
+        a.submitted_at = new Date().toISOString()
+        a.score_percent = Math.round((correct / a.questions.length) * 100)
+      }
+      const correct = a.answers.filter(x => x.is_correct).length
+      const wrongTopics = new Map<string, string>()
+      for (const x of a.answers) {
+        if (x.is_correct) continue
+        const q = a.questions.find(qq => qq.question_id === x.question_id)!
+        const t = topics.find(tt => tt.id === q.topic_id)
+        if (t) wrongTopics.set(t.id, t.name_zh)
+      }
+      return {
+        mock_attempt_id: a.id,
+        status: a.status,
+        score_percent: a.score_percent,
+        correct_count: correct,
+        wrong_count: a.answers.length - correct,
+        weak_topics: Array.from(wrongTopics, ([topic_id, label]) => ({ topic_id, label })),
+        next_action: { type: 'practice', label: '继续练习薄弱知识点' }
+      }
+    }
+    if (sub === '/exit' && method === 'POST') {
+      if (a.status === 'in_progress') {
+        a.status = 'ended_by_exit'
+        a.submitted_at = new Date().toISOString()
+      }
+      return { mock_attempt_id: a.id, status: a.status }
     }
   }
 

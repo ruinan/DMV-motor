@@ -1,0 +1,189 @@
+.mock-exam {
+  .page-title { display: block; font-size: 40rpx; font-weight: 700; margin-bottom: 16rpx; }
+
+  .timer {
+    display: block;
+    text-align: center;
+    font-size: 30rpx;
+    font-weight: 600;
+    color: var(--muted-foreground);
+    margin-bottom: 16rpx;
+
+    &.timer--low { color: var(--destructive); }
+  }
+
+  .progress-row {
+    margin-bottom: 20rpx;
+
+    .progress-meta {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 10rpx;
+      font-size: 24rpx;
+    }
+
+    .progress-track {
+      height: 8rpx;
+      border-radius: 999rpx;
+      background: var(--muted);
+      overflow: hidden;
+
+      .progress-fill { height: 100%; border-radius: 999rpx; background: var(--primary); }
+    }
+
+    .save-status {
+      min-height: 32rpx;
+      text-align: right;
+      font-size: 22rpx;
+      margin-top: 8rpx;
+    }
+  }
+
+  .question-card {
+    border: 2rpx solid var(--border);
+    border-radius: var(--radius);
+    padding: 40rpx 32rpx;
+    margin-bottom: 24rpx;
+
+    .q-counter {
+      display: block;
+      text-align: center;
+      font-size: 22rpx;
+      font-weight: 700;
+      letter-spacing: 2rpx;
+      color: var(--muted-foreground);
+    }
+
+    .q-stem {
+      display: block;
+      text-align: center;
+      margin: 16rpx 0 32rpx;
+      font-size: 32rpx;
+      font-weight: 600;
+      line-height: 1.6;
+    }
+
+    .inline-error { display: block; margin-top: 16rpx; font-size: 24rpx; }
+  }
+
+  .action-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 24rpx;
+
+    .exit-link { font-size: 28rpx; color: var(--muted-foreground); padding: 16rpx; }
+    .action-btn { flex: 1; max-width: 70%; margin: 0; }
+  }
+
+  .btn-danger {
+    background: var(--destructive);
+    color: #fff;
+    border-radius: 999rpx;
+    font-size: 30rpx;
+  }
+
+  .btn-secondary {
+    background: var(--card);
+    color: var(--foreground);
+    border: 1rpx solid var(--border);
+    border-radius: 999rpx;
+    font-size: 30rpx;
+  }
+
+  .block-btn { width: 100%; margin-top: 20rpx; }
+
+  // ---- result ----
+  .result-card {
+    text-align: center;
+    padding: 48rpx 32rpx;
+
+    .result-label { display: block; font-size: 24rpx; letter-spacing: 2rpx; color: var(--muted-foreground); }
+    .result-score { display: block; margin-top: 8rpx; font-size: 96rpx; font-weight: 700; }
+
+    .result-badge {
+      display: inline-block;
+      margin-top: 16rpx;
+      border-radius: 999rpx;
+      padding: 8rpx 28rpx;
+      font-size: 26rpx;
+      font-weight: 600;
+
+      &.result-badge--pass { background: rgba(22, 163, 74, 0.1); color: var(--success); }
+      &.result-badge--fail { background: rgba(220, 38, 38, 0.1); color: var(--destructive); }
+    }
+
+    .result-counts {
+      display: flex;
+      justify-content: center;
+      gap: 40rpx;
+      margin-top: 24rpx;
+      font-size: 28rpx;
+      font-weight: 600;
+    }
+
+    .result-readiness { display: block; margin-top: 20rpx; font-size: 24rpx; color: var(--success); }
+  }
+
+  .weak-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12rpx;
+
+    .weak-chip {
+      background: var(--accent);
+      color: var(--accent-foreground);
+      border-radius: 999rpx;
+      padding: 8rpx 24rpx;
+      font-size: 24rpx;
+    }
+  }
+
+  // ---- terminated ----
+  .terminated-card {
+    text-align: center;
+    padding: 48rpx 32rpx;
+    border-color: rgba(220, 38, 38, 0.4);
+    background: rgba(220, 38, 38, 0.04);
+
+    .terminated-icon { display: block; font-size: 64rpx; margin-bottom: 12rpx; }
+    .terminated-title { display: block; font-size: 36rpx; font-weight: 700; }
+    .terminated-body { display: block; margin-top: 12rpx; font-size: 26rpx; color: var(--muted-foreground); line-height: 1.6; }
+  }
+
+  // ---- review ----
+  .review-head { margin-bottom: 24rpx; }
+
+  .review-item {
+    .review-item-head {
+      display: flex;
+      align-items: center;
+      gap: 12rpx;
+      margin-bottom: 12rpx;
+
+      .review-index {
+        width: 40rpx;
+        height: 40rpx;
+        line-height: 40rpx;
+        text-align: center;
+        border-radius: 50%;
+        background: var(--muted);
+        font-size: 22rpx;
+        font-weight: 600;
+      }
+      .review-verdict { font-size: 26rpx; font-weight: 600; }
+    }
+
+    .review-stem { display: block; font-size: 30rpx; line-height: 1.6; margin-bottom: 16rpx; }
+
+    .review-expl {
+      margin-top: 12rpx;
+      background: var(--muted);
+      border-radius: 12rpx;
+      padding: 16rpx;
+      font-size: 24rpx;
+      color: var(--muted-foreground);
+      line-height: 1.6;
+    }
+  }
+}

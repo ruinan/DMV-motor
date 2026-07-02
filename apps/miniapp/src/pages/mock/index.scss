@@ -1,10 +1,71 @@
 .mock {
-  .remaining {
-    display: block;
-    font-size: 72rpx;
-    font-weight: 700;
-    color: var(--primary);
-    margin-bottom: 12rpx;
+  .mock-head {
+    margin: 8rpx 0 32rpx;
+    .mock-title { display: block; font-size: 44rpx; font-weight: 700; }
+    .mock-sub { display: block; margin-top: 8rpx; font-size: 24rpx; color: var(--muted-foreground); }
   }
-  .muted { font-size: 28rpx; }
+
+  .lock-card {
+    text-align: center;
+    padding: 48rpx 32rpx;
+    .lock-icon { display: block; font-size: 64rpx; margin-bottom: 16rpx; }
+    .lock-body { display: block; font-size: 26rpx; color: var(--muted-foreground); margin-bottom: 32rpx; line-height: 1.6; }
+  }
+
+  .quota-card {
+    .quota-main {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      .quota-num { font-size: 64rpx; font-weight: 700; color: var(--primary); }
+    }
+
+    .quota-stats {
+      display: flex;
+      margin-top: 20rpx;
+      padding-top: 20rpx;
+      border-top: 1rpx solid var(--border);
+
+      .qs {
+        flex: 1;
+        text-align: center;
+        .qs-label { display: block; font-size: 22rpx; color: var(--muted-foreground); }
+        .qs-num { display: block; margin-top: 6rpx; font-size: 32rpx; font-weight: 600; }
+      }
+    }
+  }
+
+  .start-btn { width: 100%; margin: 8rpx 0 40rpx; }
+
+  .error-box {
+    border: 1rpx solid var(--destructive);
+    background: rgba(220, 38, 38, 0.08);
+    color: var(--destructive);
+    border-radius: 12rpx;
+    padding: 20rpx;
+    margin-bottom: 24rpx;
+    font-size: 26rpx;
+  }
+
+  .history-block {
+    > .card-title { margin-bottom: 16rpx; }
+
+    .history-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 24rpx 28rpx;
+
+      .hr-left {
+        .hr-status { display: block; font-size: 28rpx; font-weight: 600; }
+        .hr-status--submitted { color: var(--success); }
+        .hr-status--ended_by_failure { color: var(--destructive); }
+        .hr-status--in_progress { color: var(--primary); }
+        .hr-status--ended_by_exit, .hr-status--expired { color: var(--muted-foreground); }
+        .hr-date { display: block; margin-top: 4rpx; font-size: 22rpx; color: var(--muted-foreground); }
+      }
+
+      .hr-score { font-size: 34rpx; font-weight: 700; }
+    }
+  }
 }

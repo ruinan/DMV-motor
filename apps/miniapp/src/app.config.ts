@@ -11,6 +11,7 @@ export default defineAppConfig({
     'pages/login/index',
     'pages/practice/index',
     'pages/mock/index',
+    'pages/mock-exam/index',
     'pages/me/index'
   ],
   window: {
