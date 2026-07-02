@@ -31,15 +31,4 @@
     font-size: 32px;
   }
 
-  // Dev-only skip button — deliberately plain/dashed so it never looks like a
-  // real CTA. Only rendered when DEV_BYPASS is on (absent from prod builds).
-  .dev-skip {
-    margin-top: 24px;
-    width: 100%;
-    background: transparent;
-    color: #999;
-    border: 1px dashed #bbb;
-    border-radius: 999px;
-    font-size: 26px;
-  }
 }

@@ -19,14 +19,15 @@ export default function Login() {
   const [hint, setHint] = useState('')
 
   useLoad(() => {
+    // Tab pages are only reachable via switchTab (redirectTo rejects them).
     if (isSignedIn()) {
-      Taro.redirectTo({ url: '/pages/index/index' })
+      Taro.switchTab({ url: '/pages/dashboard/index' })
       return
     }
     // Dev bypass: never sit on the login wall — stub-sign-in and go straight in.
     if (DEV_BYPASS) {
       devSignIn()
-      Taro.redirectTo({ url: '/pages/index/index' })
+      Taro.switchTab({ url: '/pages/dashboard/index' })
     }
   })
 
@@ -36,7 +37,7 @@ export default function Login() {
     try {
       const r = await loginWithWeChat(withEmail)
       if (r.status === 'authenticated') {
-        Taro.redirectTo({ url: '/pages/index/index' })
+        Taro.switchTab({ url: '/pages/dashboard/index' })
       } else if (r.status === 'email_required') {
         setNeedEmail(true); setEmailInUse(false); setHint(t('emailRequiredHint'))
       } else if (r.status === 'email_in_use') {

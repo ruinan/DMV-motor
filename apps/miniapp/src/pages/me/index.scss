@@ -1,0 +1,12 @@
+.me {
+  .email, .exam { font-size: 32rpx; font-weight: 600; }
+
+  .btn-out {
+    margin-top: 24rpx;
+    background: var(--card);
+    color: var(--destructive);
+    border: 1rpx solid var(--border);
+    border-radius: 999rpx;
+    font-size: 30rpx;
+  }
+}
