@@ -1,5 +1,8 @@
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { subscribe, invalidate } from './bus'
+import { cacheGet, cacheSet, resetCache } from './cache'
+
+beforeEach(() => resetCache())
 
 describe('invalidation bus', () => {
   it('notifies a subscriber whose path starts with the invalidated prefix', () => {
@@ -40,5 +43,13 @@ describe('invalidation bus', () => {
     invalidate('/api/v1/exams')
     expect(fn).toHaveBeenCalledTimes(1)
     off()
+  })
+
+  it('evicts matching cache entries so the refetch hits the network', () => {
+    cacheSet('/api/v1/me', { uid: 'u1' })
+    cacheSet('/api/v1/summary', { score: 1 })
+    invalidate('/api/v1/me')
+    expect(cacheGet('/api/v1/me')).toBeUndefined()
+    expect(cacheGet('/api/v1/summary')).toBeDefined()
   })
 })

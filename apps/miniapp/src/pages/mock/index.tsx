@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { ensureAuthed } from '@/lib/auth'
 import { hideHomeCapsule } from '@/lib/nav'
 import { api } from '@/lib/request'
+import { invalidate } from '@/lib/bus'
 import { useApi } from '@/lib/useApi'
 import { useExamTheme } from '@/lib/useExamTheme'
 import { TabBar } from '@/components/TabBar'
@@ -78,6 +79,10 @@ export default function Mock() {
         method: 'POST',
         data: { language: LANG }
       })
+      // Starting consumes quota — evict /me and the attempt lists so this
+      // landing shows the truth when the user backs out mid-exam.
+      invalidate('/api/v1/me')
+      invalidate('/api/v1/mock-exams')
       Taro.navigateTo({ url: `/pages/mock-exam/index?id=${res.mock_attempt_id}` })
     } catch (err: any) {
       setError(err?.code === 'ACCESS_DENIED' ? M.mock.errorPassRequired : err?.message || M.app.error)

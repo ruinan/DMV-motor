@@ -3,6 +3,7 @@ import Taro, { useLoad } from '@tarojs/taro'
 import { useEffect, useState } from 'react'
 import { ensureAuthed } from '@/lib/auth'
 import { api, apiEnvelope } from '@/lib/request'
+import { cacheGet, cachedFetch, isFresh } from '@/lib/cache'
 import { invalidate } from '@/lib/bus'
 import { useApi } from '@/lib/useApi'
 import { useExamTheme } from '@/lib/useExamTheme'
@@ -47,15 +48,24 @@ export default function Mistakes() {
   useLoad(() => { ensureAuthed() })
 
   useEffect(() => {
+    const path = `/api/v1/mistakes?page=${page}&page_size=${PAGE_SIZE}`
     let stale = false
+    const apply = (data: any, meta: any) => {
+      setItems(data?.items ?? [])
+      setTotal(Number(meta?.total ?? 0))
+    }
+    // Fresh cache (30s TTL, evicted by invalidate('/api/v1/mistakes')) serves
+    // instantly — re-entering the page or flipping back a page skips the fetch.
+    const cached = cacheGet(path)
+    if (cached && isFresh(path)) {
+      apply(cached.data, cached.meta)
+      setLoadError(false)
+      return
+    }
     setItems(null)
     setLoadError(false)
-    apiEnvelope<{ items: MistakeItem[] }>(`/api/v1/mistakes?page=${page}&page_size=${PAGE_SIZE}`)
-      .then(env => {
-        if (stale) return
-        setItems(env.data?.items ?? [])
-        setTotal(Number(env.meta?.total ?? 0))
-      })
+    cachedFetch(path, () => apiEnvelope<{ items: MistakeItem[] }>(path))
+      .then(env => { if (!stale) apply(env.data, env.meta) })
       .catch(() => { if (!stale) setLoadError(true) })
     return () => { stale = true }
   }, [page])

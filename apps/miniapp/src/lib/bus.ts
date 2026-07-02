@@ -1,7 +1,11 @@
 // Tiny invalidation bus — the miniapp's stand-in for TanStack Query's partial
 // key invalidation on web. useApi subscribes with its request path; mutations
 // call invalidate(prefix) and every subscriber whose path starts with that
-// prefix refetches. Query strings are ignored for matching.
+// prefix refetches. Matching cache entries are evicted first so those
+// refetches (and later remounts) hit the network, not the TTL cache.
+// Query strings are ignored for matching.
+
+import { cacheEvict } from './cache'
 
 type Listener = () => void
 
@@ -18,8 +22,10 @@ export function subscribe(path: string, fn: Listener): () => void {
   return () => { subscribers.delete(fn) }
 }
 
-/** Notify every subscriber whose path starts with `prefix`. */
+/** Evict matching cache entries, then notify every subscriber whose path
+ * starts with `prefix`. */
 export function invalidate(prefix: string): void {
+  cacheEvict(prefix)
   const p = stripQuery(prefix)
   for (const [fn, path] of subscribers) {
     if (path.startsWith(p)) fn()

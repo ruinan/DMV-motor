@@ -182,6 +182,17 @@ milestone adds only the endpoints it needs.
 > (`.question-block`) with the choice rows as the only boxes, filled key
 > badges for selected/correct/wrong (mobile-first clarity, diverges from web
 > on purpose).
+>
+> Throttle layer (2026-07-02, web staleTime parity): `lib/cache.ts` = TTL
+> read-cache + in-flight dedupe under `useApi` (fresh hit renders with zero
+> requests — tab switches stop refiring /me,/summary,…; stale entries render
+> instantly and revalidate in the background). Per-route TTLs mirror the web
+> hooks (me/entitlements/mistakes/mock 30s, exams 5min, practice-session
+> reads 0, default 60s). `invalidate()` now evicts matching entries before
+> notifying; `refresh()` force-evicts its own path; sign-out resets the cache
+> (account-switch safety). `useMinLoading` ported — `useApi.loading` shows
+> ≥300ms once shown, and not at all on cache hits. Imperative flows (practice
+> answering, mock runner, AttemptHistory) intentionally stay uncached.
 
 - **M1 — Shell**: 4-tab tabBar (icons = simple PNGs), page stubs, theme tokens in
   `app.scss`, per-exam theme helper (`useExamTheme` → root class +

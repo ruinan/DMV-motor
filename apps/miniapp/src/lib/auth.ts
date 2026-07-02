@@ -1,5 +1,6 @@
 import Taro from '@tarojs/taro'
 import { API_BASE, FIREBASE_API_KEY, DEV_BYPASS } from '../config'
+import { resetCache } from './cache'
 
 /**
  * Auth for the mini-program. The Firebase JS SDK can't run here, so we use the
@@ -68,6 +69,9 @@ export function signOut(): void {
   Taro.removeStorageSync(ID_TOKEN)
   Taro.removeStorageSync(REFRESH_TOKEN)
   Taro.removeStorageSync(EXPIRES_AT)
+  // The TTL cache holds the signed-out user's data; the next account on this
+  // device must never see it.
+  resetCache()
 }
 
 async function exchangeCustomToken(customToken: string): Promise<void> {
