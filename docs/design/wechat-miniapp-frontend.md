@@ -164,6 +164,16 @@ milestone adds only the endpoints it needs.
 
 ## 10.5 Milestones (each = build green + DevTools check before the next)
 
+> Status 2026-07-02: **M1–M6 done** (`8ab2bba`→`69fc6a4`), pending the user's
+> DevTools walkthrough. Adjustments made along the way: native tabBar replaced
+> by an in-page TabBar component with 32rpx labels (user asked for a bigger
+> footer font; also gives per-exam tinting for free) and the miniapp went
+> **Chinese-only** by user decision (i18n reduced to `LANG='zh'`, copy taken
+> verbatim from web zh.json). Entry page is now the dashboard with an
+> ensureAuthed() guard instead of login-first. Remaining: **M7** onboarding
+> exam-picker gate + dashboard exam switcher + polish; deferred extras: AI
+> review plan block on mock review, practice/mock history on the hub.
+
 - **M1 — Shell**: 4-tab tabBar (icons = simple PNGs), page stubs, theme tokens in
   `app.scss`, per-exam theme helper (`useExamTheme` → root class +
   `setTabBarStyle`), `useApi` + invalidation bus, stub: `/me /exams /topics
