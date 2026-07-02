@@ -89,6 +89,23 @@ export default function Dashboard() {
               </Button>
             </View>
           )}
+
+          <View className='link-row'>
+            <View
+              className='card link-card'
+              onClick={() => Taro.navigateTo({ url: '/pages/mistakes/index' })}
+            >
+              <Text className='link-icon'>🔖</Text>
+              <Text className='link-label'>{M.links.mistakes}</Text>
+            </View>
+            <View
+              className='card link-card'
+              onClick={() => Taro.navigateTo({ url: '/pages/progress/index' })}
+            >
+              <Text className='link-icon'>📈</Text>
+              <Text className='link-label'>{M.links.progress}</Text>
+            </View>
+          </View>
         </>
       )}
 

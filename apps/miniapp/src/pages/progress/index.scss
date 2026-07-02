@@ -1,0 +1,80 @@
+.progress {
+  .head {
+    margin: 8rpx 0 24rpx;
+    .head-title { display: block; font-size: 44rpx; font-weight: 700; }
+    .head-sub { display: block; margin-top: 8rpx; font-size: 24rpx; color: var(--muted-foreground); line-height: 1.6; }
+  }
+
+  .big-row {
+    display: flex;
+    align-items: center;
+    gap: 20rpx;
+
+    .big-num { font-size: 72rpx; font-weight: 700; color: var(--primary); }
+  }
+
+  .bar-track {
+    height: 12rpx;
+    border-radius: 999rpx;
+    background: var(--muted);
+    overflow: hidden;
+    margin: 16rpx 0 12rpx;
+
+    .bar-fill { height: 100%; border-radius: 999rpx; background: var(--primary); }
+  }
+
+  .hint { display: block; font-size: 22rpx; color: var(--muted-foreground); }
+
+  .badge {
+    border-radius: 999rpx;
+    padding: 6rpx 22rpx;
+    font-size: 24rpx;
+    font-weight: 600;
+
+    &.badge--ready { background: rgba(22, 163, 74, 0.1); color: var(--success); }
+    &.badge--not { background: var(--muted); color: var(--muted-foreground); }
+  }
+
+  .gates-sub { margin-bottom: 20rpx; }
+
+  .gate-row {
+    display: flex;
+    gap: 16rpx;
+    padding: 14rpx 0;
+    border-top: 1rpx solid var(--border);
+
+    .gate-mark { font-size: 30rpx; font-weight: 700; flex-shrink: 0; }
+
+    .gate-texts {
+      .gate-label { display: block; font-size: 28rpx; font-weight: 600; }
+      .gate-state { font-size: 22rpx; font-weight: 500; }
+      .gate-body { display: block; margin-top: 4rpx; font-size: 23rpx; color: var(--muted-foreground); line-height: 1.5; }
+    }
+  }
+
+  .locked-card {
+    text-align: center;
+    padding: 48rpx 32rpx;
+
+    .lock-icon { display: block; font-size: 56rpx; margin-bottom: 12rpx; }
+    .locked-title { display: block; font-size: 32rpx; font-weight: 600; }
+    .locked-body { display: block; margin: 12rpx 0 28rpx; font-size: 24rpx; color: var(--muted-foreground); line-height: 1.6; }
+  }
+
+  .weak-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16rpx 0;
+    border-top: 1rpx solid var(--border);
+
+    &:first-of-type { border-top: none; }
+
+    .weak-label { font-size: 28rpx; }
+    .weak-cta { font-size: 26rpx; color: var(--primary); font-weight: 500; padding: 8rpx; }
+    .weak-cta--busy { color: var(--muted-foreground); }
+  }
+
+  .next-label { display: block; font-size: 30rpx; margin-bottom: 20rpx; }
+  .next-btn { margin-top: 8rpx; }
+}

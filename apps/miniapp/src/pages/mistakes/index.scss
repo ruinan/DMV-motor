@@ -1,0 +1,87 @@
+.mistakes {
+  .head {
+    margin: 8rpx 0 24rpx;
+    .head-title { display: block; font-size: 44rpx; font-weight: 700; }
+    .head-sub { display: block; margin-top: 8rpx; font-size: 24rpx; color: var(--muted-foreground); line-height: 1.6; }
+  }
+
+  .practice-cta {
+    border-color: var(--primary);
+    background: var(--accent);
+
+    .cta-hint { display: block; font-size: 24rpx; color: var(--muted-foreground); margin-bottom: 16rpx; }
+  }
+
+  .empty-card {
+    text-align: center;
+    padding: 64rpx 32rpx;
+    border-style: dashed;
+    .empty-icon { display: block; font-size: 56rpx; margin-bottom: 16rpx; }
+  }
+
+  .mistake-row {
+    padding: 0;
+    overflow: hidden;
+
+    .row-head {
+      display: flex;
+      align-items: center;
+      padding: 24rpx 28rpx;
+
+      .row-main { flex: 1; min-width: 0; }
+
+      .row-chips {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10rpx;
+
+        .chip {
+          border-radius: 999rpx;
+          padding: 4rpx 18rpx;
+          font-size: 22rpx;
+        }
+        .chip--topic { background: var(--accent); color: var(--accent-foreground); font-weight: 500; }
+        .chip--source { border: 1rpx solid var(--border); color: var(--muted-foreground); }
+      }
+
+      .row-meta { display: block; margin-top: 8rpx; font-size: 22rpx; color: var(--muted-foreground); }
+
+      .row-arrow {
+        font-size: 32rpx;
+        color: var(--muted-foreground);
+        transition: transform 0.2s;
+        &.row-arrow--up { transform: rotate(180deg); }
+      }
+    }
+
+    .review-panel {
+      border-top: 1rpx solid var(--border);
+      padding: 24rpx 28rpx;
+
+      .panel-stem { display: block; font-size: 30rpx; line-height: 1.6; margin-bottom: 16rpx; }
+
+      .panel-expl {
+        margin-top: 12rpx;
+        background: var(--muted);
+        border-radius: 12rpx;
+        padding: 16rpx;
+        font-size: 24rpx;
+        color: var(--muted-foreground);
+        line-height: 1.6;
+      }
+    }
+
+    .panel-pad { display: block; padding: 24rpx 28rpx; }
+  }
+
+  .pager {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 24rpx 8rpx;
+    font-size: 26rpx;
+
+    .pager-btn { color: var(--primary); padding: 8rpx; }
+    .pager-btn--off { color: var(--muted-foreground); opacity: 0.5; }
+  }
+}
