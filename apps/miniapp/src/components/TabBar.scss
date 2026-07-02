@@ -5,11 +5,12 @@
   bottom: 0;
   z-index: 40;
   display: flex;
-  background: var(--card);
-  border-top: 1rpx solid var(--border);
+  /* Solid primary bar (per-exam tint: Class C blue / M1 amber via cascade). */
+  background: var(--primary);
   padding-bottom: env(safe-area-inset-bottom);
 
   .tab-item {
+    position: relative;
     flex: 1;
     display: flex;
     align-items: center;
@@ -18,12 +19,26 @@
 
     .tab-label {
       font-size: 32rpx;
-      color: var(--muted-foreground);
+      color: rgba(255, 255, 255, 0.72);
     }
   }
 
-  .tab-item--active .tab-label {
-    color: var(--primary);
-    font-weight: 700;
+  .tab-item--active {
+    .tab-label {
+      color: #ffffff;
+      font-weight: 700;
+    }
+
+    &::after {
+      content: '';
+      position: absolute;
+      left: 50%;
+      bottom: 10rpx;
+      transform: translateX(-50%);
+      width: 44rpx;
+      height: 6rpx;
+      border-radius: 999rpx;
+      background: #ffffff;
+    }
   }
 }

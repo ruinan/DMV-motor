@@ -2,6 +2,7 @@ import { View, Text, Button } from '@tarojs/components'
 import Taro, { useLoad } from '@tarojs/taro'
 import { useEffect, useRef, useState } from 'react'
 import { ensureAuthed } from '@/lib/auth'
+import { hideHomeCapsule } from '@/lib/nav'
 import { api } from '@/lib/request'
 import { invalidate } from '@/lib/bus'
 import { useExamTheme } from '@/lib/useExamTheme'
@@ -84,7 +85,10 @@ export default function Practice() {
   const [practiceMode, setPracticeMode] = useState<PracticeMode>('random')
   const autoResumeFired = useRef(false)
 
-  useLoad(() => { ensureAuthed() })
+  useLoad(() => {
+    ensureAuthed()
+    hideHomeCapsule()
+  })
 
   const hasPass = me?.access?.has_active_pass ?? false
   const entryType: 'free_trial' | 'full' = hasPass ? 'full' : 'free_trial'

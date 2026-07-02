@@ -2,6 +2,7 @@ import { View, Text, Button, Input } from '@tarojs/components'
 import Taro, { useLoad } from '@tarojs/taro'
 import { useState } from 'react'
 import { ensureAuthed, signOut } from '@/lib/auth'
+import { hideHomeCapsule } from '@/lib/nav'
 import { api } from '@/lib/request'
 import { invalidate } from '@/lib/bus'
 import { useApi } from '@/lib/useApi'
@@ -32,7 +33,10 @@ export default function Me() {
   )
   const [switching, setSwitching] = useState(false)
 
-  useLoad(() => { ensureAuthed() })
+  useLoad(() => {
+    ensureAuthed()
+    hideHomeCapsule()
+  })
 
   const hasPass = me?.access?.has_active_pass ?? false
   const entMap = new Map((entData?.entitlements ?? []).map(e => [e.exam_id, e]))

@@ -2,6 +2,7 @@ import { View, Text, Button } from '@tarojs/components'
 import Taro, { useLoad } from '@tarojs/taro'
 import { useState } from 'react'
 import { ensureAuthed } from '@/lib/auth'
+import { hideHomeCapsule } from '@/lib/nav'
 import { api } from '@/lib/request'
 import { useApi } from '@/lib/useApi'
 import { useExamTheme } from '@/lib/useExamTheme'
@@ -57,7 +58,10 @@ export default function Mock() {
   const [starting, setStarting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  useLoad(() => { ensureAuthed() })
+  useLoad(() => {
+    ensureAuthed()
+    hideHomeCapsule()
+  })
 
   const hasPass = me?.access?.has_active_pass ?? false
   const remaining = me?.access?.mock_remaining ?? 0
