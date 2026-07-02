@@ -188,10 +188,20 @@ const MOCK_QUOTA = 3
 const MOCK_MAX_WRONG = 2 // terminate on the 3rd wrong (mirrors the 85% cap idea)
 const MOCK_TIME_LIMIT_S = 600
 
+const EXAMS = [
+  { id: 'CA-C', state_code: 'CA', license_class: 'C', name_en: 'California Class C', name_zh: '加州 C 类驾照' },
+  { id: 'CA-M1', state_code: 'CA', license_class: 'M1', name_en: 'California M1 Motorcycle', name_zh: '加州 M1 摩托车' }
+]
+const DEV_REDEEM_CODE = 'DEV-2026'
+
 const sessions = new Map<string, StubSession>()
 const mistakes = new Map<string, StubMistake>()
 const mockAttempts = new Map<string, StubMockAttempt>()
 let mockRemaining = MOCK_QUOTA
+let currentExamId = 'CA-C'
+let subscribedExams = new Set(['CA-C'])
+let openedExams = new Set(['CA-C'])
+let backedUpAt: string | null = null
 let seq = 1
 
 /** Test hook — wipe all mutable stub state. */
@@ -200,6 +210,10 @@ export function resetStubState(): void {
   mistakes.clear()
   mockAttempts.clear()
   mockRemaining = MOCK_QUOTA
+  currentExamId = 'CA-C'
+  subscribedExams = new Set(['CA-C'])
+  openedExams = new Set(['CA-C'])
+  backedUpAt = null
   seq = 1
 }
 
@@ -363,13 +377,20 @@ export function stubRequest(path: string, method: string = 'GET', data?: any): a
   const qIdx = path.indexOf('?')
   const key = qIdx === -1 ? path : path.slice(0, qIdx)
 
-  // ---- /me (dynamic learning state) ----
+  // ---- /me (dynamic learning + exam state) ----
   if (key === '/api/v1/me' && method === 'GET') {
     const base = devStub['/api/v1/me']
     const s = activeSession()
+    const exam = EXAMS.find(e => e.id === currentExamId) || EXAMS[0]
     return {
       ...base,
-      access: { ...base.access, mock_remaining: mockRemaining },
+      current_exam: exam,
+      access: {
+        ...base.access,
+        has_active_pass: subscribedExams.has(currentExamId),
+        state: subscribedExams.has(currentExamId) ? 'active' : 'free_trial',
+        mock_remaining: mockRemaining
+      },
       learning: {
         ...base.learning,
         has_in_progress_practice: !!s,
@@ -385,6 +406,43 @@ export function stubRequest(path: string, method: string = 'GET', data?: any): a
           : null
       }
     }
+  }
+
+  // ---- exams / entitlements / redeem / backup ----
+  if (key === '/api/v1/me/exam' && method === 'PUT') {
+    const exam = EXAMS.find(e => e.id === data?.exam_id)
+    if (!exam) throw stubError('NOT_FOUND', 404, '考试不存在')
+    currentExamId = exam.id
+    openedExams.add(exam.id)
+    return { current_exam: exam }
+  }
+  if (key === '/api/v1/exams/entitlements' && method === 'GET') {
+    return {
+      entitlements: EXAMS.map(e => ({
+        exam_id: e.id,
+        subscribed: subscribedExams.has(e.id),
+        opened: openedExams.has(e.id)
+      }))
+    }
+  }
+  const of = key.match(/^\/api\/v1\/exams\/([^/]+)\/open-free$/)
+  if (of && method === 'POST') {
+    if (!EXAMS.some(e => e.id === of[1])) throw stubError('NOT_FOUND', 404, '考试不存在')
+    openedExams.add(of[1])
+    return { opened: true }
+  }
+  if (key === '/api/v1/access/redeem' && method === 'POST') {
+    const code = decodeURIComponent((path.split('code=')[1] || '').split('&')[0])
+    if (code !== DEV_REDEEM_CODE) throw stubError('CODE_INVALID', 422, '激活码无效')
+    subscribedExams.add(currentExamId)
+    return { redeemed: true, exam_id: currentExamId }
+  }
+  if (key === '/api/v1/backup/latest' && method === 'GET') {
+    return { backed_up_at: backedUpAt, exam_id: currentExamId }
+  }
+  if (key === '/api/v1/backup/sync' && method === 'POST') {
+    backedUpAt = new Date().toISOString()
+    return { synced: true, backed_up_at: backedUpAt }
   }
 
   // ---- practice sessions ----
