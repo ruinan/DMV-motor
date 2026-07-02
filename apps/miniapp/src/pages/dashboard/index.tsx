@@ -1,9 +1,10 @@
 import { View, Text, Button } from '@tarojs/components'
 import Taro, { useLoad } from '@tarojs/taro'
-import { isSignedIn } from '@/lib/auth'
+import { ensureAuthed } from '@/lib/auth'
 import { useApi } from '@/lib/useApi'
 import { useExamTheme } from '@/lib/useExamTheme'
-import { getLang, t } from '@/lib/i18n'
+import { TabBar } from '@/components/TabBar'
+import { M } from '@/messages'
 import './index.scss'
 
 type Summary = {
@@ -21,8 +22,7 @@ type Engagement = {
   daily_goal: number
 }
 
-/** Study Hub (tab 1) — M1 shell: readiness + coverage + engagement + next step.
- * Full study-hub parity (topic progress, recommendations) lands in M2. */
+/** Study Hub (tab 1) — readiness + coverage + engagement + next step. */
 export default function Dashboard() {
   const { themeClass, me, loading } = useExamTheme()
   const { data: summary } = useApi<Summary>('/api/v1/summary')
@@ -30,51 +30,46 @@ export default function Dashboard() {
     '/api/v1/engagement?tz_offset_minutes=' + -new Date().getTimezoneOffset()
   )
 
-  useLoad(() => {
-    if (!isSignedIn()) Taro.redirectTo({ url: '/pages/login/index' })
-  })
+  useLoad(() => { ensureAuthed() })
 
-  const lang = getLang()
-  const examName = me?.current_exam
-    ? (lang === 'zh' ? me.current_exam.name_zh : me.current_exam.name_en)
-    : ''
+  const examName = me?.current_exam?.name_zh || ''
 
   return (
     <View className={`page dashboard ${themeClass}`}>
       <View className='header'>
-        <Text className='title'>{t('studyHub')}</Text>
+        <Text className='title'>{M.dashboard.studyHub}</Text>
         {examName && <Text className='exam-chip'>{examName}</Text>}
       </View>
 
       {loading ? (
-        <Text className='muted'>{t('loading')}</Text>
+        <Text className='muted'>{M.app.loading}</Text>
       ) : (
         <>
           <View className='card'>
-            <Text className='card-title'>{t('readiness')}</Text>
+            <Text className='card-title'>{M.dashboard.readiness}</Text>
             <View className='score-row'>
               <Text className='score'>{summary?.readiness_score ?? '—'}</Text>
               <Text className='score-max'>/100</Text>
             </View>
             <Text className='muted verdict'>
-              {summary?.is_ready_candidate ? t('readyCandidate') : t('notReadyYet')}
+              {summary?.is_ready_candidate ? M.dashboard.readyCandidate : M.dashboard.notReadyYet}
             </Text>
           </View>
 
           <View className='card row-cards'>
             <View className='stat'>
-              <Text className='card-title'>{t('completion')}</Text>
+              <Text className='card-title'>{M.dashboard.completion}</Text>
               <Text className='stat-num'>{summary?.completion_score ?? 0}%</Text>
             </View>
             <View className='stat'>
-              <Text className='card-title'>{t('streak')}</Text>
+              <Text className='card-title'>{M.dashboard.streak}</Text>
               <Text className='stat-num'>
                 {engagement?.current_streak_days ?? 0}
-                <Text className='stat-unit'> {t('streakDays')}</Text>
+                <Text className='stat-unit'> {M.dashboard.streakDays}</Text>
               </Text>
             </View>
             <View className='stat'>
-              <Text className='card-title'>{t('today')}</Text>
+              <Text className='card-title'>{M.dashboard.today}</Text>
               <Text className='stat-num'>
                 {engagement?.answered_today ?? 0}
                 <Text className='stat-unit'>/{engagement?.daily_goal ?? 10}</Text>
@@ -84,18 +79,20 @@ export default function Dashboard() {
 
           {summary?.next_action && (
             <View className='card'>
-              <Text className='card-title'>{t('nextStep')}</Text>
+              <Text className='card-title'>{M.dashboard.nextStep}</Text>
               <Text className='next-label'>{summary.next_action.label}</Text>
               <Button
                 className='btn-primary next-btn'
-                onClick={() => Taro.switchTab({ url: '/pages/practice/index' })}
+                onClick={() => Taro.redirectTo({ url: '/pages/practice/index' })}
               >
-                {t('startPractice')}
+                {M.dashboard.startPractice}
               </Button>
             </View>
           )}
         </>
       )}
+
+      <TabBar current='dashboard' />
     </View>
   )
 }

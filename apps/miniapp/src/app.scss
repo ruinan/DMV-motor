@@ -65,7 +65,8 @@ page {
 
 .page {
   min-height: 100vh;
-  padding: 32rpx 32rpx 48rpx;
+  /* Bottom padding clears the fixed in-page TabBar (100rpx + safe area). */
+  padding: 32rpx 32rpx 180rpx;
   box-sizing: border-box;
   background: var(--background);
 }

@@ -48,6 +48,22 @@ export function isSignedIn(): boolean {
   return Boolean(Taro.getStorageSync(ID_TOKEN))
 }
 
+/**
+ * Page-load guard for authed pages (all top-level pages except login). Returns
+ * true when a session exists; in dev bypass it silently creates the stub
+ * session so UI work never hits the login wall. Otherwise sends the visitor to
+ * the login page and returns false.
+ */
+export function ensureAuthed(): boolean {
+  if (isDevSession() || isSignedIn()) return true
+  if (DEV_BYPASS) {
+    devSignIn()
+    return true
+  }
+  Taro.redirectTo({ url: '/pages/login/index' })
+  return false
+}
+
 export function signOut(): void {
   Taro.removeStorageSync(ID_TOKEN)
   Taro.removeStorageSync(REFRESH_TOKEN)

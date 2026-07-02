@@ -3,7 +3,7 @@ import Taro, { useLoad } from '@tarojs/taro'
 import { useState } from 'react'
 import { loginWithWeChat, isSignedIn, devSignIn } from '@/lib/auth'
 import { DEV_BYPASS } from '@/config'
-import { t } from '@/lib/i18n'
+import { M } from '@/messages'
 import './index.scss'
 
 /**
@@ -19,15 +19,14 @@ export default function Login() {
   const [hint, setHint] = useState('')
 
   useLoad(() => {
-    // Tab pages are only reachable via switchTab (redirectTo rejects them).
     if (isSignedIn()) {
-      Taro.switchTab({ url: '/pages/dashboard/index' })
+      Taro.redirectTo({ url: '/pages/dashboard/index' })
       return
     }
     // Dev bypass: never sit on the login wall — stub-sign-in and go straight in.
     if (DEV_BYPASS) {
       devSignIn()
-      Taro.switchTab({ url: '/pages/dashboard/index' })
+      Taro.redirectTo({ url: '/pages/dashboard/index' })
     }
   })
 
@@ -37,14 +36,14 @@ export default function Login() {
     try {
       const r = await loginWithWeChat(withEmail)
       if (r.status === 'authenticated') {
-        Taro.switchTab({ url: '/pages/dashboard/index' })
+        Taro.redirectTo({ url: '/pages/dashboard/index' })
       } else if (r.status === 'email_required') {
-        setNeedEmail(true); setEmailInUse(false); setHint(t('emailRequiredHint'))
+        setNeedEmail(true); setEmailInUse(false); setHint(M.login.emailRequiredHint)
       } else if (r.status === 'email_in_use') {
-        setNeedEmail(true); setEmailInUse(true); setHint(t('emailInUseHint'))
+        setNeedEmail(true); setEmailInUse(true); setHint(M.login.emailInUseHint)
       }
     } catch (e: any) {
-      Taro.showToast({ title: e?.message || 'Login failed', icon: 'none' })
+      Taro.showToast({ title: e?.message || M.app.error, icon: 'none' })
     } finally {
       const elapsed = Date.now() - started
       if (elapsed < 300) await new Promise(res => setTimeout(res, 300 - elapsed))
@@ -54,8 +53,8 @@ export default function Login() {
 
   return (
     <View className='login'>
-      <Text className='brand'>{t('appName')}</Text>
-      <Text className='tagline'>{t('tagline')}</Text>
+      <Text className='brand'>{M.app.name}</Text>
+      <Text className='tagline'>{M.app.tagline}</Text>
 
       {needEmail && (
         <View className='email-row'>
@@ -64,7 +63,7 @@ export default function Login() {
             <Input
               className='input'
               type='text'
-              placeholder={t('emailPlaceholder')}
+              placeholder={M.login.emailPlaceholder}
               value={email}
               onInput={e => setEmail(e.detail.value)}
             />
@@ -78,7 +77,7 @@ export default function Login() {
         disabled={loading || (needEmail && !emailInUse && !email)}
         onClick={() => go(needEmail && !emailInUse ? email : undefined)}
       >
-        {needEmail && !emailInUse ? t('continue') : t('loginWeChat')}
+        {needEmail && !emailInUse ? M.login.continue : M.login.loginWeChat}
       </Button>
     </View>
   )

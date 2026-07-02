@@ -1,52 +1,28 @@
-// Bilingual strings. Mirrors the web app's keys where they overlap; extend as
-// pages are ported. Source of truth for mini-program copy.
-export const messages = {
-  en: {
-    appName: 'DMV Prep',
-    tagline: 'California DMV written-exam practice',
-    loginWeChat: 'Continue with WeChat',
-    emailLabel: 'Email',
-    emailPlaceholder: 'you@example.com',
-    emailRequiredHint: 'Add your email to create your account.',
-    emailInUseHint: 'This email already has an account — sign in to link WeChat.',
-    continue: 'Continue',
-    loading: 'Loading…',
-    signedInAs: 'Signed in',
-    signOut: 'Sign out',
-    home: 'Home',
-    // Study hub / dashboard
-    studyHub: 'Study Hub',
-    readiness: 'Readiness',
-    readyCandidate: 'Ready to book your test',
-    notReadyYet: 'Keep going — not exam-ready yet',
-    completion: 'Coverage',
-    streak: 'Streak',
-    streakDays: 'days',
-    today: 'Today',
-    nextStep: 'Next step',
-    startPractice: 'Start practicing',
-    // Placeholders (M3/M4 flows land next)
-    practiceComingSoon: 'Practice sessions are coming to the mini-program soon.',
-    mockComingSoon: 'Mock exams are coming to the mini-program soon.',
-    mockRemaining: 'Mock exams left',
-    // Me
-    account: 'Account',
-    currentExam: 'Current exam'
-  },
-  zh: {
-    appName: 'DMV 备考',
+// Mini-program copy — Chinese only by decision (the WeChat audience is
+// Chinese-speaking; the web app stays bilingual). Strings mirror
+// apps/web/src/messages/zh.json where features overlap so the two clients
+// never drift in wording. Import `M` directly; there is no runtime i18n.
+export const M = {
+  app: {
+    name: 'DMV 备考',
     tagline: '加州 DMV 笔试练习',
+    loading: '加载中…',
+    error: '出错啦，请重试。'
+  },
+  tab: {
+    study: '学习',
+    practice: '练习',
+    mock: '模考',
+    me: '我的'
+  },
+  login: {
     loginWeChat: '微信登录',
-    emailLabel: '邮箱',
     emailPlaceholder: 'you@example.com',
     emailRequiredHint: '填写邮箱以创建账户。',
     emailInUseHint: '该邮箱已注册——请先登录后再绑定微信。',
-    continue: '继续',
-    loading: '加载中…',
-    signedInAs: '已登录',
-    signOut: '退出登录',
-    home: '首页',
-    // Study hub / dashboard
+    continue: '继续'
+  },
+  dashboard: {
     studyHub: '学习中心',
     readiness: '考试准备度',
     readyCandidate: '可以预约考试了',
@@ -56,15 +32,129 @@ export const messages = {
     streakDays: '天',
     today: '今日',
     nextStep: '下一步',
-    startPractice: '开始练习',
-    // Placeholders (M3/M4 flows land next)
-    practiceComingSoon: '练习功能即将登陆小程序。',
-    mockComingSoon: '模拟考试即将登陆小程序。',
-    mockRemaining: '剩余模考次数',
-    // Me
+    startPractice: '开始练习'
+  },
+  practice: {
+    title: '练习',
+    subtitlePaid: '练习完整题库，作答进度自动保存到账号。',
+    subtitleNoPass: '免费试用题随时可练；获取考试通行证可解锁完整题库。',
+    startFreeTrial: '开始免费试用练习',
+    startFull: '开始完整练习',
+    resumeCta: '继续上次练习（{answered}/{total}）',
+    startFresh: '或者开始新一轮',
+    modeTitle: '练习模式',
+    modeRandom: '随机练习',
+    modeRandomDesc: '从所有知识点中随机抽题。',
+    modeWeakPoints: '强化薄弱点',
+    modeWeakPointsDesc: '向你的错题和未覆盖的重点知识点加权。',
+    modeReviewLearned: '复习已学',
+    modeReviewLearnedDesc: '在你已经练过的知识点里随机抽题。',
+    modeFreeNote: '免费练习为随机抽题。订阅后可选择有针对性的模式。',
+    questionOf: '第 {current} / {total} 题',
+    starting: '正在开始…',
+    submitAnswer: '提交答案',
+    submitting: '提交中…',
+    nextQuestion: '下一题',
+    exit: '退出',
+    answered: '已答题',
+    correct: '答对了',
+    incorrect: '答错了',
+    explanation: '解析',
+    completedTitle: '练习已完成',
+    completedBody: '本轮题目已全部答完。',
+    exitedTitle: '已退出练习',
+    exitedBody: '你已中途退出本次练习。已作答的题目已保存，但剩余题目无法继续。',
+    readinessCounted: '✓ 已计入该考试的应考准备度（每个考试单独计算）。',
+    exitConfirmTitle: '确认退出本次练习？',
+    exitConfirmBody: '退出后本次练习即结束，剩余题目将无法继续作答。',
+    exitConfirmYes: '退出练习',
+    exitConfirmCancel: '继续练习',
+    backToDashboard: '回到学习中心',
+    errorPassRequired: '完整练习需要考试通行证。',
+    reviewHistory: '回看已答题',
+    reviewHistoryTitle: '你的作答记录',
+    reviewHistoryEmpty: '还没有答题记录，提交一道题后会出现在这里。',
+    reviewHistoryYourPick: '你的作答',
+    reviewHistoryCorrect: '正确答案',
+    reviewHistoryBack: '返回练习',
+    reviewHistoryFromCompleted: '查看作答记录'
+  },
+  ai: {
+    explainButton: '为什么我错了？',
+    explainLoading: 'AI 正在分析…',
+    explainHeading: 'AI 解析',
+    explainCached: '（已缓存）',
+    explainCooldown: 'AI 正在冷却中，请稍后再试。',
+    explainCoolingDown: '冷却中（{n} 秒）',
+    explainUnavailable: 'AI 解析功能暂时不可用。',
+    explainError: '无法生成 AI 解析，请稍后重试。',
+    explainDeepen: '深入分析',
+    explainDepthReached: '已是最深解析。',
+    aspectExample: '举例',
+    aspectMnemonic: '记忆法',
+    aspectDistractors: '错项辨析',
+    aspectRule: '背后规则'
+  },
+  mock: {
+    title: '模拟考试',
+    subtitle: '限时仿真考场体验——题量和及格线与真实考试一致。',
+    startExam: '开始模拟考',
+    starting: '正在开始…',
+    remaining: '剩余次数',
+    noAttemptsLeft: '模拟考次数已用完，请续订考试通行证。',
+    subscribeBody: '模拟考需要考试通行证。订阅或兑换激活码即可解锁限时全真模拟考场。',
+    subscribeCta: '去订阅',
+    questionOf: '第 {current} / {total} 题',
+    questionLabel: '第{n}题',
+    answeredOf: '已答 {answered} / {total}',
+    saving: '保存中…',
+    saved: '已保存',
+    next: '下一题',
+    submitExam: '交卷',
+    submitting: '正在交卷…',
+    exit: '退出考试',
+    exiting: '正在退出…',
+    exitConfirmTitle: '退出本次考试？',
+    exitConfirmBody: '本次作答会按现状评分并消耗一次配额，且无法恢复。',
+    exitConfirmYes: '退出考试',
+    exitConfirmCancel: '继续考试',
+    resultTitle: '模拟考结果',
+    scorePercent: '得分',
+    correctCount: '答对',
+    wrongCount: '答错',
+    passed: '已通过',
+    failed: '未通过',
+    weakTopics: '薄弱知识点',
+    noWeakTopics: '整体覆盖均衡，未识别明显薄弱点。',
+    readinessCounted: '✓ 本次成绩已计入该考试的应考准备度（每个考试单独计算）。',
+    backToDashboard: '回到学习中心',
+    tryAgain: '再来一次',
+    reviewMistakes: '复习错题',
+    reviewTitle: '逐题复盘',
+    reviewEmpty: '这次考试没有可复盘的已答题目。',
+    correct: '答对',
+    incorrect: '答错',
+    explanation: '解析',
+    terminatingBanner: '错题过多，本次模考即将结束。',
+    endExamNow: '结束考试（{n}s）',
+    terminatedTitle: '考试结束——错题过多',
+    terminatedBody: '你已答 {answered} 题，其中 {wrong} 道错。错题超过失败门槛，考试自动终止。',
+    terminatedTryAgain: '重新开始一次模考'
+  },
+  me: {
     account: '账户',
-    currentExam: '当前考试'
+    currentExam: '当前考试',
+    signedInAs: '已登录',
+    signOut: '退出登录',
+    mockRemaining: '剩余模考次数'
+  },
+  common: {
+    comingSoonPractice: '练习功能即将登陆小程序。',
+    comingSoonMock: '模拟考试即将登陆小程序。'
   }
 } as const
 
-export type MessageKey = keyof typeof messages['en']
+/** Replace {placeholders} in a message template. */
+export function fmt(template: string, vars: Record<string, string | number>): string {
+  return template.replace(/\{(\w+)\}/g, (_, k) => String(vars[k] ?? ''))
+}
