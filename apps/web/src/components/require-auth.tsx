@@ -2,11 +2,22 @@
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { Loader2, MailCheck, RefreshCw, ShieldCheck } from "lucide-react";
 import { useAuth, hasMfaEnrolled } from "@/lib/auth-context";
-import { TotpEnroll } from "@/components/totp-enroll";
 import type { Dictionary, Locale } from "@/lib/dictionaries";
+
+// Lazy — TotpEnroll pulls in qrcode.react, which only ~first-time users (no
+// 2FA yet) ever see; keep it out of the authed-shell bundle every page pays.
+const TotpEnroll = dynamic(
+  () => import("@/components/totp-enroll").then((m) => m.TotpEnroll),
+  {
+    loading: () => (
+      <Loader2 className="mx-auto size-5 animate-spin text-muted-foreground" />
+    ),
+  },
+);
 
 const STUCK_MS = 8_000;
 

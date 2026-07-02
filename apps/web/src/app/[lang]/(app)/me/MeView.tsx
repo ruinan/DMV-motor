@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, type FormEvent } from "react";
+import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -22,7 +23,6 @@ import {
   User,
 } from "lucide-react";
 import { useAuth, hasMfaEnrolled } from "@/lib/auth-context";
-import { TotpEnroll } from "@/components/totp-enroll";
 import { apiFetch, ApiError } from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
 import { ExamPicker } from "@/components/exam-picker";
@@ -40,6 +40,17 @@ import { ChangePasswordDialog } from "@/components/change-password-dialog";
 import { ChangeEmailDialog } from "@/components/change-email-dialog";
 import { DeleteAccountDialog } from "@/components/delete-account-dialog";
 import type { Dictionary, Locale } from "@/lib/dictionaries";
+
+// Lazy — TotpEnroll pulls in qrcode.react and only renders while 2FA is not
+// yet enrolled; keep it out of the /me first-load bundle.
+const TotpEnroll = dynamic(
+  () => import("@/components/totp-enroll").then((m) => m.TotpEnroll),
+  {
+    loading: () => (
+      <Loader2 className="size-5 animate-spin text-muted-foreground" />
+    ),
+  },
+);
 
 type MeResponse = {
   user_id: string;
