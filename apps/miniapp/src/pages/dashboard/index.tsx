@@ -100,7 +100,14 @@ export default function Dashboard() {
     <View className={`page dashboard ${themeClass}`}>
       <View className='header'>
         <Text className='title'>{M.dashboard.studyHub}</Text>
-        {examName && <Text className='exam-chip'>{examName}</Text>}
+        <View className='header-chips'>
+          {examName && <Text className='exam-chip'>{examName}</Text>}
+          {me && (
+            <Text className={`pass-chip ${hasPass ? 'pass-chip--paid' : 'pass-chip--free'}`}>
+              {hasPass ? M.me.examSubscribed : M.me.examFree}
+            </Text>
+          )}
+        </View>
       </View>
 
       {loading ? (
