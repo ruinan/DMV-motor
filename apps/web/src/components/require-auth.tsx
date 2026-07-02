@@ -5,7 +5,7 @@ import Link from "next/link";
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { Loader2, MailCheck, RefreshCw, ShieldCheck } from "lucide-react";
-import { useAuth, hasMfaEnrolled } from "@/lib/auth-context";
+import { useAuth } from "@/lib/auth-context";
 import type { Dictionary, Locale } from "@/lib/dictionaries";
 
 // Lazy — TotpEnroll pulls in qrcode.react, which only ~first-time users (no
@@ -46,7 +46,7 @@ type Props = {
  *   - resolved + user     → render children
  */
 export function RequireAuth({ lang, t, children }: Props) {
-  const { user, loading } = useAuth();
+  const { user, loading, mfaEnrolled } = useAuth();
   const router = useRouter();
   const [stuck, setStuck] = useState(false);
   // Set when the user finishes 2FA enrollment in the gate below — lets us pass
@@ -144,7 +144,7 @@ export function RequireAuth({ lang, t, children }: Props) {
     isEmulator &&
     typeof window !== "undefined" &&
     window.localStorage.getItem("dmv-dev-skip-mfa") === "1";
-  if (!hasMfaEnrolled(user) && !mfaJustEnrolled && !devMfaSkipped) {
+  if (!mfaEnrolled && !mfaJustEnrolled && !devMfaSkipped) {
     return (
       <MfaGate
         t={t}

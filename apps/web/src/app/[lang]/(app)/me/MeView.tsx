@@ -22,7 +22,7 @@ import {
   Trash2,
   User,
 } from "lucide-react";
-import { useAuth, hasMfaEnrolled } from "@/lib/auth-context";
+import { useAuth } from "@/lib/auth-context";
 import { apiFetch, ApiError } from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
 import { ExamPicker } from "@/components/exam-picker";
@@ -924,13 +924,13 @@ function BackupPanel({
 // ---------------------------------------------------------------------------
 
 function SecuritySection({ t }: { t: Dictionary["me"] }) {
-  const { user } = useAuth();
+  const { user, mfaEnrolled } = useAuth();
   const [pwOpen, setPwOpen] = useState(false);
   const [pwDone, setPwDone] = useState(false);
   const [emailOpen, setEmailOpen] = useState(false);
   const [emailSentTo, setEmailSentTo] = useState<string | null>(null);
   const [mfaDone, setMfaDone] = useState(false);
-  const enrolled = hasMfaEnrolled(user) || mfaDone;
+  const enrolled = mfaEnrolled || mfaDone;
 
   return (
     <Section

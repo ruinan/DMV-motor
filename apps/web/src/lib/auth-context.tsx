@@ -11,30 +11,13 @@ import {
 } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
-import {
-  applyActionCode,
-  browserLocalPersistence,
-  createUserWithEmailAndPassword,
-  deleteUser,
-  EmailAuthProvider,
-  getMultiFactorResolver,
-  multiFactor,
-  onIdTokenChanged,
-  reauthenticateWithCredential,
-  sendEmailVerification,
-  sendPasswordResetEmail,
-  setPersistence,
-  updatePassword,
-  signInWithEmailAndPassword,
-  signOut as firebaseSignOut,
-  TotpMultiFactorGenerator,
-  verifyBeforeUpdateEmail,
-  type MultiFactorResolver,
-  type TotpSecret,
-  type User,
-} from "firebase/auth";
-import { firebaseApp, firebaseAuth } from "@/lib/firebase";
+import type { MultiFactorResolver, TotpSecret, User } from "firebase/auth";
+import { loadFirebaseAuth } from "@/lib/firebase";
 import { apiFetch } from "@/lib/api-client";
+
+// Only type imports from firebase/auth here — every SDK value is reached via
+// loadFirebaseAuth() so the ~113 KB chunk stays out of the eager bundle (this
+// provider wraps every route, anonymous landing included).
 
 /**
  * Thrown by {@link AuthState.signIn} when the account has 2FA enrolled and
@@ -48,14 +31,13 @@ export class MfaRequiredError extends Error {
   }
 }
 
-/** Whether the given user has at least one 2FA factor enrolled. */
-export function hasMfaEnrolled(user: User | null): boolean {
-  return !!user && multiFactor(user).enrolledFactors.length > 0;
-}
-
 type AuthState = {
   user: User | null;
   loading: boolean;
+  /** Whether the signed-in user has at least one 2FA factor enrolled. Computed
+   *  in the token listener (SDK in scope there) and republished on every token
+   *  refresh — finishTotpEnrollment forces one, so gates react immediately. */
+  mfaEnrolled: boolean;
   signIn: (email: string, password: string) => Promise<void>;
   signUp: (email: string, password: string) => Promise<void>;
   resetPassword: (email: string) => Promise<void>;
@@ -93,6 +75,7 @@ const AuthContext = createContext<AuthState | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
+  const [mfaEnrolled, setMfaEnrolled] = useState(false);
   const [loading, setLoading] = useState(true);
   const queryClient = useQueryClient();
   const router = useRouter();
@@ -101,49 +84,63 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const prevUid = useRef<string | null | undefined>(undefined);
 
   useEffect(() => {
-    // Force IndexedDB/localStorage persistence so a hard reload rehydrates
-    // the user. The SDK already defaults to LOCAL on web, but in restrictive
-    // environments (privacy modes, blocked storage) it silently falls back
-    // to in-memory — this asserts the contract instead of failing silently.
-    setPersistence(firebaseAuth, browserLocalPersistence).catch(() => {
-      // Storage unavailable (e.g. partitioned cookies + no IDB). The
-      // listener below will still fire, just without rehydrated state.
+    let cancelled = false;
+    let unsub: (() => void) | undefined;
+    void loadFirebaseAuth().then(({ auth, mod }) => {
+      if (cancelled) return;
+      // Force IndexedDB/localStorage persistence so a hard reload rehydrates
+      // the user. The SDK already defaults to LOCAL on web, but in restrictive
+      // environments (privacy modes, blocked storage) it silently falls back
+      // to in-memory — this asserts the contract instead of failing silently.
+      mod.setPersistence(auth, mod.browserLocalPersistence).catch(() => {
+        // Storage unavailable (e.g. partitioned cookies + no IDB). The
+        // listener below will still fire, just without rehydrated state.
+      });
+      // onIdTokenChanged is a superset of onAuthStateChanged — it fires on
+      // sign-in / sign-out AND on every silent token refresh (~5min before
+      // the 1h TTL expires). Using it keeps the cached user reference fresh
+      // so callers reading currentUser.getIdToken() never get a stale token,
+      // and gives us a single place to observe TTL boundary events.
+      unsub = mod.onIdTokenChanged(auth, (u) => {
+        const uid = u?.uid ?? null;
+        // On a real identity change (not the initial fire, not a token refresh),
+        // drop ALL cached query data so the next user never inherits the previous
+        // user's / anonymous session, /me, history, etc. — that mismatch caused
+        // "Session belongs to a different user". Covers login-as-different-user
+        // and logout.
+        if (prevUid.current !== undefined && prevUid.current !== uid) {
+          queryClient.clear();
+        }
+        prevUid.current = uid;
+        setUser(u);
+        setMfaEnrolled(!!u && mod.multiFactor(u).enrolledFactors.length > 0);
+        setLoading(false);
+      });
     });
-    // onIdTokenChanged is a superset of onAuthStateChanged — it fires on
-    // sign-in / sign-out AND on every silent token refresh (~5min before
-    // the 1h TTL expires). Using it keeps the cached user reference fresh
-    // so callers reading currentUser.getIdToken() never get a stale token,
-    // and gives us a single place to observe TTL boundary events.
-    const unsub = onIdTokenChanged(firebaseAuth, (u) => {
-      const uid = u?.uid ?? null;
-      // On a real identity change (not the initial fire, not a token refresh),
-      // drop ALL cached query data so the next user never inherits the previous
-      // user's / anonymous session, /me, history, etc. — that mismatch caused
-      // "Session belongs to a different user". Covers login-as-different-user
-      // and logout.
-      if (prevUid.current !== undefined && prevUid.current !== uid) {
-        queryClient.clear();
-      }
-      prevUid.current = uid;
-      setUser(u);
-      setLoading(false);
-    });
-    return unsub;
+    return () => {
+      cancelled = true;
+      unsub?.();
+    };
   }, [queryClient]);
 
   const value = useMemo<AuthState>(
     () => ({
       user,
       loading,
+      mfaEnrolled,
       signIn: async (email, password) => {
+        const { auth, mod } = await loadFirebaseAuth();
         try {
-          await signInWithEmailAndPassword(firebaseAuth, email, password);
+          await mod.signInWithEmailAndPassword(auth, email, password);
         } catch (e) {
           // 2FA-enrolled account → Firebase needs the second factor. Surface the
           // resolver so the form can prompt for the TOTP code.
           if ((e as { code?: string })?.code === "auth/multi-factor-auth-required") {
             throw new MfaRequiredError(
-              getMultiFactorResolver(firebaseAuth, e as Parameters<typeof getMultiFactorResolver>[1]),
+              mod.getMultiFactorResolver(
+                auth,
+                e as Parameters<typeof mod.getMultiFactorResolver>[1],
+              ),
             );
           }
           throw e;
@@ -153,18 +150,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // Backend's UserProvisioner JIT-creates the users row on first
         // /api/v1/me call after Firebase issues a token, so the client
         // doesn't need to coordinate row creation here.
-        await createUserWithEmailAndPassword(firebaseAuth, email, password);
+        const { auth, mod } = await loadFirebaseAuth();
+        await mod.createUserWithEmailAndPassword(auth, email, password);
       },
       resetPassword: async (email) => {
-        await sendPasswordResetEmail(firebaseAuth, email);
+        const { auth, mod } = await loadFirebaseAuth();
+        await mod.sendPasswordResetEmail(auth, email);
       },
       resendVerificationEmail: async () => {
-        const u = firebaseAuth.currentUser;
+        const { auth, mod } = await loadFirebaseAuth();
+        const u = auth.currentUser;
         if (!u) throw new Error("Not signed in");
-        await sendEmailVerification(u);
+        await mod.sendEmailVerification(u);
       },
       reloadUser: async () => {
-        const u = firebaseAuth.currentUser;
+        const { auth } = await loadFirebaseAuth();
+        const u = auth.currentUser;
         if (!u) return false;
         await u.reload();
         // reload() mutates currentUser in place; force a token refresh so the
@@ -174,14 +175,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return u.emailVerified;
       },
       devVerifyEmail: async () => {
-        const u = firebaseAuth.currentUser;
+        const { app, auth, mod } = await loadFirebaseAuth();
+        const u = auth.currentUser;
         if (!u || !u.email) throw new Error("Not signed in");
         // Hard guard: this hits the emulator's admin REST surface, which only
         // exists when the SDK is pointed at the emulator. Never against prod.
-        if (!firebaseAuth.emulatorConfig) {
+        if (!auth.emulatorConfig) {
           throw new Error("Email-verify bypass is emulator-only");
         }
-        const projectId = firebaseApp.options.projectId;
+        const projectId = app.options.projectId;
         const res = await fetch(
           `http://127.0.0.1:9099/emulator/v1/projects/${projectId}/oobCodes`,
         );
@@ -195,54 +197,58 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           )
           .pop();
         if (!match) throw new Error("No verification code found in emulator");
-        await applyActionCode(firebaseAuth, match.oobCode);
+        await mod.applyActionCode(auth, match.oobCode);
         await u.reload();
         await u.getIdToken(true);
         return u.emailVerified;
       },
       reauth: async (password) => {
-        const u = firebaseAuth.currentUser;
+        const { auth, mod } = await loadFirebaseAuth();
+        const u = auth.currentUser;
         if (!u || !u.email) throw new Error("Not signed in");
-        const credential = EmailAuthProvider.credential(u.email, password);
-        await reauthenticateWithCredential(u, credential);
+        const credential = mod.EmailAuthProvider.credential(u.email, password);
+        await mod.reauthenticateWithCredential(u, credential);
         // Force-refresh so the cached token carries the new auth_time; the next
         // apiFetch then passes the backend reauth gate.
         await u.getIdToken(true);
       },
       changePassword: async (currentPassword, newPassword) => {
-        const u = firebaseAuth.currentUser;
+        const { auth, mod } = await loadFirebaseAuth();
+        const u = auth.currentUser;
         if (!u || !u.email) throw new Error("Not signed in");
         // Firebase requires a recent login to set a new password — re-auth with
         // the current one first (also surfaces a clear "wrong current password").
-        const credential = EmailAuthProvider.credential(u.email, currentPassword);
-        await reauthenticateWithCredential(u, credential);
-        await updatePassword(u, newPassword);
+        const credential = mod.EmailAuthProvider.credential(u.email, currentPassword);
+        await mod.reauthenticateWithCredential(u, credential);
+        await mod.updatePassword(u, newPassword);
       },
       changeEmail: async (newEmail, currentPassword) => {
-        const u = firebaseAuth.currentUser;
+        const { auth, mod } = await loadFirebaseAuth();
+        const u = auth.currentUser;
         if (!u || !u.email) throw new Error("Not signed in");
         // Re-auth first (Firebase requires recent login + surfaces a clear wrong
         // password). verifyBeforeUpdateEmail sends a confirmation link to the NEW
         // address; the email only actually changes once that link is clicked, so
         // a typo can't lock the user out of their account.
-        const credential = EmailAuthProvider.credential(u.email, currentPassword);
-        await reauthenticateWithCredential(u, credential);
-        await verifyBeforeUpdateEmail(u, newEmail);
+        const credential = mod.EmailAuthProvider.credential(u.email, currentPassword);
+        await mod.reauthenticateWithCredential(u, credential);
+        await mod.verifyBeforeUpdateEmail(u, newEmail);
       },
       deleteAccount: async (password) => {
-        const u = firebaseAuth.currentUser;
+        const { auth, mod } = await loadFirebaseAuth();
+        const u = auth.currentUser;
         if (!u || !u.email) throw new Error("Not signed in");
         // Recent login is required by BOTH the backend reauth gate and Firebase
         // deleteUser(); re-auth once up front.
-        const credential = EmailAuthProvider.credential(u.email, password);
-        await reauthenticateWithCredential(u, credential);
+        const credential = mod.EmailAuthProvider.credential(u.email, password);
+        await mod.reauthenticateWithCredential(u, credential);
         await u.getIdToken(true);
         // 1) Server-side hard delete (cascades every user-owned row) while the
         //    token is still valid.
         await apiFetch("/api/v1/me", { method: "DELETE" });
         // 2) Remove the Firebase identity so the email can't sign back in or be
         //    JIT re-provisioned into a fresh empty account.
-        await deleteUser(u);
+        await mod.deleteUser(u);
         // 3) Land on the marketing index (the auth listener also clears state).
         if (typeof window !== "undefined") {
           const lang = window.location.pathname.split("/")[1] || "en";
@@ -250,29 +256,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
       },
       resolveMfaSignIn: async (resolver, code) => {
+        const { mod } = await loadFirebaseAuth();
         // TOTP is the only factor we enroll; use the first hint.
         const hint = resolver.hints[0];
-        const assertion = TotpMultiFactorGenerator.assertionForSignIn(hint.uid, code);
+        const assertion = mod.TotpMultiFactorGenerator.assertionForSignIn(hint.uid, code);
         await resolver.resolveSignIn(assertion);
       },
       startTotpEnrollment: async () => {
-        const u = firebaseAuth.currentUser;
+        const { auth, mod } = await loadFirebaseAuth();
+        const u = auth.currentUser;
         if (!u) throw new Error("Not signed in");
-        const session = await multiFactor(u).getSession();
-        const secret = await TotpMultiFactorGenerator.generateSecret(session);
+        const session = await mod.multiFactor(u).getSession();
+        const secret = await mod.TotpMultiFactorGenerator.generateSecret(session);
         const qrUrl = secret.generateQrCodeUrl(u.email ?? "account", "DMV Prep");
         return { secret, qrUrl };
       },
       finishTotpEnrollment: async (secret, code) => {
-        const u = firebaseAuth.currentUser;
+        const { auth, mod } = await loadFirebaseAuth();
+        const u = auth.currentUser;
         if (!u) throw new Error("Not signed in");
-        const assertion = TotpMultiFactorGenerator.assertionForEnrollment(secret, code);
-        await multiFactor(u).enroll(assertion, "Authenticator app");
+        const assertion = mod.TotpMultiFactorGenerator.assertionForEnrollment(secret, code);
+        await mod.multiFactor(u).enroll(assertion, "Authenticator app");
         // Refresh so downstream reads (the enrollment gate) see the new factor.
         await u.getIdToken(true);
       },
       signOut: async () => {
-        await firebaseSignOut(firebaseAuth);
+        const { auth, mod } = await loadFirebaseAuth();
+        await mod.signOut(auth);
         // Land on the marketing index, not whatever authed/anon page we were on
         // (e.g. /practice would otherwise drop you into the free-practice view).
         if (typeof window !== "undefined") {
@@ -281,7 +291,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
       },
     }),
-    [user, loading, router],
+    [user, loading, mfaEnrolled, router],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

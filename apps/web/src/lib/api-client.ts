@@ -1,5 +1,4 @@
-import { signOut } from "firebase/auth";
-import { firebaseAuth } from "@/lib/firebase";
+import { loadFirebaseAuth } from "@/lib/firebase";
 import { emitSessionExpired } from "@/lib/session-expired-bus";
 
 /**
@@ -38,7 +37,11 @@ async function fetchWithToken<T>(
   payload: ApiResponse<T> | null;
   token: string | null;
 }> {
-  const user = firebaseAuth.currentUser;
+  // Lazy SDK: by the time any query runs, the auth listener has loaded it and
+  // resolved the user (queries are enabled: !!user), so this await is a no-op
+  // in practice — it just avoids a static import in the eager bundle.
+  const { auth } = await loadFirebaseAuth();
+  const user = auth.currentUser;
   // forceRefresh=true bypasses Firebase's internal token cache and goes
   // straight to the refresh endpoint. We only pass true on the retry path
   // so the happy case still benefits from the SDK's silent refresh.
@@ -77,7 +80,8 @@ async function rawFetch<T>(
       payload = retry.payload;
     } else {
       emitSessionExpired();
-      await signOut(firebaseAuth).catch(() => {
+      const { auth, mod } = await loadFirebaseAuth();
+      await mod.signOut(auth).catch(() => {
         // Storage locked — the auth listener will eventually pick up the
         // cleared state. Toast is already on screen so the user knows.
       });
