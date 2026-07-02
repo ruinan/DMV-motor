@@ -455,7 +455,7 @@ export default function MockExam() {
         </View>
       </View>
 
-      <View className='dmv-retro question-card'>
+      <View className='question-block'>
         <Text className='q-counter'>{fmt(M.mock.questionLabel, { n: index + 1 })}</Text>
         <Text className='q-stem'>{question?.stem}</Text>
 

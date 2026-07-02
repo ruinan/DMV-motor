@@ -173,6 +173,15 @@ milestone adds only the endpoints it needs.
 > ensureAuthed() guard instead of login-first. Remaining: **M7** onboarding
 > exam-picker gate + dashboard exam switcher + polish; deferred extras: AI
 > review plan block on mock review, practice/mock history on the hub.
+>
+> First review round (2026-07-02, user walkthrough feedback): hub header shows
+> a subscription tag (已订阅/免费版); WeChat home capsule hidden on tab pages
+> (side effect of redirectTo tab switching); TabBar restyled to solid
+> --primary with white labels (more prominent, still exam-tinted); the Mode B
+> `dmv-retro` answering frame was **dropped** — questions render frameless
+> (`.question-block`) with the choice rows as the only boxes, filled key
+> badges for selected/correct/wrong (mobile-first clarity, diverges from web
+> on purpose).
 
 - **M1 — Shell**: 4-tab tabBar (icons = simple PNGs), page stubs, theme tokens in
   `app.scss`, per-exam theme helper (`useExamTheme` → root class +

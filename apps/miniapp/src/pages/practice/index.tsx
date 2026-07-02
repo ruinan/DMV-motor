@@ -382,7 +382,7 @@ export default function Practice() {
           )}
         </View>
 
-        <View className='dmv-retro question-card'>
+        <View className='question-block'>
           <Text className='q-counter'>
             {fmt(M.practice.questionOf, { current: displayNumber, total: totalCount })}
           </Text>
