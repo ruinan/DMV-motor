@@ -1,7 +1,11 @@
 # Web: Lazy-load the Firebase Auth SDK
 
-> Status: PLANNED 2026-07-02 (session 12 web-optimization follow-up, user
-> approved "开始"). Companion to the bundle audit in commit `5fa951a`.
+> Status: DONE 2026-07-02 (`1ff3f65`). Measured: eager JS −~110 KB raw on
+> every route (landing 850→740 KB, dashboard 902→792, /me 906→796, login
+> 836→727); identitytoolkit absent from all eager chunks. E2e identical
+> before/after (same 7 pre-existing stale failures, 1 pass, 1 skip — clean
+> baseline taken on unmodified code first). Companion to the bundle audit in
+> commit `5fa951a`.
 
 ## Problem
 
